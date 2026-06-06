@@ -52,8 +52,8 @@
 فقط افتح `index.html` في المتصفّح — لا يحتاج خادماً.
 
 ```bash
-git clone https://github.com/USERNAME/meh-game.git
-cd meh-game
+git clone https://github.com/Dwawer-Studio/---meh.git
+cd ---meh
 # افتح index.html بالمتصفّح
 ```
 

@@ -1,0 +1,31 @@
+# ===== ملفات ومجلدات ضخمة (تتجاوز حد GitHub أو غير لازمة) =====
+*.zip
+*.pdf
+*.svg
+/Cards/
+/backups/
+
+# ===== ملفات مؤقتة وميتاداتا =====
+kkk/
+kkk_*.txt
+*.ps1
+.cc-studio-temp/
+._*
+.DS_Store
+
+# ===== إطار Claude Studio (غير لازم للّعبة المنشورة) =====
+.claude/
+CLAUDE.md
+STUDIO-README.md
+UPGRADING.md
+docs/
+design/
+production/
+tests/
+prototypes/
+tools/
+src/
+
+# ===== ملفات نظام التشغيل =====
+Thumbs.db
+desktop.ini

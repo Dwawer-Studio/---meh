@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لعبة مِهْ</title>
+    <meta name="description" content="مِهْ - لعبة ورقية بطابع بحريني. تخلص من بطاقاتك قبل اللاعبين الآخرين!">
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- كاشف الأخطاء المرئي (مؤقت للتشخيص) -->
+    <script>
+    (function () {
+        function show(msg) {
+            var box = document.getElementById('err-overlay');
+            if (!box) {
+                box = document.createElement('div');
+                box.id = 'err-overlay';
+                box.style.cssText = 'position:fixed;left:0;right:0;bottom:0;max-height:45vh;overflow:auto;' +
+                    'background:rgba(140,0,0,.96);color:#fff;font:12px/1.5 monospace;padding:12px 14px;' +
+                    'z-index:999999;white-space:pre-wrap;direction:ltr;text-align:left;border-top:3px solid #fbbf24';
+                (document.body || document.documentElement).appendChild(box);
+            }
+            box.textContent += '⛔ ' + msg + '\n';
+        }
+        window.addEventListener('error', function (e) {
+            // تجاهُل أخطاء السكربتات الخارجية المبهمة (إضافات المتصفّح) — لا تخصّ اللعبة
+            if ((!e.filename || e.filename === '') && (!e.error)) {
+                show('⚠️ خطأ من سكربت خارجي/إضافة متصفّح (ليس من اللعبة)');
+                return;
+            }
+            var detail = (e.message || 'Error');
+            if (e.filename) detail += '\n    @ ' + e.filename.split('/').pop() + ':' + (e.lineno || '?') + ':' + (e.colno || '?');
+            if (e.error && e.error.stack) detail += '\n' + e.error.stack;
+            show(detail);
+        });
+        window.addEventListener('unhandledrejection', function (e) {
+            show('Promise: ' + (e.reason && (e.reason.message || e.reason)));
+        });
+    })();
+    </script>
+
+    <div id="app">
+        <!-- ===== شاشة البداية (Splash) ===== -->
+        <div id="splash"><div class="splash-logo">مِهْ</div></div>
+
+        <!-- ===== شاشة الأعضاء (تظهر أولاً) ===== -->
+        <div id="profile-screen" class="screen">
+            <div class="instructions-panel profile-panel">
+                <h2 data-i18n="profile_title">👤 الأعضاء</h2>
+                <p class="profile-hint" data-i18n="select_profile">اختر عضواً للعب</p>
+                <div id="profile-list" class="profile-list"></div>
+                <button id="show-create-profile" class="btn secondary-btn" data-i18n="create_profile">➕ عضو جديد</button>
+
+                <!-- نموذج إنشاء عضو -->
+                <div id="create-profile-form" class="create-profile-form hidden">
+                    <input id="profile-name-input" class="profile-input" type="text" maxlength="16"
+                           data-i18n-attr="placeholder:enter_name" placeholder="اكتب اسمك">
+                    <p class="avatar-label" data-i18n="choose_avatar">اختر صورتك</p>
+                    <div id="avatar-picker" class="avatar-picker"></div>
+                    <button id="save-profile-btn" class="btn primary-btn" data-i18n="save">حفظ</button>
+                </div>
+
+                <button id="profile-back-btn" class="btn secondary-btn" data-i18n="back">🔙 رجوع</button>
+            </div>
+        </div>
+
+        <!-- ===== القائمة الرئيسية ===== -->
+        <div id="main-menu" class="screen active">
+            <div class="particles" id="particles"></div>
+            <button id="menu-settings-btn" class="corner-btn" title="settings">⚙️</button>
+            <div class="menu-content">
+                <div class="logo-container">
+                    <div class="logo-icon"><img src="assets/cards/card-back.webp" alt="Card Back" style="height: 120px; border-radius: 12px; box-shadow: 0 10px 20px rgba(0,0,0,0.5);"></div>
+                    <h1 class="game-title">مِهْ</h1>
+                    <p class="game-subtitle" data-i18n="subtitle">لعبة ورقية بطابع بحريني</p>
+                </div>
+                <div id="current-player-chip" class="current-player-chip hidden"></div>
+                <div class="menu-buttons">
+                    <button id="play-btn" class="btn primary-btn">
+                        <span>🎮</span> <span data-i18n="play">العب</span>
+                    </button>
+                    <button id="instructions-btn" class="btn secondary-btn">
+                        <span>📖</span> <span data-i18n="instructions">التعليمات</span>
+                    </button>
+                    <button id="players-btn" class="btn secondary-btn">
+                        <span>👤</span> <span data-i18n="profiles">الأعضاء</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== شاشة التعليمات ===== -->
+        <div id="instructions-screen" class="screen">
+            <div class="instructions-panel">
+                <h2 data-i18n="instructions_title">📖 تعليمات اللعبة</h2>
+                <div class="instructions-scroll">
+                    <div class="rule-section">
+                        <h3 data-i18n="goal_title">🎯 هدف اللعبة</h3>
+                        <p data-i18n="goal_text" data-i18n-html>التخلص من جميع بطاقاتك قبل اللاعبين الآخرين عبر مطابقة <strong>الألوان</strong> أو <strong>الشخصيات</strong>.</p>
+                    </div>
+                    <div class="rule-section">
+                        <h3 data-i18n="colors_title">🎨 الألوان</h3>
+                        <div class="color-legend">
+                            <span class="color-dot orange"></span> <span data-i18n="orange">برتقالي</span>
+                            <span class="color-dot gray"></span> <span data-i18n="gray">رمادي</span>
+                            <span class="color-dot purple"></span> <span data-i18n="purple">بنفسجي</span>
+                            <span class="color-dot black"></span> <span data-i18n="black">أسود (خاص)</span>
+                        </div>
+                    </div>
+                    <div class="rule-section">
+                        <h3 data-i18n="special_cards_title">🃏 البطاقات المميزة</h3>
+                        <div class="card-rules" id="special-cards-list"></div>
+                    </div>
+                    <div class="rule-section">
+                        <h3 data-i18n="power_cards_title">⚡ بطاقات القوى الخارقة</h3>
+                        <div class="card-rules" id="power-cards-list"></div>
+                    </div>
+                </div>
+                <button id="back-btn" class="btn secondary-btn" data-i18n="back">🔙 رجوع</button>
+            </div>
+        </div>
+
+        <!-- ===== شاشة الإعدادات ===== -->
+        <div id="settings-screen" class="screen">
+            <div class="instructions-panel settings-panel">
+                <h2 data-i18n="settings_title">⚙️ الإعدادات</h2>
+                <div class="settings-scroll">
+                    <div class="setting-row">
+                        <label data-i18n="lang_label">🌐 اللغة</label>
+                        <div class="lang-toggle">
+                            <button class="lang-btn" data-lang="ar">العربية</button>
+                            <button class="lang-btn" data-lang="en">English</button>
+                        </div>
+                    </div>
+                    <div class="setting-row toggle-row" data-setting="colorblind">
+                        <div><label data-i18n="colorblind_label">👁️ مراعاة عمى الألوان</label>
+                             <small data-i18n="colorblind_desc"></small></div>
+                        <div class="switch"><span class="knob"></span></div>
+                    </div>
+                    <div class="setting-row toggle-row" data-setting="batterySaver">
+                        <div><label data-i18n="battery_label">🔋 وضع توفير البطارية</label>
+                             <small data-i18n="battery_desc"></small></div>
+                        <div class="switch"><span class="knob"></span></div>
+                    </div>
+                    <div class="setting-row toggle-row" data-setting="wakeLock">
+                        <div><label data-i18n="wakelock_label">☀️ منع نوم الشاشة</label>
+                             <small data-i18n="wakelock_desc"></small></div>
+                        <div class="switch"><span class="knob"></span></div>
+                    </div>
+                    <div class="setting-row toggle-row" data-setting="confirmPlay">
+                        <div><label data-i18n="confirm_label">✋ تأكيد قبل رمي البطاقة</label>
+                             <small data-i18n="confirm_desc"></small></div>
+                        <div class="switch"><span class="knob"></span></div>
+                    </div>
+                    <div class="setting-row toggle-row" data-setting="sound">
+                        <div><label data-i18n="sound_label">🔊 المؤثرات الصوتية</label>
+                             <small data-i18n="sound_desc"></small></div>
+                        <div class="switch"><span class="knob"></span></div>
+                    </div>
+                </div>
+                <button id="settings-back-btn" class="btn primary-btn" data-i18n="done">تم</button>
+            </div>
+        </div>
+
+        <!-- ===== شاشة اللعبة ===== -->
+        <div id="game-screen" class="screen">
+            <!-- اللاعب العلوي -->
+            <div class="player-area bot-area top-player" id="player-bot-2">
+                <div class="player-info">
+                    <span class="player-avatar">🤖</span>
+                    <span class="player-name">نورة</span>
+                    <span class="player-count" id="bot-2-count">7</span>
+                </div>
+                <div class="hand bot-hand" id="bot-2-hand"></div>
+            </div>
+
+            <!-- اللاعب الأيسر -->
+            <div class="player-area bot-area left-player" id="player-bot-1">
+                <div class="player-info">
+                    <span class="player-avatar">🤖</span>
+                    <span class="player-name">أحمد</span>
+                    <span class="player-count" id="bot-1-count">7</span>
+                </div>
+                <div class="hand bot-hand" id="bot-1-hand"></div>
+            </div>
+
+            <!-- اللاعب الأيمن -->
+            <div class="player-area bot-area right-player" id="player-bot-3">
+                <div class="player-info">
+                    <span class="player-avatar">🤖</span>
+                    <span class="player-name">خالد</span>
+                    <span class="player-count" id="bot-3-count">7</span>
+                </div>
+                <div class="hand bot-hand" id="bot-3-hand"></div>
+            </div>
+
+            <!-- وسط الطاولة -->
+            <div id="center-table">
+                <!-- بساط الطاولة المركزي مع الشعار -->
+                <div class="table-emblem"><span class="table-emblem-logo">مِهْ</span></div>
+                <!-- مؤشّر اتجاه اللعب (سهمان يدوران) -->
+                <div class="dir-ring" id="dir-ring"><span class="dir-arrow a1">➤</span><span class="dir-arrow a2">➤</span></div>
+                <div class="table-content">
+                    <div id="draw-pile" class="pile card back">
+                        <span class="card-back-text">مِهْ</span>
+                    </div>
+                    <div id="discard-pile" class="pile"></div>
+                </div>
+                <div id="turn-indicator"><span data-i18n="turn">دور:</span> <span id="current-player-name">أنت</span></div>
+                <div id="color-indicator" class="color-indicator"></div>
+                <div id="game-message" class="hidden"></div>
+
+                <!-- مودال اختيار اللون -->
+                <div id="color-picker" class="modal-overlay hidden">
+                    <div class="modal-box">
+                        <h3 data-i18n="choose_color">اختر لوناً</h3>
+                        <div class="color-options">
+                            <div class="color-btn orange" data-color="orange"></div>
+                            <div class="color-btn gray" data-color="gray"></div>
+                            <div class="color-btn purple" data-color="purple"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- مودال اختيار لاعب -->
+                <div id="player-picker" class="modal-overlay hidden">
+                    <div class="modal-box">
+                        <h3 data-i18n="choose_player">اختر لاعباً</h3>
+                        <div id="player-picker-list"></div>
+                    </div>
+                </div>
+
+                <!-- مودال الاختيارات -->
+                <div id="choice-modal" class="modal-overlay hidden">
+                    <div class="modal-box">
+                        <h3 data-i18n="choose">اختر</h3>
+                        <button class="choice-btn btn primary-btn">خيار 1</button>
+                        <button class="choice-btn btn secondary-btn">خيار 2</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- اللاعب البشري -->
+            <div class="player-area human-area bottom-player" id="player-human">
+                <div class="player-info">
+                    <span class="player-avatar">😎</span>
+                    <span class="player-name">أنت</span>
+                    <span class="player-count" id="human-count">7</span>
+                </div>
+                <div class="human-hand-scroll">
+                    <div class="hand human-hand" id="human-hand"></div>
+                </div>
+            </div>
+
+            <!-- شريط تأكيد رمي البطاقة -->
+            <div id="confirm-bar" class="confirm-bar hidden">
+                <button id="confirm-play-btn" class="btn primary-btn" data-i18n="confirm_play">✓ ارمِ</button>
+                <button id="cancel-play-btn" class="btn secondary-btn" data-i18n="cancel">✗ إلغاء</button>
+            </div>
+
+            <!-- زر وشريط الإيموجي -->
+            <button id="emoji-toggle-btn" class="emoji-toggle-btn" title="emoji">😊</button>
+            <div id="emoji-bar" class="emoji-bar hidden"></div>
+
+            <!-- ===== لوحة تحكم المطور ===== -->
+            <button id="dev-toggle-btn" class="dev-toggle-btn">⚙️</button>
+            <div id="dev-panel" class="dev-panel hidden">
+                <h3>🛠️ لوحة التحكم</h3>
+                <div class="dev-buttons">
+                    <button id="dev-reveal-btn" class="btn dev-btn">👁️ كشف الأوراق</button>
+                    <button id="dev-skip-btn" class="btn dev-btn">⏩ تخطي الدور</button>
+                    <button id="dev-color-btn" class="btn dev-btn">🎨 تغيير اللون</button>
+                    <button id="dev-draw-btn" class="btn dev-btn">🃏 سحب بطاقات</button>
+                    <button id="dev-win-btn" class="btn dev-btn">🏆 فوز فوري</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== شاشة النهاية ===== -->
+        <div id="end-screen" class="screen">
+            <div class="end-content">
+                <div class="trophy">🏆</div>
+                <h1 id="winner-text">مبروك فزت!</h1>
+                <div id="end-stats" class="end-stats"></div>
+                <button id="restart-btn" class="btn primary-btn" data-i18n="play_again">🔄 العب مرة ثانية</button>
+                <button id="end-menu-btn" class="btn secondary-btn" data-i18n="main_menu">🏠 القائمة الرئيسية</button>
+            </div>
+        </div>
+
+        <!-- التنبيهات -->
+        <div id="toast-container"></div>
+    </div>
+
+    <script src="storage.js"></script>
+    <script src="i18n.js"></script>
+    <script src="features.js"></script>
+    <script src="sound.js"></script>
+    <script src="deck.js"></script>
+    <script src="game.js"></script>
+</body>
+</html>

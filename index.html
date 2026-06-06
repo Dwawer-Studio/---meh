@@ -9,38 +9,6 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <!-- كاشف الأخطاء المرئي (مؤقت للتشخيص) -->
-    <script>
-    (function () {
-        function show(msg) {
-            var box = document.getElementById('err-overlay');
-            if (!box) {
-                box = document.createElement('div');
-                box.id = 'err-overlay';
-                box.style.cssText = 'position:fixed;left:0;right:0;bottom:0;max-height:45vh;overflow:auto;' +
-                    'background:rgba(140,0,0,.96);color:#fff;font:12px/1.5 monospace;padding:12px 14px;' +
-                    'z-index:999999;white-space:pre-wrap;direction:ltr;text-align:left;border-top:3px solid #fbbf24';
-                (document.body || document.documentElement).appendChild(box);
-            }
-            box.textContent += '⛔ ' + msg + '\n';
-        }
-        window.addEventListener('error', function (e) {
-            // تجاهُل أخطاء السكربتات الخارجية المبهمة (إضافات المتصفّح) — لا تخصّ اللعبة
-            if ((!e.filename || e.filename === '') && (!e.error)) {
-                show('⚠️ خطأ من سكربت خارجي/إضافة متصفّح (ليس من اللعبة)');
-                return;
-            }
-            var detail = (e.message || 'Error');
-            if (e.filename) detail += '\n    @ ' + e.filename.split('/').pop() + ':' + (e.lineno || '?') + ':' + (e.colno || '?');
-            if (e.error && e.error.stack) detail += '\n' + e.error.stack;
-            show(detail);
-        });
-        window.addEventListener('unhandledrejection', function (e) {
-            show('Promise: ' + (e.reason && (e.reason.message || e.reason)));
-        });
-    })();
-    </script>
-
     <div id="app">
         <!-- ===== شاشة البداية (Splash) ===== -->
         <div id="splash"><div class="splash-logo">مِهْ</div></div>

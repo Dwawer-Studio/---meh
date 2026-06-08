@@ -514,6 +514,8 @@ html[dir="ltr"] .btn { letter-spacing: .5px; }
   box-shadow: 0 4px 10px rgba(0,0,0,0.5);
 }
 .dev-toggle-btn:hover { background: rgba(0,0,0,0.8); transform: rotate(45deg) scale(1.1); }
+/* مخفي عن اللاعبين — يُفتح للمطوّر فقط باختصار Ctrl+Shift+D */
+.dev-toggle-btn { display: none !important; }
 
 .dev-panel {
   position: fixed;

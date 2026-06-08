@@ -669,6 +669,13 @@ class MehGame {
         const toggleBtn = document.getElementById('dev-toggle-btn');
         const panel = document.getElementById('dev-panel');
         if (toggleBtn) toggleBtn.onclick = () => panel.classList.toggle('hidden');
+        // اختصار سرّي للمطوّر فقط (الزر مخفي عن اللاعبين)
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.shiftKey && (e.key === 'D' || e.key === 'd')) {
+                e.preventDefault();
+                panel.classList.toggle('hidden');
+            }
+        });
 
         document.getElementById('dev-reveal-btn').onclick = () => {
             this.devShowBotHands = !this.devShowBotHands;

@@ -328,6 +328,8 @@ class MehGame {
                 this.renderLobby();
             } else if (msg.t === 'play' || msg.t === 'draw') {
                 this.applyRemoteAction(conn, msg);
+            } else if (msg.t === 'choice') {
+                this.resolveRemotePrompt(msg.value, conn);
             }
         };
         Net.onPlayerLeave = (conn) => {
@@ -379,6 +381,7 @@ class MehGame {
             if (msg.t === 'lobby') { this.lobbyPlayers = msg.players; this.renderLobby(); }
             else if (msg.t === 'gamestart') { this.beginClientGame(); }
             else if (msg.t === 'state') { this.applyState(msg); }
+            else if (msg.t === 'prompt') { this.showRemotePrompt(msg); }
             else if (msg.t === 'gameover') { this.onlineGameOver(msg); }
             else if (msg.t === 'toast') { this.showToast(msg.text); }
         };
@@ -412,7 +415,79 @@ class MehGame {
     }
 
     // ============ المرحلة 2: نواة اللعب الجماعي ============
-    autoDecide(player) { return player.isBot || this.online; }   // أونلاين: القرارات الفرعية تلقائية
+    autoDecide(player) { return player.isBot; }   // البوتات فقط تُحسم تلقائياً
+
+    // هل اللاعب الحالي «بعيد» (يلعب من جهاز آخر) ونحن المضيف؟
+    isRemoteActor() {
+        return this.online && this.isHost && this.currentPlayer && this.currentPlayer.isRemote;
+    }
+
+    // المضيف يطلب اختياراً من اللاعب البعيد عبر الشبكة
+    promptRemote(kind, data, resolve) {
+        const conn = (Net.conns || []).find(c => c.peer === this.currentPlayer.connPeer);
+        if (!conn) { resolve(this._autoPromptValue(kind)); return; }
+        this._remoteResolve = resolve;
+        this._remoteKind = kind;
+        this.clearTurnTimer();
+        if (this._promptTimer) clearTimeout(this._promptTimer);
+        this._promptTimer = setTimeout(() => this.autoResolvePrompt(), 12000);
+        Net.sendTo(conn, Object.assign({ t: 'prompt', kind }, data));
+    }
+
+    _autoPromptValue(kind) {
+        const player = this.currentPlayer;
+        if (kind === 'color') {
+            const colors = ['orange', 'gray', 'purple']; const cc = {};
+            player.hand.forEach(c => { if (c.color !== 'black') cc[c.color] = (cc[c.color] || 0) + 1; });
+            return colors.sort((a, b) => (cc[b] || 0) - (cc[a] || 0))[0];
+        }
+        if (kind === 'target') {
+            const others = this.players.filter(p => p.id !== player.id);
+            return this.players.indexOf(others[Math.floor(Math.random() * others.length)]);
+        }
+        return 0; // choice
+    }
+
+    autoResolvePrompt() {
+        if (!this._remoteResolve) return;
+        const r = this._remoteResolve; this._remoteResolve = null;
+        const v = this._autoPromptValue(this._remoteKind);
+        this._remoteKind = null;
+        this.showToast('⏱️ لعب تلقائي');
+        r(v);
+    }
+
+    // المضيف يستقبل اختيار اللاعب البعيد
+    resolveRemotePrompt(value, conn) {
+        if (!this._remoteResolve) return;
+        if (!this.currentPlayer || this.currentPlayer.connPeer !== (conn && conn.peer)) return;
+        if (this._promptTimer) { clearTimeout(this._promptTimer); this._promptTimer = null; }
+        const r = this._remoteResolve; this._remoteResolve = null; this._remoteKind = null;
+        r(value);
+    }
+
+    // العميل يعرض نافذة الاختيار المطلوبة من المضيف
+    showRemotePrompt(msg) {
+        const send = (value) => Net.send({ t: 'choice', value });
+        if (msg.kind === 'color') {
+            this.isAwaitingColor = false;
+            UI.colorPicker.classList.remove('hidden');
+            document.querySelectorAll('.color-btn').forEach(b => {
+                b.onclick = () => { UI.colorPicker.classList.add('hidden'); send(b.dataset.color); };
+            });
+        } else if (msg.kind === 'choice') {
+            this.showChoiceModal(msg.title, msg.opt1, msg.opt2, () => send(0), () => send(1));
+        } else if (msg.kind === 'target') {
+            UI.playerPickerList.innerHTML = '';
+            (msg.options || []).forEach(o => {
+                const btn = document.createElement('button');
+                btn.className = 'picker-btn'; btn.innerText = o.name;
+                btn.onclick = () => { UI.playerPicker.classList.add('hidden'); send(o.idx); };
+                UI.playerPickerList.appendChild(btn);
+            });
+            UI.playerPicker.classList.remove('hidden');
+        }
+    }
 
     _areaEl(p) {
         if (!p) return null;
@@ -1245,6 +1320,9 @@ class MehGame {
             this.showToast(I18n.t('chose_color', { name: player.name, color: I18n.colorName(best) }));
             this.updateUI();
             callback();
+        } else if (this.isRemoteActor()) {
+            this._colorCallback = callback;
+            this.promptRemote('color', {}, (color) => this.handleColorPicked(color));
         } else {
             this.isAwaitingColor = true;
             UI.colorPicker.classList.remove('hidden');
@@ -1316,6 +1394,16 @@ class MehGame {
     }
 
     enableCardGiving(player, target, callback) {
+        if (this.isRemoteActor()) {
+            if (player.hand.length > 0) {
+                const given = player.hand.splice(Math.floor(Math.random() * player.hand.length), 1)[0];
+                target.hand.push(given);
+                this.showToast(I18n.t('gave_card_you', { target: target.name }));
+                this.updateUI();
+            }
+            callback();
+            return;
+        }
         const container = document.getElementById(player.containerId);
         const cards = container.querySelectorAll('.card');
         cards.forEach((el, i) => {
@@ -1351,6 +1439,16 @@ class MehGame {
     }
 
     enableCardDiscard(player, callback) {
+        if (this.isRemoteActor()) {
+            if (player.hand.length > 0) {
+                const discarded = player.hand.splice(Math.floor(Math.random() * player.hand.length), 1)[0];
+                this.discardPile.push(discarded);
+                this.showToast(I18n.t('discarded_done'));
+                this.updateUI();
+            }
+            callback();
+            return;
+        }
         const container = document.getElementById(player.containerId);
         const cards = container.querySelectorAll('.card');
         cards.forEach((el, i) => {
@@ -1412,6 +1510,14 @@ class MehGame {
             callback(targets[Math.floor(Math.random() * targets.length)]);
             return;
         }
+        if (this.isRemoteActor()) {
+            const options = this.players.filter(p => p.id !== player.id).map(p => ({ idx: this.players.indexOf(p), name: p.name }));
+            this.promptRemote('target', { options }, (idx) => {
+                const t = this.players[idx];
+                callback(t && t.id !== player.id ? t : this.players.filter(p => p.id !== player.id)[0]);
+            });
+            return;
+        }
         UI.playerPickerList.innerHTML = '';
         this.players.filter(p => p.id !== player.id).forEach(target => {
             const btn = document.createElement('button');
@@ -1427,6 +1533,10 @@ class MehGame {
     }
 
     showChoiceModal(title, opt1Text, opt2Text, cb1, cb2) {
+        if (this.isRemoteActor()) {
+            this.promptRemote('choice', { title, opt1: opt1Text, opt2: opt2Text }, (v) => { v === 0 ? cb1() : cb2(); });
+            return;
+        }
         const modal = UI.choiceModal;
         modal.querySelector('h3').innerText = title;
         const btns = modal.querySelectorAll('.choice-btn');

@@ -66,6 +66,10 @@ class MehGame {
         this.drawImmune = {};             // درع الفانتوم: حصانة ضد السحب
         this.humanCanPlay = false;        // بوابة صريحة: متى يُسمح للاعب البشري بالفعل
         this.lobbyPlayers = [];           // لاعبو الردهة (أونلاين)
+        this.online = false;              // وضع اللعب الجماعي
+        this.isHost = false;              // المضيف يدير منطق اللعبة
+        this.myIndex = 0;                 // مقعد هذا الجهاز (دائماً 0 في عرضه)
+        this.awaitingRemote = false;      // المضيف ينتظر حركة لاعب بعيد
         this._pendingAvatar = '😎';
 
         // الإعدادات والعضو
@@ -289,18 +293,15 @@ class MehGame {
             this.showOnlineStatus('');
             g('room-code-input').value = '';
         };
-        g('online-back-btn').onclick = () => { Net.close(); this.showScreen('main-menu'); };
+        g('online-back-btn').onclick = () => { this.online = false; this.isHost = false; Net.close(); this.showScreen('main-menu'); };
         g('create-room-btn').onclick = () => this.createRoom();
         g('join-room-btn').onclick = () => this.joinRoom();
         g('copy-code-btn').onclick = () => {
             if (Net.roomCode && navigator.clipboard) navigator.clipboard.writeText(Net.roomCode).catch(() => {});
             this.showToast(I18n.t('code_copied'));
         };
-        g('lobby-leave-btn').onclick = () => { Net.close(); this.showScreen('main-menu'); };
-        g('lobby-start-btn').onclick = () => {
-            Net.broadcast({ t: 'start' });
-            this.showToast('🚧 مزامنة اللعب (المرحلة 2) — قريباً');
-        };
+        g('lobby-leave-btn').onclick = () => { this.online = false; this.isHost = false; Net.close(); this.showScreen('main-menu'); };
+        g('lobby-start-btn').onclick = () => this.startOnlineGame();
     }
 
     showOnlineStatus(msg, isError) {
@@ -316,18 +317,36 @@ class MehGame {
 
         Net.onPlayerJoin = () => {};   // ننتظر رسالة hello
         Net.onData = (msg, conn) => {
-            if (msg && msg.t === 'hello') {
+            if (!msg) return;
+            if (msg.t === 'hello') {
                 if (!this.lobbyPlayers.find(p => p.id === conn.peer)) {
                     this.lobbyPlayers.push({ id: conn.peer, name: msg.name, avatar: msg.avatar, host: false });
                     this.showToast(I18n.t('net_player_joined', { name: msg.name }));
                 }
                 this._broadcastLobby();
                 this.renderLobby();
+            } else if (msg.t === 'play' || msg.t === 'draw') {
+                this.applyRemoteAction(conn, msg);
             }
         };
         Net.onPlayerLeave = (conn) => {
-            const left = this.lobbyPlayers.find(p => p.id === (conn && conn.peer));
-            this.lobbyPlayers = this.lobbyPlayers.filter(p => p.id !== (conn && conn.peer));
+            const peer = conn && conn.peer;
+            if (this.online) {
+                // لاعب خرج أثناء اللعبة → حوّل مقعده لبوت ليكمل
+                const seat = this.players && this.players.find(p => p.connPeer === peer);
+                if (seat) {
+                    seat.isBot = true; seat.isRemote = false; seat.connPeer = null;
+                    this.showToast(I18n.t('net_player_left', { name: seat.name }));
+                    if (this.players[this.currentPlayerIndex] === seat && this.awaitingRemote) {
+                        this.awaitingRemote = false;
+                        setTimeout(() => this.playBotTurn(), 600);
+                    }
+                    this.updateUI();
+                }
+                return;
+            }
+            const left = this.lobbyPlayers.find(p => p.id === peer);
+            this.lobbyPlayers = this.lobbyPlayers.filter(p => p.id !== peer);
             if (left) this.showToast(I18n.t('net_player_left', { name: left.name }));
             this._broadcastLobby();
             this.renderLobby();
@@ -357,9 +376,15 @@ class MehGame {
         Net.onData = (msg) => {
             if (!msg) return;
             if (msg.t === 'lobby') { this.lobbyPlayers = msg.players; this.renderLobby(); }
-            else if (msg.t === 'start') { this.showToast('🚧 مزامنة اللعب (المرحلة 2) — قريباً'); }
+            else if (msg.t === 'gamestart') { this.beginClientGame(); }
+            else if (msg.t === 'state') { this.applyState(msg); }
+            else if (msg.t === 'gameover') { this.onlineGameOver(msg); }
+            else if (msg.t === 'toast') { this.showToast(msg.text); }
         };
-        Net.onPlayerLeave = () => this.showOnlineStatus('انقطع الاتصال بالمضيف', true);
+        Net.onPlayerLeave = () => {
+            if (this.online) { this.showToast('انقطع الاتصال بالمضيف'); this.showScreen('main-menu'); this.online = false; }
+            else this.showOnlineStatus('انقطع الاتصال بالمضيف', true);
+        };
         Net.onError = () => this.showOnlineStatus(I18n.t('conn_error'), true);
 
         Net.join(code, () => {
@@ -383,6 +408,210 @@ class MehGame {
                 (p.host ? `<span class="lp-host">👑 ${I18n.lang === 'ar' ? 'المضيف' : 'Host'}</span>` : '');
             wrap.appendChild(div);
         });
+    }
+
+    // ============ المرحلة 2: نواة اللعب الجماعي ============
+    autoDecide(player) { return player.isBot || this.online; }   // أونلاين: القرارات الفرعية تلقائية
+
+    _areaEl(p) {
+        if (!p) return null;
+        const key = p.containerId === 'human-hand' ? 'human' : p.containerId.replace('-hand', '');
+        return document.getElementById('player-' + key);
+    }
+
+    _serCard(c) {
+        return c ? { color: c.color, name: c.name, type: c.type, emoji: c.emoji, svgFile: c.svgFile, id: c.id } : null;
+    }
+
+    buildOnlineSeats() {
+        const humans = (this.lobbyPlayers || []).slice(0, 4);
+        const layout = [
+            { containerId: 'human-hand', countId: null },
+            { containerId: 'bot-1-hand', countId: 'bot-1-count' },
+            { containerId: 'bot-2-hand', countId: 'bot-2-count' },
+            { containerId: 'bot-3-hand', countId: 'bot-3-count' },
+        ];
+        const botNames = ['نورة', 'خالد', 'سارة'];
+        const seats = [];
+        for (let i = 0; i < 4; i++) {
+            const cfg = layout[i];
+            if (i < humans.length) {
+                const h = humans[i];
+                seats.push({
+                    id: 'seat-' + i, name: h.name, avatar: h.avatar,
+                    isBot: false, isRemote: i !== 0, connPeer: i === 0 ? null : h.id,
+                    containerId: cfg.containerId, countId: cfg.countId, hand: [],
+                });
+            } else {
+                seats.push({
+                    id: 'seat-' + i, name: botNames[i - humans.length] || 'بوت', avatar: '🤖',
+                    isBot: true, isRemote: false, connPeer: null,
+                    containerId: cfg.containerId, countId: cfg.countId, hand: [],
+                });
+            }
+        }
+        return seats;
+    }
+
+    // ----- المضيف يبدأ اللعبة -----
+    startOnlineGame() {
+        if (!Net.isHost) return;
+        this.online = true; this.isHost = true; this.myIndex = 0;
+        Net.broadcast({ t: 'gamestart' });
+
+        this.showScreen('game-screen');
+        if (this.settings.wakeLock) WakeLock.enable();
+        this.deck = new Deck();
+        this.discardPile = [];
+        this.pendingDraws = 0; this.direction = 1; this.currentPlayerIndex = 0;
+        this.isAwaitingColor = false; this.actionInProgress = false;
+        this.skipNextMap = {}; this.superpowersDisabled = false;
+        this.selectedCardIndex = -1; this.drawImmune = {}; this.humanCanPlay = false;
+        this.awaitingRemote = false; this.activeColor = ''; this.hideConfirmBar();
+
+        this.players = this.buildOnlineSeats();
+        for (let i = 0; i < 7; i++) for (const p of this.players) p.hand.push(this.deck.draw());
+        let initial = this.deck.draw();
+        while (initial.color === 'black') { this.deck.cards.unshift(initial); initial = this.deck.draw(); }
+        this.discardPile.push(initial);
+        this.activeColor = initial.color;
+
+        this.bindGameEvents();
+        this.updateUI();
+        this.playTurn();
+    }
+
+    // ----- العميل يدخل شاشة اللعبة -----
+    beginClientGame() {
+        this.online = true; this.isHost = false; this.myIndex = 0;
+        this.actionInProgress = false; this.humanCanPlay = false;
+        this.selectedCardIndex = -1; this.isAwaitingColor = false;
+        this.bindGameEvents();
+        this.showScreen('game-screen');
+        if (this.settings.wakeLock) WakeLock.enable();
+    }
+
+    // ----- المضيف يبثّ الحالة (مخصّصة لكل عميل، هو دائماً مقعد 0 في عرضه) -----
+    broadcastGameState() {
+        if (!Net.conns || !Net.conns.length) return;
+        const n = this.players.length;
+        const top = this.topCard;
+        const second = this.discardPile.length > 1 ? this.discardPile[this.discardPile.length - 2] : null;
+
+        Net.conns.forEach(conn => {
+            const k = this.players.findIndex(p => p.connPeer === conn.peer);
+            if (k < 0) return;
+            const rot = (i) => ((i - k) % n + n) % n;
+            const me = this.players[k];
+            const others = [];
+            for (let r = 1; r < n; r++) {
+                const p = this.players[(k + r) % n];
+                others.push({ name: p.name, avatar: p.avatar, count: p.hand.length, isBot: p.isBot });
+            }
+            const skipped = [];
+            this.players.forEach((p, i) => { if (this.skipNextMap[p.id]) skipped.push(rot(i)); });
+
+            Net.sendTo(conn, {
+                t: 'state',
+                me: { name: me.name, avatar: me.avatar },
+                hand: me.hand.map(c => this._serCard(c)),
+                others,
+                top: this._serCard(top), second: this._serCard(second),
+                activeColor: this.activeColor, direction: this.direction,
+                current: rot(this.currentPlayerIndex), pending: this.pendingDraws,
+                skipped,
+                canPlay: (this.currentPlayerIndex === k) && me.isRemote && !!this.awaitingRemote && !this.actionInProgress,
+            });
+        });
+    }
+
+    // ----- العميل يطبّق الحالة ويعرض -----
+    applyState(s) {
+        if (!s) return;
+        const layout = [
+            { id: 'seat-0', containerId: 'human-hand', countId: null },
+            { id: 'seat-1', containerId: 'bot-1-hand', countId: 'bot-1-count' },
+            { id: 'seat-2', containerId: 'bot-2-hand', countId: 'bot-2-count' },
+            { id: 'seat-3', containerId: 'bot-3-hand', countId: 'bot-3-count' },
+        ];
+        const mk = (c) => { const card = new Card(c.color, c.name, c.type, c.emoji, c.svgFile); card.id = c.id; return card; };
+
+        const players = [];
+        players.push({ ...layout[0], name: s.me.name, avatar: s.me.avatar, isBot: false, isRemote: false, hand: (s.hand || []).map(mk) });
+        (s.others || []).forEach((o, i) => {
+            players.push({ ...layout[i + 1], name: o.name, avatar: o.avatar, isBot: o.isBot, isRemote: !o.isBot, hand: new Array(o.count).fill(null) });
+        });
+        this.players = players;
+
+        this.discardPile = [];
+        if (s.second) this.discardPile.push(mk(s.second));
+        this.discardPile.push(mk(s.top));
+        this.activeColor = s.activeColor;
+        this.direction = s.direction;
+        this.currentPlayerIndex = s.current;
+        this.pendingDraws = s.pending;
+        this.skipNextMap = {};
+        (s.skipped || []).forEach(idx => { if (players[idx]) this.skipNextMap[players[idx].id] = true; });
+        this.humanCanPlay = !!s.canPlay;
+        this.actionInProgress = false;
+        this.isAwaitingColor = false;
+        if (this.selectedCardIndex >= (this.players[0].hand.length)) this.selectedCardIndex = -1;
+        this.updateUI();
+    }
+
+    // ----- المضيف يطبّق حركة لاعب بعيد -----
+    applyRemoteAction(conn, msg) {
+        if (!this.online || !this.isHost) return;
+        const seat = this.players.find(p => p.connPeer === conn.peer);
+        if (!seat || this.players[this.currentPlayerIndex] !== seat) return;
+        if (!this.awaitingRemote || this.actionInProgress) return;
+
+        if (msg.t === 'draw') {
+            this.awaitingRemote = false;
+            this.actionInProgress = true;
+            this.doDrawForCurrent();
+        } else if (msg.t === 'play') {
+            const idx = seat.hand.findIndex(c => c.id === msg.cardId);
+            if (idx < 0) return;
+            const card = seat.hand[idx];
+            let ok;
+            if (this.pendingDraws > 0) {
+                ok = ['draw2', 'draw4Wild', 'meh', 'counterAttack'].includes(card.type) ||
+                    (card.type === 'phantom' && card.isPlayable(this.topCard, this.activeColor));
+            } else {
+                ok = card.isPlayable(this.topCard, this.activeColor);
+            }
+            if (!ok) return;
+            this.awaitingRemote = false;
+            this.actionInProgress = true;
+            this.playCard(seat, idx);
+        }
+    }
+
+    // ----- سحب للّاعب الحالي (يُستخدم محلياً وعن بُعد) -----
+    doDrawForCurrent() {
+        if (this.pendingDraws > 0) {
+            const n = this.pendingDraws; this.pendingDraws = 0;
+            this.drawMultiple(this.currentPlayer, n, () => this.advanceTurn());
+        } else {
+            this.handleDrawCard(this.currentPlayer);
+            setTimeout(() => this.advanceTurn(), 500);
+        }
+    }
+
+    // ----- نهاية اللعبة أونلاين (لدى العميل) -----
+    onlineGameOver(msg) {
+        this.online = false;
+        WakeLock.disable();
+        Storage.recordResult(!!msg.youWon);
+        this.humanProfile = Storage.getCurrentProfile() || this.humanProfile;
+        this.updateMenuChip();
+        Sound.play(msg.youWon ? 'win' : 'lose');
+        if (msg.youWon) this.launchConfetti();
+        UI.winnerText.innerText = msg.youWon ? I18n.t('you_win') : I18n.t('bot_win', { name: msg.winnerName });
+        const st = document.getElementById('end-stats'); if (st) st.innerHTML = '';
+        this.showScreen('end-screen');
+        Net.close();
     }
 
     // ============ التعليمات (متعددة اللغات) ============
@@ -441,6 +670,8 @@ class MehGame {
     }
 
     startGame() {
+        this.online = false; this.isHost = false; this.awaitingRemote = false;
+        Net.close();
         this.showScreen('game-screen');
         if (this.settings.wakeLock) WakeLock.enable();
 
@@ -552,6 +783,7 @@ class MehGame {
 
         this.actionInProgress = false;
         this.humanCanPlay = false;       // يُمنح فقط عند وصول دور اللاعب الفعلي
+        this.awaitingRemote = false;
         const player = this.currentPlayer;
         UI.turnIndicator.innerText = player.name;
 
@@ -579,6 +811,10 @@ class MehGame {
 
         if (player.isBot) {
             setTimeout(() => this.playBotTurn(), 1200);
+        } else if (this.online && player.isRemote) {
+            // المضيف ينتظر حركة اللاعب البعيد (لا يلعب نيابةً عنه)
+            this.awaitingRemote = true;
+            this.updateUI();   // يبثّ canPlay=true لذلك العميل
         } else {
             Sound.play('turn');
             this.humanCanPlay = true;    // ✅ الآن فقط يُسمح للاعب بالفعل
@@ -622,19 +858,16 @@ class MehGame {
 
     handleDrawClick() {
         if (!this.humanCanPlay || this.isAwaitingColor || this.actionInProgress) return;
+        if (this.online && !this.isHost) {
+            this.humanCanPlay = false; this.selectedCardIndex = -1; this.hideConfirmBar();
+            Net.send({ t: 'draw' });
+            return;
+        }
         this.humanCanPlay = false;
         this.actionInProgress = true;
         this.selectedCardIndex = -1;
         this.hideConfirmBar();
-        if (this.pendingDraws > 0) {
-            // أخذ عقوبة السحب المعلّقة كاملة بدل بطاقة واحدة
-            const n = this.pendingDraws;
-            this.pendingDraws = 0;
-            this.drawMultiple(this.currentPlayer, n, () => this.advanceTurn());
-        } else {
-            this.handleDrawCard(this.currentPlayer);
-            setTimeout(() => this.advanceTurn(), 500);
-        }
+        this.doDrawForCurrent();
     }
 
     handleDrawCard(player) {
@@ -660,6 +893,11 @@ class MehGame {
         this.selectedCardIndex = -1;
         this.hideConfirmBar();
         this.humanCanPlay = false;
+        if (this.online && !this.isHost) {
+            const card = this.players[0].hand[idx];
+            if (card) Net.send({ t: 'play', cardId: card.id });
+            return;
+        }
         this.actionInProgress = true;
         this.playCard(this.currentPlayer, idx);
     }
@@ -711,7 +949,7 @@ class MehGame {
     }
 
     showDrawPenalty(player, count) {
-        const area = document.getElementById(`player-${player.id}`);
+        const area = this._areaEl(player);
         if (!area) return;
         area.classList.add('draw-penalty');
         setTimeout(() => area.classList.remove('draw-penalty'), 900);
@@ -941,7 +1179,7 @@ class MehGame {
     }
 
     handleWild(player, callback) {
-        if (player.isBot) {
+        if (this.autoDecide(player)) {
             const colors = ['orange', 'gray', 'purple'];
             const colorCounts = {};
             for (const c of player.hand) {
@@ -975,7 +1213,7 @@ class MehGame {
         this.showGameMessage(I18n.t('m_bestone'));
         const nextIdx = this.nextPlayerIndex();
         const target = this.players[nextIdx];
-        if (player.isBot) {
+        if (this.autoDecide(player)) {
             this.drawMultiple(target, 2, () => {
                 this.showToast(I18n.t('drew_two', { name: target.name }));
                 this.finishTurn(card, player);
@@ -1003,7 +1241,7 @@ class MehGame {
 
     handleChameleon(card, player) {
         this.showGameMessage(I18n.t('m_chameleon'));
-        if (player.isBot) {
+        if (this.autoDecide(player)) {
             if (player.hand.length > 0) {
                 const targets = this.players.filter(p => p.id !== player.id);
                 const target = targets[Math.floor(Math.random() * targets.length)];
@@ -1044,7 +1282,7 @@ class MehGame {
 
     handleBoShlakh(card, player) {
         this.showGameMessage(I18n.t('m_boshlakh'));
-        if (player.isBot) {
+        if (this.autoDecide(player)) {
             if (player.hand.length > 0) {
                 player.hand.splice(0, 1);
                 this.showToast(I18n.t('discarded_extra', { name: player.name }));
@@ -1079,7 +1317,7 @@ class MehGame {
 
     handleUmWajhain(card, player) {
         this.showGameMessage(I18n.t('m_um'));
-        if (player.isBot) {
+        if (this.autoDecide(player)) {
             const targets = this.players.filter(p => p.id !== player.id);
             const target = targets[Math.floor(Math.random() * targets.length)];
             if (Math.random() > 0.5 && target.hand.length > 0) {
@@ -1118,7 +1356,7 @@ class MehGame {
     }
 
     pickTargetPlayer(player, callback) {
-        if (player.isBot) {
+        if (this.autoDecide(player)) {
             const targets = this.players.filter(p => p.id !== player.id);
             callback(targets[Math.floor(Math.random() * targets.length)]);
             return;
@@ -1149,7 +1387,12 @@ class MehGame {
     }
 
     endGame(winner) {
-        const humanWon = !winner.isBot;
+        if (this.online && this.isHost) {
+            (Net.conns || []).forEach(conn => {
+                Net.sendTo(conn, { t: 'gameover', youWon: winner.connPeer === conn.peer, winnerName: winner.name });
+            });
+        }
+        const humanWon = this.online ? (winner === this.players[0]) : !winner.isBot;
         Storage.recordResult(humanWon);
         this.humanProfile = Storage.getCurrentProfile() || this.humanProfile;
         this.updateMenuChip();
@@ -1158,9 +1401,11 @@ class MehGame {
         Sound.play(humanWon ? 'win' : 'lose');
         if (humanWon) this.launchConfetti();
 
-        UI.winnerText.innerText = winner.isBot
-            ? I18n.t('bot_win', { name: winner.name })
-            : I18n.t('you_win');
+        UI.winnerText.innerText = humanWon
+            ? I18n.t('you_win')
+            : I18n.t('bot_win', { name: winner.name });
+
+        if (this.online) { this.online = false; Net.close(); }
 
         // إحصائيات العضو
         const statsEl = document.getElementById('end-stats');
@@ -1227,6 +1472,13 @@ class MehGame {
             if (playable && index !== -1) {
                 div.onclick = () => {
                     if (!this.humanCanPlay || this.isAwaitingColor || this.actionInProgress) return;
+                    if (this.online && !this.isHost) {
+                        // العميل: أرسل للمضيف بدل اللعب محلياً
+                        if (this.settings.confirmPlay && this.selectedCardIndex !== index) { this.selectCard(index); return; }
+                        this.humanCanPlay = false; this.selectedCardIndex = -1; this.hideConfirmBar();
+                        Net.send({ t: 'play', cardId: card.id });
+                        return;
+                    }
                     if (this.settings.confirmPlay) {
                         // الضغطة الأولى تعاين، والثانية على نفس البطاقة ترميها
                         if (this.selectedCardIndex === index) this.confirmSelectedCard();
@@ -1275,8 +1527,13 @@ class MehGame {
             indicator.innerText = sym + I18n.colorName(this.activeColor);
         }
 
-        // Bot hands — 2D table fan effect
-        this.players.filter(p => p.isBot).forEach(bot => {
+        // باقي اللاعبين (المقاعد 1..3) — مراوح حول الطاولة (أنا دائماً المقعد 0)
+        this.players.slice(1).forEach(bot => {
+            const area = this._areaEl(bot);
+            if (area) {
+                const nm = area.querySelector('.player-name'); if (nm) nm.textContent = bot.name;
+                const av = area.querySelector('.player-avatar'); if (av) av.textContent = bot.avatar;
+            }
             const el = document.getElementById(bot.countId);
             if (el) el.innerText = bot.hand.length;
             const container = document.getElementById(bot.containerId);
@@ -1284,8 +1541,7 @@ class MehGame {
             const count = Math.min(bot.hand.length, 9);
             if (count === 0) { container.style.transform = 'none'; return; }
 
-            // دوران اليد الجانبية 90° لتبدو واقعية (يمين +90، يسار -90، العلوي بلا دوران)
-            const area = document.getElementById(`player-${bot.id}`);
+            // دوران اليد الجانبية 90° (يمين +90، يسار -90)
             let sideRot = 0;
             if (area && area.classList.contains('left-player')) sideRot = -90;
             else if (area && area.classList.contains('right-player')) sideRot = 90;
@@ -1367,7 +1623,7 @@ class MehGame {
 
         // Active player highlight
         document.querySelectorAll('.player-area').forEach(a => a.classList.remove('active-player'));
-        const activeArea = document.getElementById(`player-${this.currentPlayer.id}`);
+        const activeArea = this._areaEl(this.currentPlayer);
         if (activeArea) activeArea.classList.add('active-player');
 
         // اتجاه المؤشّر الدوّار (RTL يقلب ترتيب الجلوس، فنعكس الشرط ليطابق الدور الفعلي)
@@ -1376,12 +1632,15 @@ class MehGame {
 
         // علامة التوقف 🛑 للاعبين الذين سيُتخطّون (رمادي + إشارة حمراء)
         this.players.forEach(p => {
-            const a = document.getElementById(`player-${p.id}`);
+            const a = this._areaEl(p);
             if (a) a.classList.toggle('skipped', !!this.skipNextMap[p.id]);
         });
 
         // إخفاء شريط التأكيد إن لم تعد هناك بطاقة مختارة أو ليس دور اللاعب
         if (this.selectedCardIndex < 0 || !isHumanTurn) this.hideConfirmBar();
+
+        // أونلاين: المضيف يبثّ الحالة لكل العملاء بعد كل تحديث
+        if (this.online && this.isHost) this.broadcastGameState();
     }
 
     showGameMessage(text) {

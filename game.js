@@ -65,6 +65,7 @@ class MehGame {
         this.selectedCardIndex = -1;      // لتأكيد رمي البطاقة
         this.drawImmune = {};             // درع الفانتوم: حصانة ضد السحب
         this.humanCanPlay = false;        // بوابة صريحة: متى يُسمح للاعب البشري بالفعل
+        this.lobbyPlayers = [];           // لاعبو الردهة (أونلاين)
         this._pendingAvatar = '😎';
 
         // الإعدادات والعضو
@@ -82,6 +83,7 @@ class MehGame {
         this.bindSettingsEvents();
         this.bindProfileEvents();
         this.bindEmojiEvents();
+        this.bindOnlineEvents();
         this.renderInstructions();
         this.initProfile();
         this.runSplash();
@@ -276,6 +278,111 @@ class MehGame {
         if (Math.random() < 0.22) {
             spawnEmoji(EMOJIS[Math.floor(Math.random() * EMOJIS.length)], bot.id);
         }
+    }
+
+    // ============ الأونلاين (المرحلة 1: الاتصال + الردهة) ============
+    bindOnlineEvents() {
+        const g = (id) => document.getElementById(id);
+        g('online-btn').onclick = () => {
+            if (!Net.available()) { this.showToast(I18n.t('no_peerjs')); return; }
+            this.showScreen('online-screen');
+            this.showOnlineStatus('');
+            g('room-code-input').value = '';
+        };
+        g('online-back-btn').onclick = () => { Net.close(); this.showScreen('main-menu'); };
+        g('create-room-btn').onclick = () => this.createRoom();
+        g('join-room-btn').onclick = () => this.joinRoom();
+        g('copy-code-btn').onclick = () => {
+            if (Net.roomCode && navigator.clipboard) navigator.clipboard.writeText(Net.roomCode).catch(() => {});
+            this.showToast(I18n.t('code_copied'));
+        };
+        g('lobby-leave-btn').onclick = () => { Net.close(); this.showScreen('main-menu'); };
+        g('lobby-start-btn').onclick = () => {
+            Net.broadcast({ t: 'start' });
+            this.showToast('🚧 مزامنة اللعب (المرحلة 2) — قريباً');
+        };
+    }
+
+    showOnlineStatus(msg, isError) {
+        const el = document.getElementById('online-status');
+        if (el) { el.textContent = msg || ''; el.classList.toggle('error', !!isError); }
+    }
+
+    // ----- المضيف -----
+    createRoom() {
+        if (!Net.available()) { this.showOnlineStatus(I18n.t('no_peerjs'), true); return; }
+        this.showOnlineStatus(I18n.t('creating_room'));
+        this.lobbyPlayers = [{ id: 'host', name: this.humanProfile.name, avatar: this.humanProfile.avatar, host: true }];
+
+        Net.onPlayerJoin = () => {};   // ننتظر رسالة hello
+        Net.onData = (msg, conn) => {
+            if (msg && msg.t === 'hello') {
+                if (!this.lobbyPlayers.find(p => p.id === conn.peer)) {
+                    this.lobbyPlayers.push({ id: conn.peer, name: msg.name, avatar: msg.avatar, host: false });
+                    this.showToast(I18n.t('net_player_joined', { name: msg.name }));
+                }
+                this._broadcastLobby();
+                this.renderLobby();
+            }
+        };
+        Net.onPlayerLeave = (conn) => {
+            const left = this.lobbyPlayers.find(p => p.id === (conn && conn.peer));
+            this.lobbyPlayers = this.lobbyPlayers.filter(p => p.id !== (conn && conn.peer));
+            if (left) this.showToast(I18n.t('net_player_left', { name: left.name }));
+            this._broadcastLobby();
+            this.renderLobby();
+        };
+        Net.onError = () => this.showOnlineStatus(I18n.t('conn_error'), true);
+
+        Net.host((code) => {
+            document.getElementById('lobby-room-code').textContent = code;
+            document.getElementById('lobby-start-btn').classList.remove('hidden');
+            document.getElementById('lobby-wait').classList.add('hidden');
+            this.showScreen('lobby-screen');
+            this.renderLobby();
+        });
+    }
+
+    _broadcastLobby() {
+        Net.broadcast({ t: 'lobby', players: this.lobbyPlayers });
+    }
+
+    // ----- العميل -----
+    joinRoom() {
+        if (!Net.available()) { this.showOnlineStatus(I18n.t('no_peerjs'), true); return; }
+        const code = (document.getElementById('room-code-input').value || '').trim().toUpperCase();
+        if (code.length < 4) { this.showOnlineStatus(I18n.t('conn_error'), true); return; }
+        this.showOnlineStatus(I18n.t('connecting'));
+
+        Net.onData = (msg) => {
+            if (!msg) return;
+            if (msg.t === 'lobby') { this.lobbyPlayers = msg.players; this.renderLobby(); }
+            else if (msg.t === 'start') { this.showToast('🚧 مزامنة اللعب (المرحلة 2) — قريباً'); }
+        };
+        Net.onPlayerLeave = () => this.showOnlineStatus('انقطع الاتصال بالمضيف', true);
+        Net.onError = () => this.showOnlineStatus(I18n.t('conn_error'), true);
+
+        Net.join(code, () => {
+            Net.send({ t: 'hello', name: this.humanProfile.name, avatar: this.humanProfile.avatar });
+            document.getElementById('lobby-room-code').textContent = code;
+            document.getElementById('lobby-start-btn').classList.add('hidden');
+            document.getElementById('lobby-wait').classList.remove('hidden');
+            this.showScreen('lobby-screen');
+        });
+    }
+
+    renderLobby() {
+        const wrap = document.getElementById('lobby-players');
+        if (!wrap) return;
+        wrap.innerHTML = '';
+        (this.lobbyPlayers || []).forEach(p => {
+            const div = document.createElement('div');
+            div.className = 'lobby-player';
+            div.innerHTML = `<span class="lp-avatar">${p.avatar || '😎'}</span>` +
+                `<span class="lp-name">${p.name}</span>` +
+                (p.host ? `<span class="lp-host">👑 ${I18n.lang === 'ar' ? 'المضيف' : 'Host'}</span>` : '');
+            wrap.appendChild(div);
+        });
     }
 
     // ============ التعليمات (متعددة اللغات) ============

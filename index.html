@@ -49,6 +49,9 @@
                     <button id="play-btn" class="btn primary-btn">
                         <span>🎮</span> <span data-i18n="play">العب</span>
                     </button>
+                    <button id="online-btn" class="btn primary-btn">
+                        <span>🌐</span> <span data-i18n="online_play">أونلاين</span>
+                    </button>
                     <button id="instructions-btn" class="btn secondary-btn">
                         <span>📖</span> <span data-i18n="instructions">التعليمات</span>
                     </button>
@@ -129,6 +132,42 @@
                     </div>
                 </div>
                 <button id="settings-back-btn" class="btn primary-btn" data-i18n="done">تم</button>
+            </div>
+        </div>
+
+        <!-- ===== شاشة الأونلاين (إنشاء/دخول غرفة) ===== -->
+        <div id="online-screen" class="screen">
+            <div class="instructions-panel online-panel">
+                <h2 data-i18n="online_title">🌐 اللعب أونلاين</h2>
+                <p class="profile-hint" data-i18n="online_hint">العب مع أصدقائك بكود غرفة</p>
+
+                <button id="create-room-btn" class="btn primary-btn"><span data-i18n="create_room">➕ إنشاء غرفة</span></button>
+
+                <div class="online-divider"><span data-i18n="or">أو</span></div>
+
+                <input id="room-code-input" class="profile-input room-code-input" type="text" maxlength="5"
+                       data-i18n-attr="placeholder:enter_room_code" placeholder="اكتب كود الغرفة" autocomplete="off">
+                <button id="join-room-btn" class="btn secondary-btn"><span data-i18n="join_room">🚪 دخول غرفة</span></button>
+
+                <p id="online-status" class="online-status"></p>
+                <button id="online-back-btn" class="btn secondary-btn" data-i18n="back">🔙 رجوع</button>
+            </div>
+        </div>
+
+        <!-- ===== شاشة الردهة (اللاعبون قبل البدء) ===== -->
+        <div id="lobby-screen" class="screen">
+            <div class="instructions-panel online-panel">
+                <h2 data-i18n="lobby_title">🛋️ الردهة</h2>
+                <div class="room-code-box">
+                    <span data-i18n="room_code">كود الغرفة</span>
+                    <strong id="lobby-room-code">-----</strong>
+                    <button id="copy-code-btn" class="copy-code-btn" title="copy">📋</button>
+                </div>
+                <p class="profile-hint" data-i18n="lobby_hint">شارك الكود مع أصدقائك لينضمّوا</p>
+                <div id="lobby-players" class="lobby-players"></div>
+                <button id="lobby-start-btn" class="btn primary-btn hidden" data-i18n="start_game">▶️ ابدأ اللعبة</button>
+                <p id="lobby-wait" class="online-status" data-i18n="waiting_host">بانتظار أن يبدأ المضيف...</p>
+                <button id="lobby-leave-btn" class="btn secondary-btn" data-i18n="leave">🚪 خروج</button>
             </div>
         </div>
 
@@ -261,10 +300,12 @@
         <div id="toast-container"></div>
     </div>
 
+    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
     <script src="storage.js"></script>
     <script src="i18n.js"></script>
     <script src="features.js"></script>
     <script src="sound.js"></script>
+    <script src="net.js"></script>
     <script src="deck.js"></script>
     <script src="game.js"></script>
 </body>

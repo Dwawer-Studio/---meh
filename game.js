@@ -70,6 +70,7 @@ class MehGame {
         this.isHost = false;              // المضيف يدير منطق اللعبة
         this.myIndex = 0;                 // مقعد هذا الجهاز (دائماً 0 في عرضه)
         this.awaitingRemote = false;      // المضيف ينتظر حركة لاعب بعيد
+        this.turnTimer = null;            // مؤقّت الدور (لعب تلقائي عند التأخّر)
         this._pendingAvatar = '😎';
 
         // الإعدادات والعضو
@@ -491,8 +492,14 @@ class MehGame {
         if (this.settings.wakeLock) WakeLock.enable();
     }
 
-    // ----- المضيف يبثّ الحالة (مخصّصة لكل عميل، هو دائماً مقعد 0 في عرضه) -----
+    // ----- المضيف يبثّ الحالة (مخفّف: يجمع التحديثات المتسارعة في بثّة واحدة) -----
     broadcastGameState() {
+        if (!this.online || !this.isHost) return;
+        if (this._bcTimer) return;
+        this._bcTimer = setTimeout(() => { this._bcTimer = null; this._doBroadcast(); }, 90);
+    }
+
+    _doBroadcast() {
         if (!Net.conns || !Net.conns.length) return;
         const n = this.players.length;
         const top = this.topCard;
@@ -565,6 +572,7 @@ class MehGame {
         const seat = this.players.find(p => p.connPeer === conn.peer);
         if (!seat || this.players[this.currentPlayerIndex] !== seat) return;
         if (!this.awaitingRemote || this.actionInProgress) return;
+        this.clearTurnTimer();
 
         if (msg.t === 'draw') {
             this.awaitingRemote = false;
@@ -588,8 +596,39 @@ class MehGame {
         }
     }
 
+    // ----- مؤقّت الدور: لعب تلقائي عند تأخّر اللاعب (أونلاين فقط، يُدار من المضيف) -----
+    startTurnTimer() {
+        this.clearTurnTimer();
+        if (!this.online || !this.isHost) return;
+        document.body.classList.add('turn-ticking');
+        this.turnTimer = setTimeout(() => this.autoPlayCurrent(), 10000);
+    }
+    clearTurnTimer() {
+        if (this.turnTimer) { clearTimeout(this.turnTimer); this.turnTimer = null; }
+        document.body.classList.remove('turn-ticking');
+    }
+    autoPlayCurrent() {
+        this.clearTurnTimer();
+        if (this.actionInProgress) return;
+        const player = this.currentPlayer;
+        if (!player || player.isBot) return;
+        this.awaitingRemote = false; this.humanCanPlay = false;
+        this.actionInProgress = true;
+        let idx;
+        if (this.pendingDraws > 0) {
+            idx = player.hand.findIndex(c => ['draw2', 'draw4Wild', 'meh', 'counterAttack'].includes(c.type)
+                || (c.type === 'phantom' && c.isPlayable(this.topCard, this.activeColor)));
+        } else {
+            idx = player.hand.findIndex(c => c.isPlayable(this.topCard, this.activeColor));
+        }
+        this.showToast('⏱️ ' + player.name + ' تأخّر — لعب تلقائي');
+        if (idx >= 0) this.playCard(player, idx);
+        else this.doDrawForCurrent();
+    }
+
     // ----- سحب للّاعب الحالي (يُستخدم محلياً وعن بُعد) -----
     doDrawForCurrent() {
+        this.clearTurnTimer();
         if (this.pendingDraws > 0) {
             const n = this.pendingDraws; this.pendingDraws = 0;
             this.drawMultiple(this.currentPlayer, n, () => this.advanceTurn());
@@ -769,6 +808,7 @@ class MehGame {
     }
 
     advanceTurn() {
+        this.clearTurnTimer();
         this.selectedCardIndex = -1;
         this.humanCanPlay = false;
         this.hideConfirmBar();
@@ -815,6 +855,7 @@ class MehGame {
             // المضيف ينتظر حركة اللاعب البعيد (لا يلعب نيابةً عنه)
             this.awaitingRemote = true;
             this.updateUI();   // يبثّ canPlay=true لذلك العميل
+            this.startTurnTimer();
         } else {
             Sound.play('turn');
             this.humanCanPlay = true;    // ✅ الآن فقط يُسمح للاعب بالفعل
@@ -828,6 +869,8 @@ class MehGame {
                     this.handleDrawCard(player);
                     setTimeout(() => this.advanceTurn(), 600);
                 }, 1200);
+            } else {
+                this.startTurnTimer();
             }
         }
     }
@@ -1001,6 +1044,7 @@ class MehGame {
     }
 
     playCard(player, cardIndex) {
+        this.clearTurnTimer();
         let startRect = null;
         const container = document.getElementById(player.containerId);
         if (container && container.children[cardIndex]) {
@@ -1638,6 +1682,28 @@ class MehGame {
 
         // إخفاء شريط التأكيد إن لم تعد هناك بطاقة مختارة أو ليس دور اللاعب
         if (this.selectedCardIndex < 0 || !isHumanTurn) this.hideConfirmBar();
+
+        // مؤقّت الدور المرئي (أونلاين): يبدأ مرة واحدة عند بدء دوري
+        const myTurn = this.online && this.humanCanPlay;
+        const tt = document.getElementById('turn-timer');
+        if (tt) {
+            if (myTurn && !this._timerShown) {
+                tt.classList.remove('hidden', 'run'); void tt.offsetWidth; tt.classList.add('run');
+                this._timerShown = true;
+            } else if (!myTurn && this._timerShown) {
+                tt.classList.add('hidden'); tt.classList.remove('run');
+                this._timerShown = false;
+            }
+        }
+
+        // نبضة عند تغيّر ورقة المرمى (تغذية بصرية للعميل)
+        if (this.topCard && this._lastTopId !== this.topCard.id) {
+            this._lastTopId = this.topCard.id;
+            if (this.online && !this.isHost) {
+                const dp = UI.discardPile.lastChild;
+                if (dp) { dp.classList.remove('card-pop'); void dp.offsetWidth; dp.classList.add('card-pop'); }
+            }
+        }
 
         // أونلاين: المضيف يبثّ الحالة لكل العملاء بعد كل تحديث
         if (this.online && this.isHost) this.broadcastGameState();

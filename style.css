@@ -672,6 +672,29 @@ html[dir="ltr"] .btn { letter-spacing: .5px; }
 .lobby-player .lp-name { font-weight: 800; flex: 1; text-align: start; }
 .lobby-player .lp-host { color: var(--gold); font-size: .8rem; font-weight: 700; }
 
+/* ===== TURN TIMER (online) ===== */
+#turn-timer {
+  width: 200px; height: 7px; margin-top: 8px;
+  background: rgba(0,0,0,0.45); border-radius: 5px; overflow: hidden;
+  position: relative; z-index: 2;
+  box-shadow: inset 0 0 4px rgba(0,0,0,0.5);
+}
+#turn-timer-bar {
+  height: 100%; width: 100%;
+  background: linear-gradient(90deg, #22c55e 0%, #fbbf24 60%, #ef4444 100%);
+  transform-origin: right;
+}
+#turn-timer.run #turn-timer-bar { animation: turnCountdown 10s linear forwards; }
+@keyframes turnCountdown { from { width: 100%; } to { width: 0%; } }
+
+/* نبضة ورقة المرمى عند العميل (تغذية بصرية بدل حركة الرمي) */
+.card-pop { animation: cardPop .32s cubic-bezier(.3,1.4,.5,1); }
+@keyframes cardPop {
+  0%   { transform: scale(.55) rotate(-10deg); }
+  60%  { transform: scale(1.12) rotate(5deg); }
+  100% { transform: scale(1) rotate(0); }
+}
+
 /* ===== CONFIRM PLAY BAR ===== */
 .confirm-bar {
   position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%);

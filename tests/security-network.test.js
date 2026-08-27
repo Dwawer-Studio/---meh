@@ -6,6 +6,7 @@ const test = require('node:test');
 const { loadScripts } = require('./helpers/load-script');
 
 function makeElement(tagName = 'div') {
+    const attributes = new Map();
     const element = {
         tagName: tagName.toUpperCase(),
         children: [],
@@ -15,6 +16,12 @@ function makeElement(tagName = 'div') {
         textContent: '',
         appendChild(child) { this.children.push(child); return child; },
         replaceChildren(...children) { this.children = children; },
+        setAttribute(name, value) { attributes.set(name, String(value)); },
+        getAttribute(name) { return attributes.get(name) ?? null; },
+        toggleAttribute(name, force) {
+            if (force) attributes.set(name, '');
+            else attributes.delete(name);
+        },
         querySelector() { return null; },
         querySelectorAll() { return []; },
     };

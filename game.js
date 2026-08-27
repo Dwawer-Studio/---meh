@@ -106,6 +106,7 @@ class MehGame {
         this.bindOnlineEvents();
         this.renderInstructions();
         this.initProfile();
+        this.syncScreenAccessibility();
         this.runSplash();
 
         // صوت نقرة عام للأزرار
@@ -150,7 +151,7 @@ class MehGame {
         });
 
         document.querySelectorAll('.toggle-row').forEach(row => {
-            row.onclick = () => {
+            const toggleSetting = () => {
                 const key = row.dataset.setting;
                 this.settings[key] = !this.settings[key];
                 Storage.setSetting(key, this.settings[key]);
@@ -163,6 +164,12 @@ class MehGame {
                 Sound.play('click');
                 this.refreshSettingsUI();
             };
+            row.onclick = toggleSetting;
+            row.onkeydown = (event) => {
+                if (event.key !== 'Enter' && event.key !== ' ') return;
+                event.preventDefault();
+                toggleSetting();
+            };
         });
     }
 
@@ -171,7 +178,9 @@ class MehGame {
             b.classList.toggle('active', b.dataset.lang === this.settings.lang));
         document.querySelectorAll('.toggle-row').forEach(row => {
             const key = row.dataset.setting;
-            row.querySelector('.switch').classList.toggle('on', !!this.settings[key]);
+            const enabled = !!this.settings[key];
+            row.querySelector('.switch').classList.toggle('on', enabled);
+            row.setAttribute('aria-checked', String(enabled));
         });
     }
 
@@ -219,12 +228,19 @@ class MehGame {
         this._pendingAvatar = this._pendingAvatar || AVATARS[0];
         AVATARS.forEach(a => {
             const b = document.createElement('button');
+            b.type = 'button';
             b.className = 'avatar-option' + (a === this._pendingAvatar ? ' selected' : '');
             b.textContent = a;
+            b.setAttribute('aria-label', `${I18n.t('choose_avatar')}: ${a}`);
+            b.setAttribute('aria-pressed', String(a === this._pendingAvatar));
             b.onclick = () => {
                 this._pendingAvatar = a;
-                wrap.querySelectorAll('.avatar-option').forEach(x => x.classList.remove('selected'));
+                wrap.querySelectorAll('.avatar-option').forEach(x => {
+                    x.classList.remove('selected');
+                    x.setAttribute('aria-pressed', 'false');
+                });
                 b.classList.add('selected');
+                b.setAttribute('aria-pressed', 'true');
             };
             wrap.appendChild(b);
         });
@@ -243,12 +259,18 @@ class MehGame {
             const name = this._safePlayerName(p.name) || I18n.t('guest');
             const wins = Number.isSafeInteger(s.wins) && s.wins >= 0 ? s.wins : 0;
             const games = Number.isSafeInteger(s.games) && s.games >= 0 ? s.games : 0;
+            const chooseButton = document.createElement('button');
+            chooseButton.type = 'button';
+            chooseButton.className = 'profile-select';
+            chooseButton.setAttribute('aria-label', `${I18n.t('select_profile')}: ${name}`);
             const deleteButton = this._createTextElement('button', 'profile-del', '🗑️');
             deleteButton.type = 'button';
             deleteButton.title = 'delete';
-            item.appendChild(this._createTextElement('span', 'profile-avatar', avatar));
-            item.appendChild(this._createTextElement('span', 'profile-name', name));
-            item.appendChild(this._createTextElement('span', 'profile-stats', `🏆 ${wins} · 🎮 ${games}`));
+            deleteButton.setAttribute('aria-label', `${I18n.t('delete_profile')}: ${name}`);
+            chooseButton.appendChild(this._createTextElement('span', 'profile-avatar', avatar));
+            chooseButton.appendChild(this._createTextElement('span', 'profile-name', name));
+            chooseButton.appendChild(this._createTextElement('span', 'profile-stats', `🏆 ${wins} · 🎮 ${games}`));
+            item.appendChild(chooseButton);
             item.appendChild(deleteButton);
             deleteButton.onclick = (e) => {
                 e.stopPropagation();
@@ -259,13 +281,14 @@ class MehGame {
                 }
                 this.renderProfileList();
             };
-            item.onclick = () => {
+            const chooseProfile = () => {
                 Storage.setCurrentProfile(p.id);
                 this.humanProfile = p;
                 this.updateMenuChip();
                 this.showScreen('main-menu');
                 this.showToast(I18n.t('welcome', { name: p.name }));
             };
+            chooseButton.onclick = chooseProfile;
             list.appendChild(item);
         });
     }
@@ -296,8 +319,10 @@ class MehGame {
         const toggle = document.getElementById('emoji-toggle-btn');
         EMOJIS.forEach(e => {
             const b = document.createElement('button');
+            b.type = 'button';
             b.className = 'emoji-btn';
             b.textContent = e;
+            b.setAttribute('aria-label', `${I18n.t('send_emoji')}: ${e}`);
             b.onclick = () => {
                 spawnEmoji(e, 'human');
                 bar.classList.add('hidden');
@@ -822,11 +847,11 @@ class MehGame {
         const send = (value) => Net.send({ t: 'choice', promptId: prompt.promptId, value });
         if (prompt.kind === 'color') {
             this.isAwaitingColor = false;
-            UI.colorPicker.classList.remove('hidden');
+            this.setDialogOpen(UI.colorPicker, true);
             document.querySelectorAll('.color-btn').forEach(b => {
                 b.onclick = () => {
                     if (!ONLINE_COLORS.includes(b.dataset.color)) return;
-                    UI.colorPicker.classList.add('hidden');
+                    this.setDialogOpen(UI.colorPicker, false);
                     send(b.dataset.color);
                 };
             });
@@ -839,10 +864,10 @@ class MehGame {
             prompt.options.forEach(o => {
                 const btn = document.createElement('button');
                 btn.type = 'button'; btn.className = 'picker-btn'; btn.textContent = o.name;
-                btn.onclick = () => { UI.playerPicker.classList.add('hidden'); send(o.idx); };
+                btn.onclick = () => { this.setDialogOpen(UI.playerPicker, false); send(o.idx); };
                 UI.playerPickerList.appendChild(btn);
             });
-            UI.playerPicker.classList.remove('hidden');
+            this.setDialogOpen(UI.playerPicker, true);
         } else if (prompt.kind === 'card') {
             const heading = UI.playerPicker && UI.playerPicker.querySelector('h3');
             if (heading) heading.textContent = prompt.title;
@@ -850,10 +875,10 @@ class MehGame {
             prompt.options.forEach(option => {
                 const btn = document.createElement('button');
                 btn.type = 'button'; btn.className = 'picker-btn'; btn.textContent = option.name;
-                btn.onclick = () => { UI.playerPicker.classList.add('hidden'); send(option.id); };
+                btn.onclick = () => { this.setDialogOpen(UI.playerPicker, false); send(option.id); };
                 UI.playerPickerList.appendChild(btn);
             });
-            UI.playerPicker.classList.remove('hidden');
+            this.setDialogOpen(UI.playerPicker, true);
         }
         return true;
     }
@@ -1111,6 +1136,7 @@ class MehGame {
         this.isAwaitingColor = false;
         if (this.selectedCardIndex >= (this.players[0].hand.length)) this.selectedCardIndex = -1;
         this.updateUI();
+        if (this.humanCanPlay) this.focusTurnAction();
         return true;
     }
 
@@ -1227,7 +1253,7 @@ class MehGame {
         document.getElementById('dev-color-btn').onclick = () => {
             if (!this.topCard) return;
             this.isAwaitingColor = true;
-            UI.colorPicker.classList.remove('hidden');
+            this.setDialogOpen(UI.colorPicker, true);
             this.showToast('اختر لوناً جديداً 🎨');
         };
         document.getElementById('dev-draw-btn').onclick = () => {
@@ -1249,8 +1275,50 @@ class MehGame {
     }
 
     showScreen(id) {
-        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-        document.getElementById(id).classList.add('active');
+        const target = document.getElementById(id);
+        if (!target) return;
+        document.querySelectorAll('.screen').forEach(screen => {
+            const isActive = screen === target;
+            screen.classList.toggle('active', isActive);
+            screen.inert = !isActive;
+            screen.toggleAttribute('inert', !isActive);
+            screen.setAttribute('aria-hidden', String(!isActive));
+        });
+        this.focusScreen(target);
+    }
+
+    syncScreenAccessibility() {
+        document.querySelectorAll('.screen').forEach(screen => {
+            const isActive = screen.classList.contains('active');
+            screen.inert = !isActive;
+            screen.toggleAttribute('inert', !isActive);
+            screen.setAttribute('aria-hidden', String(!isActive));
+        });
+    }
+
+    setDialogOpen(dialog, isOpen) {
+        if (!dialog) return;
+        dialog.classList.toggle('hidden', !isOpen);
+        dialog.inert = !isOpen;
+        dialog.toggleAttribute('inert', !isOpen);
+        dialog.setAttribute('aria-hidden', String(!isOpen));
+        if (!isOpen) return;
+        const firstControl = dialog.querySelector('button:not([disabled])');
+        if (firstControl) firstControl.focus();
+    }
+
+    focusScreen(screen) {
+        const heading = screen.querySelector('h1, h2');
+        const target = heading || screen.querySelector('button:not([disabled]), input:not([disabled])');
+        if (!target) return;
+        if (heading) heading.setAttribute('tabindex', '-1');
+        target.focus();
+    }
+
+    focusTurnAction() {
+        const playableCard = document.querySelector('#human-hand .card.playable:not([disabled])');
+        const target = playableCard || UI.drawPile;
+        if (target && !target.disabled) target.focus();
     }
 
     startGame() {
@@ -1441,6 +1509,7 @@ class MehGame {
                 }, 1200);
             } else {
                 this.startTurnTimer();
+                this.focusTurnAction();
             }
         }
     }
@@ -1497,6 +1566,8 @@ class MehGame {
         this.selectedCardIndex = index;
         this.updateUI();
         UI.confirmBar.classList.remove('hidden');
+        const confirmButton = document.getElementById('confirm-play-btn');
+        if (confirmButton) confirmButton.focus();
     }
     confirmSelectedCard() {
         if (this.selectedCardIndex < 0 || !this.humanCanPlay) return;
@@ -1516,6 +1587,7 @@ class MehGame {
         this.selectedCardIndex = -1;
         this.hideConfirmBar();
         this.updateUI();
+        this.focusTurnAction();
     }
     hideConfirmBar() {
         if (UI.confirmBar) UI.confirmBar.classList.add('hidden');
@@ -1814,7 +1886,7 @@ class MehGame {
 
         if (kind === 'color') {
             this.isAwaitingColor = true;
-            UI.colorPicker.classList.remove('hidden');
+            this.setDialogOpen(UI.colorPicker, true);
             this._colorCallback = resolve;
             return;
         }
@@ -1828,12 +1900,12 @@ class MehGame {
                 btn.className = 'picker-btn';
                 btn.textContent = option.name;
                 btn.onclick = () => {
-                    UI.playerPicker.classList.add('hidden');
+                    this.setDialogOpen(UI.playerPicker, false);
                     resolve(option.idx);
                 };
                 UI.playerPickerList.appendChild(btn);
             });
-            UI.playerPicker.classList.remove('hidden');
+            this.setDialogOpen(UI.playerPicker, true);
             return;
         }
         if (kind === 'choice') {
@@ -1851,8 +1923,12 @@ class MehGame {
                 if (!option) return;
                 element.classList.add('playable');
                 element.classList.remove('disabled');
+                element.disabled = false;
+                element.setAttribute('aria-label', `${I18n.t('choose_card')}: ${option.name}`);
                 element.onclick = () => resolve(option.id);
             });
+            const firstCard = container.querySelector('.card.playable');
+            if (firstCard) firstCard.focus();
         }
     }
 
@@ -1880,7 +1956,7 @@ class MehGame {
         this.requestEffectDecision(player, 'color', {}, (color) => {
             this.activeColor = ONLINE_COLORS.includes(color) ? color : ONLINE_COLORS[0];
             this.isAwaitingColor = false;
-            if (UI.colorPicker) UI.colorPicker.classList.add('hidden');
+            this.setDialogOpen(UI.colorPicker, false);
             this.showToast(I18n.t('chose_color', {
                 name: player.name,
                 color: I18n.colorName(this.activeColor),
@@ -1892,7 +1968,7 @@ class MehGame {
 
     handleColorPicked(color) {
         if (!ONLINE_COLORS.includes(color)) return;
-        if (UI.colorPicker) UI.colorPicker.classList.add('hidden');
+        this.setDialogOpen(UI.colorPicker, false);
         this.isAwaitingColor = false;
         this.updateUI();
         if (this._colorCallback) {
@@ -2044,9 +2120,9 @@ class MehGame {
         const btns = modal.querySelectorAll('.choice-btn');
         btns[0].innerText = opt1Text;
         btns[1].innerText = opt2Text;
-        btns[0].onclick = () => { modal.classList.add('hidden'); cb1(); };
-        btns[1].onclick = () => { modal.classList.add('hidden'); cb2(); };
-        modal.classList.remove('hidden');
+        btns[0].onclick = () => { this.setDialogOpen(modal, false); cb1(); };
+        btns[1].onclick = () => { this.setDialogOpen(modal, false); cb2(); };
+        this.setDialogOpen(modal, true);
     }
 
     endGame(winner) {
@@ -2102,7 +2178,9 @@ class MehGame {
 
     // ========== RENDERING ==========
     createCardElement(card, isHidden = false, playable = false, index = -1) {
-        const div = document.createElement('div');
+        const isHumanCard = !isHidden && !!card && index !== -1;
+        const div = document.createElement(isHumanCard ? 'button' : 'div');
+        if (isHumanCard) div.type = 'button';
         let cls = 'card';
         if (isHidden) { cls += ' back'; }
         else if (card) { cls += ` ${card.color}`; }
@@ -2111,7 +2189,13 @@ class MehGame {
         div.className = cls;
 
         if (!isHidden && card) {
+            if (isHumanCard) {
+                div.disabled = !playable;
+                div.setAttribute('aria-label', I18n.cardName(card));
+                div.setAttribute('aria-pressed', String(index === this.selectedCardIndex));
+            }
             const img = document.createElement('img');
+            img.alt = '';
             img.src = card.svgFile;
             img.style.width = '100%';
             img.style.height = '100%';
@@ -2169,6 +2253,13 @@ class MehGame {
     }
 
     updateUI() {
+        const canDraw = this.currentPlayerIndex === 0 && this.humanCanPlay
+            && !this.isAwaitingColor && !this.actionInProgress;
+        if (UI.drawPile) {
+            UI.drawPile.disabled = !canDraw;
+            UI.drawPile.setAttribute('aria-label', I18n.t('draw_card'));
+        }
+
         // Discard pile
         UI.discardPile.replaceChildren();
         if (this.discardPile.length > 1) {

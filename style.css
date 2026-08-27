@@ -255,6 +255,7 @@ html[dir="ltr"] .btn { letter-spacing: .5px; }
 /* ===== CARDS ===== */
 .card {
   width: 115px; height: 168px;
+  padding: 0; appearance: none; font: inherit;
   border-radius: 16px;
   /* إطار عاجي موحّد لكل البطاقات → اتساق بصري */
   border: 3px solid #f4ecd7;
@@ -309,7 +310,8 @@ html[dir="ltr"] .btn { letter-spacing: .5px; }
   cursor: pointer;
   box-shadow: 0 0 20px rgba(251,191,36,.7), 0 6px 20px rgba(0,0,0,0.5);
 }
-.human-hand .card.playable:hover {
+.human-hand .card.playable:hover,
+.human-hand .card.playable:focus-visible {
   transform: translateY(-40px) scale(1.14) rotate(0deg) !important;
   z-index: 100 !important;
   box-shadow: 0 20px 40px rgba(0,0,0,.6), 0 0 30px rgba(251,191,36,.5);
@@ -329,7 +331,9 @@ html[dir="ltr"] .btn { letter-spacing: .5px; }
   box-shadow: inset 0 0 0 2px rgba(255,255,255,0.07), inset 0 0 30px rgba(0,0,0,0.35);
 }
 #draw-pile { transition: transform .2s; }
-#draw-pile:hover { transform: scale(1.06) translateY(-5px); }
+#draw-pile:not(:disabled):hover,
+#draw-pile:not(:disabled):focus-visible { transform: scale(1.06) translateY(-5px); }
+#draw-pile:disabled { cursor: not-allowed; filter: brightness(.65); }
 #discard-pile .card { position: absolute; top: 0; left: 0; }
 
 /* Turn indicator */
@@ -393,7 +397,8 @@ html[dir="ltr"] .btn { letter-spacing: .5px; }
   transition: transform .2s, box-shadow .2s;
   box-shadow: 0 4px 15px rgba(0,0,0,0.4);
 }
-.color-btn:hover { transform: scale(1.25); box-shadow: 0 8px 25px rgba(0,0,0,0.5); }
+.color-btn:hover,
+.color-btn:focus-visible { transform: scale(1.25); box-shadow: 0 8px 25px rgba(0,0,0,0.5); }
 .color-btn.orange { background: var(--orange); }
 .color-btn.gray   { background: var(--gray); }
 .color-btn.purple { background: var(--purple); }
@@ -404,7 +409,8 @@ html[dir="ltr"] .btn { letter-spacing: .5px; }
   font-size: 1.1rem; transition: all .2s;
   font-family: 'Tajawal', sans-serif;
 }
-.picker-btn:hover { background: var(--gold); color: #1a0000; transform: scale(1.05); }
+.picker-btn:hover,
+.picker-btn:focus-visible { background: var(--gold); color: #1a0000; transform: scale(1.05); }
 .choice-btn { width: 100%; }
 
 /* ===== END SCREEN ===== */
@@ -572,6 +578,7 @@ html[dir="ltr"] .btn { letter-spacing: .5px; }
 .setting-row label { font-size: 1.05rem; font-weight: 700; color: #fff; }
 .setting-row small { display: block; color: rgba(255,255,255,0.55); font-size: .8rem; margin-top: 3px; }
 .toggle-row { cursor: pointer; }
+.toggle-row:focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; border-radius: 10px; }
 
 .lang-toggle { display: flex; gap: 8px; }
 .lang-btn {
@@ -601,10 +608,15 @@ html[dir="ltr"] .btn { letter-spacing: .5px; }
 .profile-item {
   display: flex; align-items: center; gap: 12px;
   background: rgba(255,255,255,0.06); border: 2px solid rgba(255,255,255,0.1);
-  border-radius: 14px; padding: 12px 16px; cursor: pointer; transition: all .2s;
+  border-radius: 14px; padding: 6px 10px; transition: all .2s;
 }
 .profile-item:hover { background: rgba(255,255,255,0.12); border-color: var(--gold); }
 .profile-item.current { border-color: var(--gold); box-shadow: 0 0 15px rgba(251,191,36,.3); }
+.profile-select {
+  display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0;
+  padding: 6px; background: none; border: none; color: inherit; cursor: pointer;
+  font: inherit; text-align: start;
+}
 .profile-item .profile-avatar { font-size: 1.8rem; }
 .profile-item .profile-name { font-weight: 900; font-size: 1.1rem; flex: 1; color: #fff; }
 .profile-item .profile-stats { color: rgba(255,255,255,0.6); font-size: .85rem; }
@@ -620,7 +632,7 @@ html[dir="ltr"] .btn { letter-spacing: .5px; }
   background: rgba(255,255,255,0.08); color: #fff; font-size: 1.1rem;
   font-family: 'Tajawal', sans-serif; text-align: center;
 }
-.profile-input:focus { outline: none; border-color: var(--gold); }
+.profile-input:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; border-color: var(--gold); }
 .avatar-label { text-align: center; color: rgba(255,255,255,0.7); font-size: .9rem; }
 .avatar-picker { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; }
 .avatar-option {
@@ -727,6 +739,21 @@ html[dir="ltr"] .btn { letter-spacing: .5px; }
 .emoji-btn {
   font-size: 1.6rem; background: none; border: none; cursor: pointer;
   padding: 6px; border-radius: 10px; transition: all .15s;
+}
+
+/* مؤشر موحّد وواضح لكل عناصر التحكم عند التنقّل بلوحة المفاتيح */
+.btn:focus-visible,
+.corner-btn:focus-visible,
+.lang-btn:focus-visible,
+.avatar-option:focus-visible,
+.profile-select:focus-visible,
+.profile-del:focus-visible,
+.copy-code-btn:focus-visible,
+.emoji-toggle-btn:focus-visible,
+.emoji-btn:focus-visible,
+.dev-toggle-btn:focus-visible {
+  outline: 3px solid var(--gold);
+  outline-offset: 3px;
 }
 .emoji-btn:hover { background: rgba(255,255,255,0.15); transform: scale(1.2); }
 .emoji-float {

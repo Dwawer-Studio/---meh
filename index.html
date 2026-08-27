@@ -18,7 +18,7 @@
                 <h2 data-i18n="profile_title">👤 الأعضاء</h2>
                 <p class="profile-hint" data-i18n="select_profile">اختر عضواً للعب</p>
                 <div id="profile-list" class="profile-list"></div>
-                <button id="show-create-profile" class="btn secondary-btn" data-i18n="create_profile">➕ عضو جديد</button>
+                <button id="show-create-profile" class="btn secondary-btn" type="button" data-i18n="create_profile">➕ عضو جديد</button>
 
                 <!-- نموذج إنشاء عضو -->
                 <div id="create-profile-form" class="create-profile-form hidden">
@@ -26,17 +26,17 @@
                            data-i18n-attr="placeholder:enter_name" placeholder="اكتب اسمك">
                     <p class="avatar-label" data-i18n="choose_avatar">اختر صورتك</p>
                     <div id="avatar-picker" class="avatar-picker"></div>
-                    <button id="save-profile-btn" class="btn primary-btn" data-i18n="save">حفظ</button>
+                    <button id="save-profile-btn" class="btn primary-btn" type="button" data-i18n="save">حفظ</button>
                 </div>
 
-                <button id="profile-back-btn" class="btn secondary-btn" data-i18n="back">🔙 رجوع</button>
+                <button id="profile-back-btn" class="btn secondary-btn" type="button" data-i18n="back">🔙 رجوع</button>
             </div>
         </div>
 
         <!-- ===== القائمة الرئيسية ===== -->
         <div id="main-menu" class="screen active">
             <div class="particles" id="particles"></div>
-            <button id="menu-settings-btn" class="corner-btn" title="settings">⚙️</button>
+            <button id="menu-settings-btn" class="corner-btn" type="button" title="settings" aria-label="الإعدادات" data-i18n-attr="aria-label:settings">⚙️</button>
             <div class="menu-content">
                 <div class="logo-container">
                     <div class="logo-icon"><img src="assets/cards/card-back.webp" alt="Card Back" style="height: 120px; border-radius: 12px; box-shadow: 0 10px 20px rgba(0,0,0,0.5);"></div>
@@ -45,16 +45,16 @@
                 </div>
                 <div id="current-player-chip" class="current-player-chip hidden"></div>
                 <div class="menu-buttons">
-                    <button id="play-btn" class="btn primary-btn">
+                    <button id="play-btn" class="btn primary-btn" type="button">
                         <span>🎮</span> <span data-i18n="play">العب</span>
                     </button>
-                    <button id="online-btn" class="btn primary-btn">
+                    <button id="online-btn" class="btn primary-btn" type="button">
                         <span>🌐</span> <span data-i18n="online_play">أونلاين</span>
                     </button>
-                    <button id="instructions-btn" class="btn secondary-btn">
+                    <button id="instructions-btn" class="btn secondary-btn" type="button">
                         <span>📖</span> <span data-i18n="instructions">التعليمات</span>
                     </button>
-                    <button id="players-btn" class="btn secondary-btn">
+                    <button id="players-btn" class="btn secondary-btn" type="button">
                         <span>👤</span> <span data-i18n="profiles">الأعضاء</span>
                     </button>
                 </div>
@@ -88,7 +88,7 @@
                         <div class="card-rules" id="power-cards-list"></div>
                     </div>
                 </div>
-                <button id="back-btn" class="btn secondary-btn" data-i18n="back">🔙 رجوع</button>
+                <button id="back-btn" class="btn secondary-btn" type="button" data-i18n="back">🔙 رجوع</button>
             </div>
         </div>
 
@@ -100,37 +100,37 @@
                     <div class="setting-row">
                         <label data-i18n="lang_label">🌐 اللغة</label>
                         <div class="lang-toggle">
-                            <button class="lang-btn" data-lang="ar">العربية</button>
-                            <button class="lang-btn" data-lang="en">English</button>
+                            <button class="lang-btn" type="button" data-lang="ar">العربية</button>
+                            <button class="lang-btn" type="button" data-lang="en">English</button>
                         </div>
                     </div>
-                    <div class="setting-row toggle-row" data-setting="colorblind">
+                    <div class="setting-row toggle-row" data-setting="colorblind" role="switch" tabindex="0" aria-checked="false">
                         <div><label data-i18n="colorblind_label">👁️ مراعاة عمى الألوان</label>
                              <small data-i18n="colorblind_desc"></small></div>
                         <div class="switch"><span class="knob"></span></div>
                     </div>
-                    <div class="setting-row toggle-row" data-setting="batterySaver">
+                    <div class="setting-row toggle-row" data-setting="batterySaver" role="switch" tabindex="0" aria-checked="false">
                         <div><label data-i18n="battery_label">🔋 وضع توفير البطارية</label>
                              <small data-i18n="battery_desc"></small></div>
                         <div class="switch"><span class="knob"></span></div>
                     </div>
-                    <div class="setting-row toggle-row" data-setting="wakeLock">
+                    <div class="setting-row toggle-row" data-setting="wakeLock" role="switch" tabindex="0" aria-checked="false">
                         <div><label data-i18n="wakelock_label">☀️ منع نوم الشاشة</label>
                              <small data-i18n="wakelock_desc"></small></div>
                         <div class="switch"><span class="knob"></span></div>
                     </div>
-                    <div class="setting-row toggle-row" data-setting="confirmPlay">
+                    <div class="setting-row toggle-row" data-setting="confirmPlay" role="switch" tabindex="0" aria-checked="false">
                         <div><label data-i18n="confirm_label">✋ تأكيد قبل رمي البطاقة</label>
                              <small data-i18n="confirm_desc"></small></div>
                         <div class="switch"><span class="knob"></span></div>
                     </div>
-                    <div class="setting-row toggle-row" data-setting="sound">
+                    <div class="setting-row toggle-row" data-setting="sound" role="switch" tabindex="0" aria-checked="false">
                         <div><label data-i18n="sound_label">🔊 المؤثرات الصوتية</label>
                              <small data-i18n="sound_desc"></small></div>
                         <div class="switch"><span class="knob"></span></div>
                     </div>
                 </div>
-                <button id="settings-back-btn" class="btn primary-btn" data-i18n="done">تم</button>
+                <button id="settings-back-btn" class="btn primary-btn" type="button" data-i18n="done">تم</button>
             </div>
         </div>
 
@@ -140,16 +140,16 @@
                 <h2 data-i18n="online_title">🌐 اللعب أونلاين</h2>
                 <p class="profile-hint" data-i18n="online_hint">العب مع أصدقائك بكود غرفة</p>
 
-                <button id="create-room-btn" class="btn primary-btn"><span data-i18n="create_room">➕ إنشاء غرفة</span></button>
+                <button id="create-room-btn" class="btn primary-btn" type="button"><span data-i18n="create_room">➕ إنشاء غرفة</span></button>
 
                 <div class="online-divider"><span data-i18n="or">أو</span></div>
 
                 <input id="room-code-input" class="profile-input room-code-input" type="text" maxlength="5"
                        data-i18n-attr="placeholder:enter_room_code" placeholder="اكتب كود الغرفة" autocomplete="off">
-                <button id="join-room-btn" class="btn secondary-btn"><span data-i18n="join_room">🚪 دخول غرفة</span></button>
+                <button id="join-room-btn" class="btn secondary-btn" type="button"><span data-i18n="join_room">🚪 دخول غرفة</span></button>
 
                 <p id="online-status" class="online-status"></p>
-                <button id="online-back-btn" class="btn secondary-btn" data-i18n="back">🔙 رجوع</button>
+                <button id="online-back-btn" class="btn secondary-btn" type="button" data-i18n="back">🔙 رجوع</button>
             </div>
         </div>
 
@@ -160,13 +160,13 @@
                 <div class="room-code-box">
                     <span data-i18n="room_code">كود الغرفة</span>
                     <strong id="lobby-room-code">-----</strong>
-                    <button id="copy-code-btn" class="copy-code-btn" title="copy">📋</button>
+                    <button id="copy-code-btn" class="copy-code-btn" type="button" title="copy" aria-label="نسخ كود الغرفة" data-i18n-attr="aria-label:copy_code">📋</button>
                 </div>
                 <p class="profile-hint" data-i18n="lobby_hint">شارك الكود مع أصدقائك لينضمّوا</p>
                 <div id="lobby-players" class="lobby-players"></div>
-                <button id="lobby-start-btn" class="btn primary-btn hidden" data-i18n="start_game">▶️ ابدأ اللعبة</button>
+                <button id="lobby-start-btn" class="btn primary-btn hidden" type="button" data-i18n="start_game">▶️ ابدأ اللعبة</button>
                 <p id="lobby-wait" class="online-status" data-i18n="waiting_host">بانتظار أن يبدأ المضيف...</p>
-                <button id="lobby-leave-btn" class="btn secondary-btn" data-i18n="leave">🚪 خروج</button>
+                <button id="lobby-leave-btn" class="btn secondary-btn" type="button" data-i18n="leave">🚪 خروج</button>
             </div>
         </div>
 
@@ -209,42 +209,42 @@
                 <!-- مؤشّر اتجاه اللعب (سهمان يدوران) -->
                 <div class="dir-ring" id="dir-ring"><span class="dir-arrow a1">➤</span><span class="dir-arrow a2">➤</span></div>
                 <div class="table-content">
-                    <div id="draw-pile" class="pile card back">
+                    <button id="draw-pile" class="pile card back" type="button" aria-label="اسحب بطاقة" data-i18n-attr="aria-label:draw_card" disabled>
                         <span class="card-back-text">مِهْ</span>
-                    </div>
+                    </button>
                     <div id="discard-pile" class="pile"></div>
                 </div>
-                <div id="turn-indicator"><span data-i18n="turn">دور:</span> <span id="current-player-name">أنت</span></div>
+                <div id="turn-indicator" aria-live="polite" aria-atomic="true"><span data-i18n="turn">دور:</span> <span id="current-player-name">أنت</span></div>
                 <div id="turn-timer" class="hidden"><div id="turn-timer-bar"></div></div>
                 <div id="color-indicator" class="color-indicator"></div>
-                <div id="game-message" class="hidden"></div>
+                <div id="game-message" class="hidden" role="alert"></div>
 
                 <!-- مودال اختيار اللون -->
-                <div id="color-picker" class="modal-overlay hidden">
+                <div id="color-picker" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="color-picker-title" aria-hidden="true" inert>
                     <div class="modal-box">
-                        <h3 data-i18n="choose_color">اختر لوناً</h3>
+                        <h3 id="color-picker-title" data-i18n="choose_color">اختر لوناً</h3>
                         <div class="color-options">
-                            <div class="color-btn orange" data-color="orange"></div>
-                            <div class="color-btn gray" data-color="gray"></div>
-                            <div class="color-btn purple" data-color="purple"></div>
+                            <button class="color-btn orange" type="button" data-color="orange" aria-label="برتقالي" data-i18n-attr="aria-label:orange"></button>
+                            <button class="color-btn gray" type="button" data-color="gray" aria-label="رمادي" data-i18n-attr="aria-label:gray"></button>
+                            <button class="color-btn purple" type="button" data-color="purple" aria-label="بنفسجي" data-i18n-attr="aria-label:purple"></button>
                         </div>
                     </div>
                 </div>
 
                 <!-- مودال اختيار لاعب -->
-                <div id="player-picker" class="modal-overlay hidden">
+                <div id="player-picker" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="player-picker-title" aria-hidden="true" inert>
                     <div class="modal-box">
-                        <h3 data-i18n="choose_player">اختر لاعباً</h3>
+                        <h3 id="player-picker-title" data-i18n="choose_player">اختر لاعباً</h3>
                         <div id="player-picker-list"></div>
                     </div>
                 </div>
 
                 <!-- مودال الاختيارات -->
-                <div id="choice-modal" class="modal-overlay hidden">
+                <div id="choice-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="choice-modal-title" aria-hidden="true" inert>
                     <div class="modal-box">
-                        <h3 data-i18n="choose">اختر</h3>
-                        <button class="choice-btn btn primary-btn">خيار 1</button>
-                        <button class="choice-btn btn secondary-btn">خيار 2</button>
+                        <h3 id="choice-modal-title" data-i18n="choose">اختر</h3>
+                        <button class="choice-btn btn primary-btn" type="button">خيار 1</button>
+                        <button class="choice-btn btn secondary-btn" type="button">خيار 2</button>
                     </div>
                 </div>
             </div>
@@ -263,24 +263,24 @@
 
             <!-- شريط تأكيد رمي البطاقة -->
             <div id="confirm-bar" class="confirm-bar hidden">
-                <button id="confirm-play-btn" class="btn primary-btn" data-i18n="confirm_play">✓ ارمِ</button>
-                <button id="cancel-play-btn" class="btn secondary-btn" data-i18n="cancel">✗ إلغاء</button>
+                <button id="confirm-play-btn" class="btn primary-btn" type="button" data-i18n="confirm_play">✓ ارمِ</button>
+                <button id="cancel-play-btn" class="btn secondary-btn" type="button" data-i18n="cancel">✗ إلغاء</button>
             </div>
 
             <!-- زر وشريط الإيموجي -->
-            <button id="emoji-toggle-btn" class="emoji-toggle-btn" title="emoji">😊</button>
+            <button id="emoji-toggle-btn" class="emoji-toggle-btn" type="button" title="emoji" aria-label="أرسل إيموجي" data-i18n-attr="aria-label:send_emoji">😊</button>
             <div id="emoji-bar" class="emoji-bar hidden"></div>
 
             <!-- ===== لوحة تحكم المطور ===== -->
-            <button id="dev-toggle-btn" class="dev-toggle-btn">⚙️</button>
+            <button id="dev-toggle-btn" class="dev-toggle-btn" type="button" aria-label="لوحة المطور" data-i18n-attr="aria-label:developer_panel">⚙️</button>
             <div id="dev-panel" class="dev-panel hidden">
                 <h3>🛠️ لوحة التحكم</h3>
                 <div class="dev-buttons">
-                    <button id="dev-reveal-btn" class="btn dev-btn">👁️ كشف الأوراق</button>
-                    <button id="dev-skip-btn" class="btn dev-btn">⏩ تخطي الدور</button>
-                    <button id="dev-color-btn" class="btn dev-btn">🎨 تغيير اللون</button>
-                    <button id="dev-draw-btn" class="btn dev-btn">🃏 سحب بطاقات</button>
-                    <button id="dev-win-btn" class="btn dev-btn">🏆 فوز فوري</button>
+                    <button id="dev-reveal-btn" class="btn dev-btn" type="button">👁️ كشف الأوراق</button>
+                    <button id="dev-skip-btn" class="btn dev-btn" type="button">⏩ تخطي الدور</button>
+                    <button id="dev-color-btn" class="btn dev-btn" type="button">🎨 تغيير اللون</button>
+                    <button id="dev-draw-btn" class="btn dev-btn" type="button">🃏 سحب بطاقات</button>
+                    <button id="dev-win-btn" class="btn dev-btn" type="button">🏆 فوز فوري</button>
                 </div>
             </div>
         </div>
@@ -291,13 +291,13 @@
                 <div class="trophy">🏆</div>
                 <h1 id="winner-text">مبروك فزت!</h1>
                 <div id="end-stats" class="end-stats"></div>
-                <button id="restart-btn" class="btn primary-btn" data-i18n="play_again">🔄 العب مرة ثانية</button>
-                <button id="end-menu-btn" class="btn secondary-btn" data-i18n="main_menu">🏠 القائمة الرئيسية</button>
+                <button id="restart-btn" class="btn primary-btn" type="button" data-i18n="play_again">🔄 العب مرة ثانية</button>
+                <button id="end-menu-btn" class="btn secondary-btn" type="button" data-i18n="main_menu">🏠 القائمة الرئيسية</button>
             </div>
         </div>
 
         <!-- التنبيهات -->
-        <div id="toast-container"></div>
+        <div id="toast-container" aria-live="polite" aria-atomic="true"></div>
     </div>
 
     <script

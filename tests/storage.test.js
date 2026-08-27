@@ -18,6 +18,7 @@ function appDocument() {
     const elements = new Map();
     const makeElement = () => {
         const classes = new Set();
+        const attributes = new Map();
         const element = {
             children: [],
             className: '',
@@ -39,6 +40,8 @@ function appDocument() {
                 contains(name) { return classes.has(name); },
             },
             addEventListener() {},
+            setAttribute(name, value) { attributes.set(name, String(value)); },
+            getAttribute(name) { return attributes.get(name) ?? null; },
             appendChild(child) { this.children.push(child); return child; },
             replaceChildren(...children) { this.children = children; },
             querySelector() { return makeElement(); },

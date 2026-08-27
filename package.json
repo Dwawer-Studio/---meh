@@ -23,7 +23,7 @@
     "test:smoke": "node --test tests/smoke.test.js tests/storage.test.js tests/game-flow.test.js"
   },
   "engines": {
-    "node": ">=20"
+    "node": "^22.22.0 || >=24.8.0"
   },
   "devDependencies": {
     "html-validate": "^11.10.0",

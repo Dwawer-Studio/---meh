@@ -8,6 +8,8 @@ const { ROOT } = require('./helpers/load-script');
 
 const ciPath = path.join(ROOT, '.github', 'workflows', 'ci.yml');
 const deployPath = path.join(ROOT, '.github', 'workflows', 'azure-static-web-apps-ashy-sky-0922a8610.yml');
+const packageJson = require(path.join(ROOT, 'package.json'));
+const packageLock = require(path.join(ROOT, 'package-lock.json'));
 
 test('CI runs repository checks without coupling them to deployment', () => {
     assert.ok(fs.existsSync(ciPath), 'the test-only CI workflow must exist');
@@ -23,6 +25,9 @@ test('CI runs repository checks without coupling them to deployment', () => {
     assert.doesNotMatch(workflow, /static-web-apps-deploy/i);
     assert.match(workflow, /actions\/checkout@11d5960a326750d5838078e36cf38b85af677262/);
     assert.match(workflow, /actions\/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020/);
+    assert.match(workflow, /node-version: 24\.8\.0/);
+    assert.equal(packageJson.engines.node, '^22.22.0 || >=24.8.0');
+    assert.equal(packageLock.packages[''].engines.node, packageJson.engines.node);
 });
 
 test('Azure deployment is retained as an explicit manual action only', () => {

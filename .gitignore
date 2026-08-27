@@ -18,13 +18,16 @@ kkk_*.txt
 CLAUDE.md
 STUDIO-README.md
 UPGRADING.md
-docs/
 design/
 production/
-tests/
 prototypes/
-tools/
-src/
+
+# ===== أدوات Node المحلية =====
+node_modules/
+coverage/
+.env
+.env.*
+!.env.example
 
 # ===== ملفات نظام التشغيل =====
 Thumbs.db

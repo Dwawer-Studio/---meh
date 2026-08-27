@@ -57,6 +57,24 @@ cd ---meh
 # افتح index.html بالمتصفّح
 ```
 
+## 🧪 الفحص للمطورين
+
+تحتاج أدوات الفحص إلى Node.js 20 أو أحدث. ثبّت الاعتماديات المقفلة ثم شغّل البوابة الكاملة:
+
+```bash
+npm ci
+npm run check
+```
+
+يمكن تشغيل الأجزاء منفردة عبر `npm run validate` و`npm test` و`npm run test:smoke`
+و`npm run check:assets`. ولإعادة الاختبار من لقطة مؤقتة بلا `node_modules` مسبق:
+
+```bash
+npm run check:clean
+```
+
+تفاصيل خط الأساس والعيوب المسجّلة موجودة في `docs/BASELINE.md`.
+
 ---
 
 <div align="center">

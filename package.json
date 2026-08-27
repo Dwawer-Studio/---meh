@@ -1,0 +1,25 @@
+{
+  "name": "meh-card-game",
+  "version": "0.1.0",
+  "private": true,
+  "description": "لعبة مِهْ مع أدوات فحص واختبارات خط الأساس",
+  "scripts": {
+    "check": "node tools/check-all.js",
+    "check:clean": "node tools/check-clean.js",
+    "check:syntax": "node tools/check-syntax.js",
+    "validate": "npm run validate:html && npm run validate:css",
+    "validate:html": "html-validate index.html",
+    "validate:css": "stylelint style.css",
+    "check:assets": "node --test tests/assets.test.js",
+    "test": "node --test",
+    "test:smoke": "node --test tests/smoke.test.js tests/storage.test.js tests/game-flow.test.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "html-validate": "^11.10.0",
+    "stylelint": "^17.14.1",
+    "stylelint-config-recommended": "^18.0.0"
+  }
+}

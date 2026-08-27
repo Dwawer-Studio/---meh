@@ -969,3 +969,163 @@ body.dealing .bot-hand { opacity: 0; }
 .btn span { display: inline-flex; align-items: center; }
 /* letter-spacing فقط للإنجليزية (يكسر الحروف العربية المتصلة) */
 html[dir="ltr"] .btn { letter-spacing: .5px; }
+
+/* ===== RESPONSIVE — PORTRAIT PHONES ===== */
+@media (max-width: 600px) {
+  body, #app { height: 100dvh; }
+  .screen { position: fixed; }
+
+  .menu-content { width: min(92vw, 360px); }
+  .logo-image { height: 88px; }
+  .game-title { font-size: 5rem; margin: 4px 0; }
+  .game-subtitle { margin-bottom: 18px; font-size: 1rem; }
+  .menu-buttons { gap: 10px; }
+  .btn { min-width: min(240px, calc(100vw - 40px)); padding: 12px 30px; font-size: 1.05rem; }
+
+  .instructions-panel { width: 94%; max-height: 92dvh; padding: 18px; border-radius: 18px; }
+  .instructions-panel h2 { margin-bottom: 12px; font-size: 1.5rem; }
+  .card-rules { grid-template-columns: 1fr; }
+  .avatar-picker { grid-template-columns: repeat(4, 1fr); }
+
+  #game-screen {
+    position: fixed;
+    inset: 0;
+    grid-template-areas:
+      "top    top      top"
+      "left   center   right"
+      "bottom bottom   bottom";
+    grid-template-columns: 68px minmax(0, 1fr) 68px;
+    grid-template-rows: 145px minmax(0, 1fr) 244px;
+    height: 100dvh;
+    box-shadow: inset 0 0 90px 20px rgba(0,0,0,0.5);
+  }
+  #game-screen::after { width: 76vw; height: 38vh; }
+
+  .left-player,
+  .right-player { transform: none; }
+  .player-area { min-width: 0; padding: 2px; }
+  .player-info { gap: 4px; padding: 3px 6px; font-size: .72rem; }
+  .player-avatar { width: 24px; height: 24px; font-size: .9rem; }
+  .player-count { min-width: 21px; height: 21px; padding: 0 4px; font-size: .7rem; }
+  .left-player .player-name,
+  .right-player .player-name { display: none; }
+
+  .bot-hand { width: 52px; height: 76px; margin-top: 6px; }
+  .bot-hand .card {
+    width: 52px; height: 76px;
+    border-width: 2px; border-radius: 7px;
+    transform: none !important;
+  }
+
+  .human-hand-scroll { padding-top: 18px; padding-bottom: 4px; }
+  .human-hand { padding: 0 12px; }
+  .human-hand .card {
+    width: 82px; height: 120px;
+    margin: 0;
+    margin-inline-end: -50px !important;
+    border-width: 2px; border-radius: 11px;
+  }
+  .human-hand .card:last-child { margin-inline-end: 0 !important; }
+  .human-hand .card.playable:hover,
+  .human-hand .card.playable:focus-visible { transform: translateY(-26px) scale(1.08) rotate(0deg) !important; }
+  .human-hand .card.selected { transform: translateY(-30px) scale(1.1) rotate(0deg) !important; }
+
+  .table-content { gap: 20px; }
+  .pile,
+  #discard-pile .card { width: 78px; height: 114px; border-radius: 10px; }
+  #turn-indicator { margin-top: 8px; padding: 6px 12px; font-size: .78rem; }
+  #turn-timer { width: 140px; height: 5px; margin-top: 5px; }
+  .color-indicator { margin-top: 4px; padding: 4px 12px; font-size: .72rem; }
+
+  #player-human { justify-content: flex-end; }
+  #player-human .player-info { margin-bottom: 2px; }
+
+  .table-emblem { width: 72vw; height: 210px; }
+  .dir-ring { top: 50%; transform: scale(.42); }
+  .emoji-toggle-btn { bottom: 8px; inset-inline-end: 8px; width: 42px; height: 42px; font-size: 1.25rem; }
+  .emoji-bar { bottom: 56px; inset-inline-end: 8px; }
+  .confirm-bar { bottom: 8px; gap: 6px; }
+  .confirm-bar .btn { min-width: 94px; padding: 9px 16px; font-size: .9rem; }
+  #game-message { font-size: 2.6rem; text-align: center; }
+}
+
+/* ===== RESPONSIVE — SHORT LANDSCAPE PHONES ===== */
+@media (max-height: 500px) and (orientation: landscape) {
+  body, #app { height: 100dvh; }
+  .screen { position: fixed; }
+
+  .menu-content { width: min(92vw, 520px); }
+  .logo-icon { margin-bottom: 2px; }
+  .logo-image { height: 48px; }
+  .game-title { margin: 0; font-size: 3rem; }
+  .game-subtitle { margin-bottom: 8px; font-size: .8rem; }
+  .menu-buttons { display: grid; grid-template-columns: repeat(2, minmax(150px, 1fr)); gap: 6px; }
+  .btn { min-width: 0; padding: 8px 22px; font-size: .9rem; }
+
+  .instructions-panel { width: 94%; max-height: 94dvh; padding: 12px 18px; border-radius: 16px; }
+  .instructions-panel h2 { margin-bottom: 8px; font-size: 1.3rem; }
+
+  #game-screen {
+    position: fixed;
+    inset: 0;
+    grid-template-areas:
+      "left top    right"
+      "left center right"
+      "left bottom right";
+    grid-template-columns: 140px minmax(0, 1fr) 140px;
+    grid-template-rows: 72px minmax(0, 1fr) 128px;
+    right: 1px;
+    width: auto;
+    height: 100dvh;
+    box-shadow: inset 0 0 90px 20px rgba(0,0,0,0.5);
+  }
+  #game-screen::after { width: 48vw; height: 72vh; }
+
+  .left-player,
+  .right-player { transform: none; }
+  .player-area { min-width: 0; padding: 2px; }
+  .player-info { gap: 4px; padding: 3px 7px; font-size: .72rem; }
+  .player-avatar { width: 24px; height: 24px; font-size: .9rem; }
+  .player-count { min-width: 21px; height: 21px; padding: 0 4px; font-size: .7rem; }
+  .top-player { flex-direction: row; gap: 8px; }
+
+  .human-hand-scroll { width: auto; max-width: 360px; padding: 10px 0 0; }
+  .human-hand { padding: 0 8px; }
+  .human-hand .card {
+    width: 72px; height: 106px;
+    margin: 0;
+    margin-inline-end: -44px !important;
+    border-width: 2px; border-radius: 10px;
+  }
+
+  .bot-hand { width: 56px; height: 82px; margin-top: 6px; }
+  .top-player .bot-hand { width: 44px; height: 64px; margin-top: 0; }
+  .bot-hand .card {
+    width: 56px; height: 82px;
+    border-width: 2px; border-radius: 7px;
+    transform: none !important;
+  }
+  .top-player .bot-hand .card { width: 44px; height: 64px; }
+  .human-hand .card:last-child { margin-inline-end: 0 !important; }
+  .human-hand .card.selected { transform: translateY(-23px) scale(1.08) rotate(0deg) !important; }
+  .human-hand .card.playable:hover,
+  .human-hand .card.playable:focus-visible { transform: translateY(-20px) scale(1.06) rotate(0deg) !important; }
+
+  .table-content { gap: 24px; }
+  .pile,
+  #discard-pile .card { width: 68px; height: 100px; border-radius: 9px; }
+  #turn-indicator { margin-top: 5px; padding: 4px 11px; font-size: .7rem; }
+  #turn-timer { width: 120px; height: 4px; margin-top: 3px; }
+  .color-indicator { margin-top: 3px; padding: 3px 10px; font-size: .65rem; }
+
+  #player-human { flex-direction: row; justify-content: center; gap: 8px; }
+  #player-human .player-info { margin-bottom: 0; }
+
+  .table-emblem { width: 42vw; height: 160px; }
+  .dir-ring { top: 50%; transform: scale(.3); }
+  .emoji-toggle-btn { bottom: 6px; inset-inline-end: 6px; width: 38px; height: 38px; font-size: 1.1rem; }
+  .emoji-bar { bottom: 48px; inset-inline-end: 6px; }
+  .confirm-bar { bottom: 6px; gap: 6px; }
+  .confirm-bar .btn { min-width: 88px; padding: 7px 14px; font-size: .8rem; }
+  #game-message { font-size: 2.2rem; text-align: center; }
+}

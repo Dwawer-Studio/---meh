@@ -9,7 +9,7 @@
     "serve": "node tools/serve.js",
     "check:syntax": "node tools/check-syntax.js",
     "validate": "npm run validate:html && npm run validate:css",
-    "validate:html": "html-validate index.html",
+    "validate:html": "html-validate index.html tests/fixtures/responsive-harness.html",
     "validate:css": "stylelint style.css",
     "check:assets": "node --test tests/assets.test.js",
     "test": "node --test",
@@ -17,6 +17,7 @@
     "test:reliability": "node --test tests/storage.test.js tests/reliability.test.js",
     "test:rules": "node --test tests/game-rules.test.js tests/security-network.test.js",
     "test:quality": "node --test tests/quality.test.js",
+    "test:responsive": "node --test tests/responsive.test.js",
     "test:smoke": "node --test tests/smoke.test.js tests/storage.test.js tests/game-flow.test.js"
   },
   "engines": {

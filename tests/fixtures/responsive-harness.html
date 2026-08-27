@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Meh responsive test harness</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            padding: 16px;
+            display: flex;
+            align-items: flex-start;
+            gap: 16px;
+            width: max-content;
+            color: #fff;
+            background: #111;
+            font: 14px system-ui, sans-serif;
+        }
+        section { display: grid; gap: 8px; }
+        h1 { margin: 0; font-size: 16px; }
+        iframe { border: 2px solid #fbbf24; background: #300; }
+        .portrait { width: 390px; height: 844px; }
+        .landscape { width: 844px; height: 390px; }
+    </style>
+</head>
+<body>
+    <section>
+        <h1>Portrait — 390 × 844</h1>
+        <iframe class="portrait" name="portrait" title="Portrait viewport" src="../../index.html"></iframe>
+    </section>
+    <section>
+        <h1>Landscape — 844 × 390</h1>
+        <iframe class="landscape" name="landscape" title="Landscape viewport" src="../../index.html"></iframe>
+    </section>
+</body>
+</html>

@@ -3,7 +3,7 @@
 module.exports = {
     extends: ['stylelint-config-recommended'],
     rules: {
-        'no-descending-specificity': null,
-        'no-duplicate-selectors': null,
+        'no-descending-specificity': true,
+        'no-duplicate-selectors': true,
     },
 };

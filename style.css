@@ -54,6 +54,11 @@ body {
 }
 .menu-content { text-align: center; z-index: 2; }
 .logo-icon { font-size: 5rem; animation: bounce 2s infinite; margin-bottom: 10px; }
+.logo-image {
+  height: 120px;
+  border-radius: 12px;
+  box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+}
 .game-title {
   font-size: 8rem; font-weight: 900;
   color: #fff;
@@ -79,14 +84,12 @@ html[dir="ltr"] .game-subtitle { letter-spacing: 3px; }
   justify-content: center; min-width: 240px;
 }
 .btn:active { transform: translateY(1px) scale(.99); }
-/* letter-spacing فقط للإنجليزية (يكسر الحروف العربية المتصلة) */
-html[dir="ltr"] .btn { letter-spacing: .5px; }
 .primary-btn {
-  background: linear-gradient(135deg, #fbbf24, #f59e0b);
+  background: linear-gradient(135deg, #fcd34d 0%, #fbbf24 45%, #f59e0b 100%);
   color: #1a0000;
-  box-shadow: 0 8px 30px rgba(251,191,36,.5), inset 0 1px 0 rgba(255,255,255,0.3);
+  box-shadow: 0 8px 26px rgba(251,191,36,.45), 0 2px 0 rgba(180,120,0,.5), inset 0 1px 0 rgba(255,255,255,0.5);
 }
-.primary-btn:hover { transform: translateY(-4px) scale(1.05); box-shadow: 0 14px 40px rgba(251,191,36,.7); }
+.primary-btn:hover { transform: translateY(-3px) scale(1.04); box-shadow: 0 14px 38px rgba(251,191,36,.6); }
 .secondary-btn {
   background: rgba(255,255,255,0.1);
   color: #fff;
@@ -224,15 +227,6 @@ html[dir="ltr"] .btn { letter-spacing: .5px; }
   width: 85px; height: 125px; 
   margin-top: 12px;
 }
-.bot-hand .card {
-  position: absolute;
-  top: 0; left: 0;
-  width: 85px; height: 125px; 
-  border-radius: 10px; 
-  flex-shrink: 0;
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
 /* Human hand - bigger, fan from bottom */
 .human-hand-scroll {
   overflow: visible;            /* مهم: لا قصّ للبطاقات المرتفعة ولا شريط تمرير */
@@ -275,6 +269,14 @@ html[dir="ltr"] .btn { letter-spacing: .5px; }
   color: var(--gold); cursor: pointer;
   border: 3px solid #f4ecd7;
 }
+.bot-hand .card {
+  position: absolute;
+  top: 0; left: 0;
+  width: 85px; height: 125px;
+  border-radius: 10px;
+  flex-shrink: 0;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
 .card-back-text { font-weight: 900; font-size: 0; visibility: hidden; }
 .card-emoji { font-size: 2.2rem; margin-bottom: 4px; filter: drop-shadow(0 2px 4px rgba(0,0,0,.4)); }
 .card-name  { font-size: .68rem; font-weight: 700; text-align: center; line-height: 1.2; text-shadow: 1px 1px 2px rgba(0,0,0,.6); padding: 0 5px; }
@@ -305,6 +307,7 @@ html[dir="ltr"] .btn { letter-spacing: .5px; }
   transform-origin: bottom center;
   transform: rotate(var(--rot, 0deg)) translateY(var(--ty, 0px));
 }
+body.battery-saver .card { box-shadow: 0 3px 8px rgba(0,0,0,0.5) !important; }
 .human-hand .card:last-child { margin-right: 0; }
 .human-hand .card.playable {
   cursor: pointer;
@@ -325,15 +328,18 @@ html[dir="ltr"] .btn { letter-spacing: .5px; }
 .human-hand .card.disabled { filter: brightness(.45) grayscale(.5); cursor: not-allowed; }
 
 /* ===== CENTER TABLE ===== */
-.table-content { display: flex; gap: 56px; align-items: center; justify-content: center; }
+.table-content {
+  position: relative; z-index: 2;
+  display: flex; gap: 56px; align-items: center; justify-content: center;
+}
 .pile {
   width: 115px; height: 168px; border-radius: 14px; position: relative;
   box-shadow: inset 0 0 0 2px rgba(255,255,255,0.07), inset 0 0 30px rgba(0,0,0,0.35);
 }
 #draw-pile { transition: transform .2s; }
+#draw-pile:disabled { cursor: not-allowed; filter: brightness(.65); }
 #draw-pile:not(:disabled):hover,
 #draw-pile:not(:disabled):focus-visible { transform: scale(1.06) translateY(-5px); }
-#draw-pile:disabled { cursor: not-allowed; filter: brightness(.65); }
 #discard-pile .card { position: absolute; top: 0; left: 0; }
 
 /* Turn indicator */
@@ -506,6 +512,7 @@ html[dir="ltr"] .btn { letter-spacing: .5px; }
 }
 
 /* ===== DEV CONTROL PANEL ===== */
+/* مخفي عن اللاعبين — يُفتح للمطوّر فقط باختصار Ctrl+Shift+D */
 .dev-toggle-btn {
   position: absolute;
   top: 15px; left: 15px;
@@ -515,13 +522,11 @@ html[dir="ltr"] .btn { letter-spacing: .5px; }
   width: 45px; height: 45px;
   border-radius: 50%;
   cursor: pointer; z-index: 9999;
-  display: flex; justify-content: center; align-items: center;
+  display: none !important; justify-content: center; align-items: center;
   transition: all 0.2s;
   box-shadow: 0 4px 10px rgba(0,0,0,0.5);
 }
 .dev-toggle-btn:hover { background: rgba(0,0,0,0.8); transform: rotate(45deg) scale(1.1); }
-/* مخفي عن اللاعبين — يُفتح للمطوّر فقط باختصار Ctrl+Shift+D */
-.dev-toggle-btn { display: none !important; }
 
 .dev-panel {
   position: fixed;
@@ -644,7 +649,6 @@ html[dir="ltr"] .btn { letter-spacing: .5px; }
 
 /* ===== ONLINE / LOBBY ===== */
 .online-panel { max-width: 460px; display: flex; flex-direction: column; gap: 14px; text-align: center; }
-.online-panel .btn { width: 100%; }
 .online-divider {
   display: flex; align-items: center; gap: 12px;
   color: rgba(255,255,255,0.5); font-weight: 700; margin: 4px 0;
@@ -816,10 +820,40 @@ body.battery-saver #main-menu::before,
 body.battery-saver .particles { display: none !important; }
 /* flatten glows */
 body.battery-saver .game-title { text-shadow: 0 2px 6px rgba(0,0,0,0.8); }
-body.battery-saver .card { box-shadow: 0 3px 8px rgba(0,0,0,0.5) !important; }
 
 /* ===== LTR TWEAKS (English) ===== */
 html[dir="ltr"] .dev-btn { text-align: left; }
+
+/* ===== DEAL-IN (hands fade while cards are dealt) ===== */
+.human-hand, .bot-hand { transition: opacity .35s ease; }
+body.dealing .human-hand,
+body.dealing .bot-hand { opacity: 0; }
+
+/* ===== SKIPPED PLAYER (subtle dim + small stop badge on chip) ===== */
+/* تعتيم خفيف لأوراق البوت فقط — لا نطمس يد اللاعب البشري */
+.bot-area.skipped .bot-hand {
+  filter: grayscale(.55) brightness(.72);
+  transition: filter .35s ease;
+}
+/* شارة اللاعب: إطار أحمر + علامة توقف صغيرة في الزاوية */
+.player-area.skipped .player-info {
+  border-color: #ef4444 !important;
+  box-shadow: 0 0 18px rgba(239,68,68,.5), 0 6px 18px rgba(0,0,0,.5) !important;
+}
+.player-area.skipped .player-info::after {
+  content: '🛑';
+  position: absolute;
+  top: -12px; inset-inline-end: -12px;
+  font-size: 1.4rem;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,.6));
+  animation: stopPop .4s ease-out;
+  z-index: 130; pointer-events: none;
+}
+@keyframes stopPop {
+  0%   { transform: scale(0) rotate(-90deg); opacity: 0; }
+  60%  { transform: scale(1.25) rotate(8deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
 
 /* ===== HUMAN INFO -> above the hand, centered ===== */
 #player-human { justify-content: flex-end; }
@@ -830,7 +864,6 @@ html[dir="ltr"] .dev-btn { text-align: left; }
 }
 
 /* ===== CENTER TABLE EMBLEM (felt mat + logo) ===== */
-.table-content { position: relative; z-index: 2; }
 #turn-indicator, .color-indicator { position: relative; z-index: 2; }
 .table-emblem {
   position: absolute;
@@ -899,32 +932,6 @@ html[dir="ltr"] .dev-btn { text-align: left; }
   100% { opacity: 0; }
 }
 
-/* ===== SKIPPED PLAYER (subtle dim + small stop badge on chip) ===== */
-/* تعتيم خفيف لأوراق البوت فقط — لا نطمس يد اللاعب البشري */
-.bot-area.skipped .bot-hand {
-  filter: grayscale(.55) brightness(.72);
-  transition: filter .35s ease;
-}
-/* شارة اللاعب: إطار أحمر + علامة توقف صغيرة في الزاوية */
-.player-area.skipped .player-info {
-  border-color: #ef4444 !important;
-  box-shadow: 0 0 18px rgba(239,68,68,.5), 0 6px 18px rgba(0,0,0,.5) !important;
-}
-.player-area.skipped .player-info::after {
-  content: '🛑';
-  position: absolute;
-  top: -12px; inset-inline-end: -12px;
-  font-size: 1.4rem;
-  filter: drop-shadow(0 2px 4px rgba(0,0,0,.6));
-  animation: stopPop .4s ease-out;
-  z-index: 130; pointer-events: none;
-}
-@keyframes stopPop {
-  0%   { transform: scale(0) rotate(-90deg); opacity: 0; }
-  60%  { transform: scale(1.25) rotate(8deg); opacity: 1; }
-  100% { transform: scale(1) rotate(0deg); opacity: 1; }
-}
-
 /* ===== SPLASH SCREEN ===== */
 #splash {
   position: fixed; inset: 0; z-index: 10000;
@@ -945,11 +952,6 @@ html[dir="ltr"] .dev-btn { text-align: left; }
   100% { transform: scale(1) rotate(0); opacity: 1; }
 }
 
-/* ===== DEAL-IN (hands fade while cards are dealt) ===== */
-.human-hand, .bot-hand { transition: opacity .35s ease; }
-body.dealing .human-hand,
-body.dealing .bot-hand { opacity: 0; }
-
 /* ===== WIN CONFETTI ===== */
 .confetti {
   position: fixed; top: -24px; z-index: 9000;
@@ -964,10 +966,6 @@ body.dealing .bot-hand { opacity: 0; }
 }
 
 /* ===== BUTTON POLISH ===== */
-.primary-btn {
-  background: linear-gradient(135deg, #fcd34d 0%, #fbbf24 45%, #f59e0b 100%);
-  box-shadow: 0 8px 26px rgba(251,191,36,.45), 0 2px 0 rgba(180,120,0,.5), inset 0 1px 0 rgba(255,255,255,0.5);
-}
-.primary-btn:hover { transform: translateY(-3px) scale(1.04); box-shadow: 0 14px 38px rgba(251,191,36,.6); }
-.secondary-btn { border-radius: 50px; }
 .btn span { display: inline-flex; align-items: center; }
+/* letter-spacing فقط للإنجليزية (يكسر الحروف العربية المتصلة) */
+html[dir="ltr"] .btn { letter-spacing: .5px; }

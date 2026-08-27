@@ -68,7 +68,7 @@ npm run check
 ```
 
 يمكن تشغيل الأجزاء منفردة عبر `npm run validate` و`npm test` و`npm run test:security`
-و`npm run test:reliability` و`npm run test:rules` و`npm run test:smoke`
+و`npm run test:reliability` و`npm run test:rules` و`npm run test:quality` و`npm run test:smoke`
 و`npm run check:assets`. ولإعادة
 الاختبار من لقطة مؤقتة بلا `node_modules` مسبق:
 
@@ -80,7 +80,8 @@ npm run check:clean
 الأمان في `docs/PHASE-1-SECURITY.md`، وتقرير الاعتمادية والاستعادة في
 `docs/PHASE-2-RELIABILITY.md`، وتقرير سلامة قواعد البطاقات في
 `docs/PHASE-3-GAME-RULES.md`، وتقرير إمكانية الوصول في
-`docs/PHASE-4-ACCESSIBILITY.md`.
+`docs/PHASE-4-ACCESSIBILITY.md`، وتقرير جودة القالب وتنظيم CSS في
+`docs/PHASE-5-QUALITY.md`.
 
 ---
 

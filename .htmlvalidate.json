@@ -2,8 +2,8 @@
   "extends": ["html-validate:recommended"],
   "rules": {
     "no-implicit-button-type": "error",
-    "no-inline-style": "off",
-    "prefer-native-element": "off",
+    "no-inline-style": "error",
+    "prefer-native-element": "error",
     "require-sri": ["error", { "target": "crossorigin" }]
   }
 }

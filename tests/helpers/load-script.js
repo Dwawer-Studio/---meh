@@ -5,6 +5,23 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const ROOT = path.resolve(__dirname, '..', '..');
+const GAME_RUNTIME_SCRIPTS = Object.freeze([
+    'game/game-config.js',
+    'game/game-profile.js',
+    'game/game-online.js',
+    'game/game-screen.js',
+    'game/game-rules.js',
+    'game/game-renderer.js',
+    'game.js',
+]);
+
+function expandRuntimePaths(relativePaths) {
+    const paths = Array.isArray(relativePaths) ? relativePaths : [relativePaths];
+    const expanded = paths.flatMap(relativePath => (
+        relativePath === 'game.js' ? GAME_RUNTIME_SCRIPTS : [relativePath]
+    ));
+    return [...new Set(expanded)];
+}
 
 function defaultDocument() {
     const classList = { add() {}, remove() {}, toggle() {} };
@@ -19,7 +36,7 @@ function defaultDocument() {
 }
 
 function loadScripts(relativePaths, exposedNames, overrides = {}) {
-    const paths = Array.isArray(relativePaths) ? relativePaths : [relativePaths];
+    const paths = expandRuntimePaths(relativePaths);
     const filename = paths.map((relativePath) => path.join(ROOT, relativePath)).join(', ');
     const context = {
         console,
@@ -53,4 +70,4 @@ function loadScript(relativePath, exposedNames, overrides = {}) {
     return loadScripts([relativePath], exposedNames, overrides);
 }
 
-module.exports = { ROOT, loadScript, loadScripts };
+module.exports = { GAME_RUNTIME_SCRIPTS, ROOT, loadScript, loadScripts };

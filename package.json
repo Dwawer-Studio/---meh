@@ -18,6 +18,7 @@
     "test:rules": "node --test tests/game-rules.test.js tests/security-network.test.js",
     "test:quality": "node --test tests/quality.test.js",
     "test:responsive": "node --test tests/responsive.test.js",
+    "test:architecture": "node --test tests/architecture.test.js",
     "test:smoke": "node --test tests/smoke.test.js tests/storage.test.js tests/game-flow.test.js"
   },
   "engines": {

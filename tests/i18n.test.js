@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { ROOT, loadScript } = require('./helpers/load-script');
+const { GAME_RUNTIME_SCRIPTS, ROOT, loadScript } = require('./helpers/load-script');
 
 const { I18n } = loadScript('i18n.js', ['I18n']);
 const { Deck } = loadScript('deck.js', ['Deck']);
@@ -16,7 +16,7 @@ test('Arabic and English dictionaries contain the same keys', () => {
 });
 
 test('all statically referenced translation keys exist', () => {
-    const sourceFiles = ['game.js', 'index.html', 'features.js', 'sound.js', 'storage.js', 'net.js'];
+    const sourceFiles = [...GAME_RUNTIME_SCRIPTS, 'index.html', 'features.js', 'sound.js', 'storage.js', 'net.js'];
     const sources = sourceFiles
         .map((file) => fs.readFileSync(path.join(ROOT, file), 'utf8'))
         .join('\n');

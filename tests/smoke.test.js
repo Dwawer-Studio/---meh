@@ -4,10 +4,12 @@ const fs = require('node:fs');
 const path = require('node:path');
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { ROOT } = require('./helpers/load-script');
+const { GAME_RUNTIME_SCRIPTS, ROOT } = require('./helpers/load-script');
 
 const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
-const gameSource = fs.readFileSync(path.join(ROOT, 'game.js'), 'utf8');
+const gameSource = GAME_RUNTIME_SCRIPTS
+    .map(relativePath => fs.readFileSync(path.join(ROOT, relativePath), 'utf8'))
+    .join('\n');
 const css = fs.readFileSync(path.join(ROOT, 'style.css'), 'utf8');
 
 test('HTML has a doctype, unique ids, and expected script order', () => {
@@ -28,7 +30,7 @@ test('HTML has a doctype, unique ids, and expected script order', () => {
         'sound.js',
         'net.js',
         'deck.js',
-        'game.js',
+        ...GAME_RUNTIME_SCRIPTS,
     ]);
 });
 
@@ -69,7 +71,7 @@ test('all local static references exist', () => {
     assert.deepEqual(missing, []);
 });
 
-test('literal DOM ids used by game.js exist in index.html', () => {
+test('literal DOM ids used by the game runtime exist in index.html', () => {
     const htmlIds = new Set([...html.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]));
     const referenced = [...gameSource.matchAll(/getElementById\(\s*['"]([^'"]+)['"]\s*\)/g)]
         .map((match) => match[1])

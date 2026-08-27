@@ -5,10 +5,12 @@ const fs = require('node:fs');
 const path = require('node:path');
 const test = require('node:test');
 
-const { ROOT, loadScripts } = require('./helpers/load-script');
+const { GAME_RUNTIME_SCRIPTS, ROOT, loadScripts } = require('./helpers/load-script');
 
 const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
-const gameSource = fs.readFileSync(path.join(ROOT, 'game.js'), 'utf8');
+const gameSource = GAME_RUNTIME_SCRIPTS
+    .map(relativePath => fs.readFileSync(path.join(ROOT, relativePath), 'utf8'))
+    .join('\n');
 const css = fs.readFileSync(path.join(ROOT, 'style.css'), 'utf8');
 
 function makeClassList() {

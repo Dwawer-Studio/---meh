@@ -15,6 +15,7 @@
     "test": "node --test",
     "test:security": "node --test tests/security-network.test.js",
     "test:reliability": "node --test tests/storage.test.js tests/reliability.test.js",
+    "test:rules": "node --test tests/game-rules.test.js tests/security-network.test.js",
     "test:smoke": "node --test tests/smoke.test.js tests/storage.test.js tests/game-flow.test.js"
   },
   "engines": {

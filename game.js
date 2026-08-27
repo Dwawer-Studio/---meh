@@ -65,6 +65,7 @@ class MehGame {
         this.actionInProgress = false;
         this.skipNextMap = {};
         this.superpowersDisabled = false;
+        this._sugarOwnerId = null;
         this.selectedCardIndex = -1;      // لتأكيد رمي البطاقة
         this.drawImmune = {};             // درع الفانتوم: حصانة ضد السحب
         this.humanCanPlay = false;        // بوابة صريحة: متى يُسمح للاعب البشري بالفعل
@@ -82,6 +83,7 @@ class MehGame {
         this._remotePromptId = null;
         this._remotePromptPeer = null;
         this._remoteAllowedValues = null;
+        this._colorCallback = null;
         this._joinRejected = false;
         this._rejectedConnections = new WeakSet();
         this._pendingAvatar = '😎';
@@ -416,6 +418,7 @@ class MehGame {
         this._disconnectTurnTimer = null;
         this.awaitingRemote = false;
         this.humanCanPlay = false;
+        this._colorCallback = null;
         ['color-picker', 'player-picker', 'choice-modal'].forEach(id => {
             const element = document.getElementById(id);
             if (element) element.classList.add('hidden');
@@ -679,11 +682,6 @@ class MehGame {
     // ============ المرحلة 2: نواة اللعب الجماعي ============
     autoDecide(player) { return player.isBot; }   // البوتات فقط تُحسم تلقائياً
 
-    // هل اللاعب الحالي «بعيد» (يلعب من جهاز آخر) ونحن المضيف؟
-    isRemoteActor() {
-        return this.online && this.isHost && this.currentPlayer && this.currentPlayer.isRemote;
-    }
-
     // المضيف يطلب اختياراً من اللاعب البعيد عبر الشبكة
     promptRemote(kind, data, resolve) {
         const conn = (Net.conns || []).find(c => c.peer === this.currentPlayer.connPeer);
@@ -694,9 +692,13 @@ class MehGame {
         this._remoteKind = kind;
         this._remotePromptId = promptId;
         this._remotePromptPeer = conn.peer;
-        this._remoteAllowedValues = kind === 'target' && Array.isArray(data.options)
-            ? data.options.map(option => option.idx).filter(Number.isSafeInteger)
-            : null;
+        if ((kind === 'target' || kind === 'card') && Array.isArray(data.options)) {
+            this._remoteAllowedValues = data.options
+                .map(option => kind === 'target' ? option.idx : option.id)
+                .filter(value => kind === 'target' ? Number.isSafeInteger(value) : typeof value === 'string');
+        } else {
+            this._remoteAllowedValues = null;
+        }
         this.clearTurnTimer();
         if (this._promptTimer) clearTimeout(this._promptTimer);
         this._promptTimer = setTimeout(() => this.autoResolvePrompt(), 12000);
@@ -713,6 +715,10 @@ class MehGame {
         if (kind === 'target') {
             const others = this.players.filter(p => p.id !== player.id);
             return this.players.indexOf(others[Math.floor(Math.random() * others.length)]);
+        }
+        if (kind === 'card') {
+            const hand = player && Array.isArray(player.hand) ? player.hand : [];
+            return hand.length ? hand[Math.floor(Math.random() * hand.length)].id : null;
         }
         return 0; // choice
     }
@@ -735,6 +741,12 @@ class MehGame {
         if (kind === 'choice') return value === 0 || value === 1 ? value : null;
         if (kind === 'target') {
             return Number.isSafeInteger(value)
+                && Array.isArray(this._remoteAllowedValues)
+                && this._remoteAllowedValues.includes(value)
+                ? value : null;
+        }
+        if (kind === 'card') {
+            return typeof value === 'string'
                 && Array.isArray(this._remoteAllowedValues)
                 && this._remoteAllowedValues.includes(value)
                 ? value : null;
@@ -784,6 +796,22 @@ class MehGame {
             }
             return { kind: 'target', promptId: msg.promptId, options };
         }
+        if (msg.kind === 'card') {
+            if (!Array.isArray(msg.options) || msg.options.length < 1 || msg.options.length > 60) return null;
+            const title = this._safeText(msg.title, 120);
+            if (!title) return null;
+            const seen = new Set();
+            const options = [];
+            for (const option of msg.options) {
+                if (!this._isRecord(option) || typeof option.id !== 'string'
+                    || !/^[a-z0-9-]{1,32}$/.test(option.id) || seen.has(option.id)) return null;
+                const name = this._safeText(option.name, 80);
+                if (!name) return null;
+                seen.add(option.id);
+                options.push({ id: option.id, name });
+            }
+            return { kind: 'card', promptId: msg.promptId, title, options };
+        }
         return null;
     }
 
@@ -805,11 +833,24 @@ class MehGame {
         } else if (prompt.kind === 'choice') {
             this.showChoiceModal(prompt.title, prompt.opt1, prompt.opt2, () => send(0), () => send(1));
         } else if (prompt.kind === 'target') {
+            const heading = UI.playerPicker && UI.playerPicker.querySelector('h3');
+            if (heading) heading.textContent = I18n.t('choose_player');
             UI.playerPickerList.replaceChildren();
             prompt.options.forEach(o => {
                 const btn = document.createElement('button');
                 btn.type = 'button'; btn.className = 'picker-btn'; btn.textContent = o.name;
                 btn.onclick = () => { UI.playerPicker.classList.add('hidden'); send(o.idx); };
+                UI.playerPickerList.appendChild(btn);
+            });
+            UI.playerPicker.classList.remove('hidden');
+        } else if (prompt.kind === 'card') {
+            const heading = UI.playerPicker && UI.playerPicker.querySelector('h3');
+            if (heading) heading.textContent = prompt.title;
+            UI.playerPickerList.replaceChildren();
+            prompt.options.forEach(option => {
+                const btn = document.createElement('button');
+                btn.type = 'button'; btn.className = 'picker-btn'; btn.textContent = option.name;
+                btn.onclick = () => { UI.playerPicker.classList.add('hidden'); send(option.id); };
                 UI.playerPickerList.appendChild(btn);
             });
             UI.playerPicker.classList.remove('hidden');
@@ -973,13 +1014,13 @@ class MehGame {
         this.pendingDraws = 0; this.direction = 1; this.currentPlayerIndex = 0;
         this.isAwaitingColor = false; this.actionInProgress = false;
         this.skipNextMap = {}; this.superpowersDisabled = false;
+        this._sugarOwnerId = null;
         this.selectedCardIndex = -1; this.drawImmune = {}; this.humanCanPlay = false;
         this.awaitingRemote = false; this.activeColor = ''; this.hideConfirmBar();
 
         this.players = this.buildOnlineSeats();
         for (let i = 0; i < 7; i++) for (const p of this.players) p.hand.push(this.deck.draw());
-        let initial = this.deck.draw();
-        while (initial.color === 'black') { this.deck.cards.unshift(initial); initial = this.deck.draw(); }
+        const initial = this.drawInitialCard();
         this.discardPile.push(initial);
         this.activeColor = initial.color;
 
@@ -1090,14 +1131,7 @@ class MehGame {
             const idx = seat.hand.findIndex(c => c.id === msg.cardId);
             if (idx < 0) return;
             const card = seat.hand[idx];
-            let ok;
-            if (this.pendingDraws > 0) {
-                ok = ['draw2', 'draw4Wild', 'meh', 'counterAttack'].includes(card.type) ||
-                    (card.type === 'phantom' && card.isPlayable(this.topCard, this.activeColor));
-            } else {
-                ok = card.isPlayable(this.topCard, this.activeColor);
-            }
-            if (!ok) return;
+            if (!this.isCardPlayableNow(card)) return;
             this.clearTurnTimer();
             this.awaitingRemote = false;
             this.actionInProgress = true;
@@ -1123,13 +1157,7 @@ class MehGame {
         if (!player || player.isBot) return;
         this.awaitingRemote = false; this.humanCanPlay = false;
         this.actionInProgress = true;
-        let idx;
-        if (this.pendingDraws > 0) {
-            idx = player.hand.findIndex(c => ['draw2', 'draw4Wild', 'meh', 'counterAttack'].includes(c.type)
-                || (c.type === 'phantom' && c.isPlayable(this.topCard, this.activeColor)));
-        } else {
-            idx = player.hand.findIndex(c => c.isPlayable(this.topCard, this.activeColor));
-        }
+        const idx = player.hand.findIndex(card => this.isCardPlayableNow(card));
         this.showToast('⏱️ ' + player.name + ' تأخّر — لعب تلقائي');
         if (idx >= 0) this.playCard(player, idx);
         else this.doDrawForCurrent();
@@ -1241,6 +1269,7 @@ class MehGame {
         this.actionInProgress = true;     // قفل التفاعل أثناء التوزيع
         this.skipNextMap = {};
         this.superpowersDisabled = false;
+        this._sugarOwnerId = null;
         this.selectedCardIndex = -1;
         this.drawImmune = {};
         this.humanCanPlay = false;
@@ -1257,11 +1286,7 @@ class MehGame {
 
         // توزيع حقيقي: ورقة ورقة، يزيد العدّاد مع كل واحدة
         this.dealCards(() => {
-            let initial = this.deck.draw();
-            while (initial.color === 'black') {
-                this.deck.cards.unshift(initial);
-                initial = this.deck.draw();
-            }
+            const initial = this.drawInitialCard();
             this.discardPile.push(initial);
             this.activeColor = initial.color;
             this.updateUI();
@@ -1308,6 +1333,33 @@ class MehGame {
     get topCard() { return this.discardPile[this.discardPile.length - 1]; }
     get currentPlayer() { return this.players[this.currentPlayerIndex]; }
 
+    drawInitialCard() {
+        let initial = this.deck.draw();
+        while (initial && initial.type !== 'normal') {
+            this.deck.cards.unshift(initial);
+            initial = this.deck.draw();
+        }
+        return initial;
+    }
+
+    canRespondToPendingDraw(card) {
+        return !!card && ['draw2', 'draw4Wild', 'meh', 'counterAttack', 'phantom'].includes(card.type);
+    }
+
+    isCardPlayableNow(card) {
+        if (!card) return false;
+        return this.pendingDraws > 0
+            ? this.canRespondToPendingDraw(card)
+            : card.isPlayable(this.topCard, this.activeColor);
+    }
+
+    updateSugarLockForTurn(player) {
+        if (this.superpowersDisabled && this._sugarOwnerId === player.id) {
+            this.superpowersDisabled = false;
+            this._sugarOwnerId = null;
+        }
+    }
+
     nextPlayerIndex(from = this.currentPlayerIndex, steps = 1) {
         let idx = from;
         for (let i = 0; i < steps; i++) {
@@ -1343,6 +1395,7 @@ class MehGame {
         this.humanCanPlay = false;       // يُمنح فقط عند وصول دور اللاعب الفعلي
         this.awaitingRemote = false;
         const player = this.currentPlayer;
+        this.updateSugarLockForTurn(player);
         UI.turnIndicator.innerText = player.name;
 
         if (this.skipNextMap[player.id]) {
@@ -1354,9 +1407,8 @@ class MehGame {
         }
 
         if (this.pendingDraws > 0) {
-            const hasPhantom = player.hand.some(c => c.type === 'phantom' && c.isPlayable(this.topCard, this.activeColor));
-            const hasCounter = player.hand.some(c => ['draw2', 'draw4Wild', 'meh', 'counterAttack'].includes(c.type));
-            if (!hasPhantom && !hasCounter) {
+            const hasResponse = player.hand.some(card => this.canRespondToPendingDraw(card));
+            if (!hasResponse) {
                 this.actionInProgress = true;
                 this.showGameMessage(I18n.t('m_plus', { n: this.pendingDraws }));
                 this.drawMultiple(player, this.pendingDraws, () => {
@@ -1399,9 +1451,7 @@ class MehGame {
         let cardIndex = -1;
 
         if (this.pendingDraws > 0) {
-            cardIndex = bot.hand.findIndex(c =>
-                ['draw2', 'draw4Wild', 'meh', 'counterAttack'].includes(c.type) ||
-                (c.type === 'phantom' && c.isPlayable(this.topCard, this.activeColor)));
+            cardIndex = bot.hand.findIndex(card => this.canRespondToPendingDraw(card));
         } else {
             cardIndex = bot.hand.findIndex(c => c.isPlayable(this.topCard, this.activeColor) && c.type !== 'sorry' && c.type !== 'plato' && c.type !== 'hamour');
             if (cardIndex === -1) {
@@ -1702,7 +1752,7 @@ class MehGame {
             case 'sugar':
                 this.showGameMessage(I18n.t('m_sugar'));
                 this.superpowersDisabled = true;
-                setTimeout(() => { this.superpowersDisabled = false; }, 15000);
+                this._sugarOwnerId = player.id;
                 this.finishTurn(card, player);
                 break;
             case 'umWajhain':
@@ -1740,239 +1790,255 @@ class MehGame {
         setTimeout(() => this.advanceTurn(), 1000);
     }
 
-    handleWild(player, callback) {
+    requestEffectDecision(player, kind, data, resolve) {
         if (this.autoDecide(player)) {
-            const colors = ['orange', 'gray', 'purple'];
-            const colorCounts = {};
-            for (const c of player.hand) {
-                if (c.color !== 'black') colorCounts[c.color] = (colorCounts[c.color] || 0) + 1;
+            resolve(this._autoEffectDecision(player, kind, data));
+            return;
+        }
+
+        if (this.online && this.isHost && player.isRemote) {
+            const payload = {};
+            if (kind === 'choice') {
+                payload.title = data.title;
+                payload.opt1 = data.opt1;
+                payload.opt2 = data.opt2;
+            } else if (kind === 'target') {
+                payload.options = data.options.map(option => ({ idx: option.idx, name: option.name }));
+            } else if (kind === 'card') {
+                payload.title = data.title;
+                payload.options = data.options.map(option => ({ id: option.id, name: option.name }));
             }
-            let best = colors[0];
-            let max = 0;
-            for (const c of colors) {
-                if ((colorCounts[c] || 0) > max) { max = colorCounts[c] || 0; best = c; }
-            }
-            this.activeColor = best;
-            this.showToast(I18n.t('chose_color', { name: player.name, color: I18n.colorName(best) }));
-            this.updateUI();
-            callback();
-        } else if (this.isRemoteActor()) {
-            this._colorCallback = callback;
-            this.promptRemote('color', {}, (color) => this.handleColorPicked(color));
-        } else {
+            this.promptRemote(kind, payload, resolve);
+            return;
+        }
+
+        if (kind === 'color') {
             this.isAwaitingColor = true;
             UI.colorPicker.classList.remove('hidden');
-            this._colorCallback = callback;
+            this._colorCallback = resolve;
+            return;
+        }
+        if (kind === 'target') {
+            const heading = UI.playerPicker && UI.playerPicker.querySelector('h3');
+            if (heading) heading.textContent = I18n.t('choose_player');
+            UI.playerPickerList.replaceChildren();
+            data.options.forEach(option => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'picker-btn';
+                btn.textContent = option.name;
+                btn.onclick = () => {
+                    UI.playerPicker.classList.add('hidden');
+                    resolve(option.idx);
+                };
+                UI.playerPickerList.appendChild(btn);
+            });
+            UI.playerPicker.classList.remove('hidden');
+            return;
+        }
+        if (kind === 'choice') {
+            this.showChoiceModal(data.title, data.opt1, data.opt2, () => resolve(0), () => resolve(1));
+            return;
+        }
+        if (kind === 'card') {
+            const heading = UI.playerPicker && UI.playerPicker.querySelector('h3');
+            if (heading) heading.textContent = data.title;
+            const container = document.getElementById(data.owner.containerId);
+            if (!container) { resolve(data.options[0].id); return; }
+            const elements = container.querySelectorAll('.card');
+            elements.forEach((element, index) => {
+                const option = data.options[index];
+                if (!option) return;
+                element.classList.add('playable');
+                element.classList.remove('disabled');
+                element.onclick = () => resolve(option.id);
+            });
         }
     }
 
+    _autoEffectDecision(player, kind, data) {
+        if (kind === 'color') {
+            const counts = {};
+            player.hand.forEach(card => {
+                if (card.color !== 'black') counts[card.color] = (counts[card.color] || 0) + 1;
+            });
+            return ONLINE_COLORS.slice().sort((a, b) => (counts[b] || 0) - (counts[a] || 0))[0];
+        }
+        if (kind === 'choice') {
+            return typeof data.botChoice === 'function' ? data.botChoice() : (data.botChoice ?? 0);
+        }
+        if (kind === 'target' || kind === 'card') {
+            const options = data.options || [];
+            if (!options.length) return null;
+            const option = options[Math.floor(Math.random() * options.length)];
+            return kind === 'target' ? option.idx : option.id;
+        }
+        return null;
+    }
+
+    handleWild(player, callback) {
+        this.requestEffectDecision(player, 'color', {}, (color) => {
+            this.activeColor = ONLINE_COLORS.includes(color) ? color : ONLINE_COLORS[0];
+            this.isAwaitingColor = false;
+            if (UI.colorPicker) UI.colorPicker.classList.add('hidden');
+            this.showToast(I18n.t('chose_color', {
+                name: player.name,
+                color: I18n.colorName(this.activeColor),
+            }));
+            this.updateUI();
+            callback();
+        });
+    }
+
     handleColorPicked(color) {
-        this.activeColor = color;
-        UI.colorPicker.classList.add('hidden');
+        if (!ONLINE_COLORS.includes(color)) return;
+        if (UI.colorPicker) UI.colorPicker.classList.add('hidden');
         this.isAwaitingColor = false;
         this.updateUI();
-        if (this._colorCallback) { this._colorCallback(); this._colorCallback = null; }
+        if (this._colorCallback) {
+            const callback = this._colorCallback;
+            this._colorCallback = null;
+            callback(color);
+        }
     }
 
     handleBestOne(card, player) {
         this.showGameMessage(I18n.t('m_bestone'));
         const nextIdx = this.nextPlayerIndex();
         const target = this.players[nextIdx];
-        if (this.autoDecide(player)) {
+        this.requestEffectDecision(player, 'choice', {
+            title: I18n.t('best_one_choice', { name: target.name }),
+            opt1: I18n.t('throw_two'),
+            opt2: I18n.t('draw_two'),
+            botChoice: 1,
+        }, (choice) => {
+            if (choice === 0) {
+                const count = Math.min(2, target.hand.length);
+                this._storeDiscardedCards(target.hand.splice(0, count));
+                this.updateUI();
+                this.showToast(I18n.t('discarded_n', { name: target.name, n: count }));
+                this.finishTurn(card, player);
+                return;
+            }
             this.drawMultiple(target, 2, () => {
                 this.showToast(I18n.t('drew_two', { name: target.name }));
                 this.finishTurn(card, player);
             });
-        } else {
-            this.showChoiceModal(
-                I18n.t('best_one_choice', { name: target.name }),
-                I18n.t('throw_two'), I18n.t('draw_two'),
-                () => {
-                    const count = Math.min(2, target.hand.length);
-                    target.hand.splice(0, count);
-                    this.updateUI();
-                    this.showToast(I18n.t('discarded_n', { name: target.name, n: count }));
-                    this.finishTurn(card, player);
-                },
-                () => {
-                    this.drawMultiple(target, 2, () => {
-                        this.showToast(I18n.t('drew_two', { name: target.name }));
-                        this.finishTurn(card, player);
-                    });
-                }
-            );
-        }
+        });
     }
 
     handleChameleon(card, player) {
         this.showGameMessage(I18n.t('m_chameleon'));
-        if (this.autoDecide(player)) {
+        this.pickTargetPlayer(player, (target) => {
             if (player.hand.length > 0) {
-                const targets = this.players.filter(p => p.id !== player.id);
-                const target = targets[Math.floor(Math.random() * targets.length)];
-                const gi = Math.floor(Math.random() * player.hand.length);
-                const given = player.hand.splice(gi, 1)[0];
-                target.hand.push(given);
-                this.showToast(I18n.t('gave_card', { name: player.name, target: target.name }));
-                this.updateUI();
-            }
-            this.finishTurn(card, player);
-        } else {
-            this.pickTargetPlayer(player, (target) => {
-                if (player.hand.length > 0) {
-                    this.showToast(I18n.t('pick_give'));
-                    this.enableCardGiving(player, target, () => this.finishTurn(card, player));
-                } else {
+                this.showToast(I18n.t('pick_give'));
+                const options = player.hand.map(handCard => ({
+                    id: handCard.id,
+                    name: I18n.cardName(handCard),
+                }));
+                this.requestEffectDecision(player, 'card', {
+                    owner: player,
+                    options,
+                    title: I18n.t('pick_give'),
+                }, (cardId) => {
+                    this._transferCard(player, target, cardId);
+                    this.showToast(I18n.t('gave_card', { name: player.name, target: target.name }));
+                    this.updateUI();
                     this.finishTurn(card, player);
-                }
-            });
-        }
-    }
-
-    enableCardGiving(player, target, callback) {
-        if (this.isRemoteActor()) {
-            if (player.hand.length > 0) {
-                const given = player.hand.splice(Math.floor(Math.random() * player.hand.length), 1)[0];
-                target.hand.push(given);
-                this.showToast(I18n.t('gave_card_you', { target: target.name }));
-                this.updateUI();
+                });
+            } else {
+                this.finishTurn(card, player);
             }
-            callback();
-            return;
-        }
-        const container = document.getElementById(player.containerId);
-        const cards = container.querySelectorAll('.card');
-        cards.forEach((el, i) => {
-            el.classList.add('playable');
-            el.classList.remove('disabled');
-            el.onclick = () => {
-                const given = player.hand.splice(i, 1)[0];
-                target.hand.push(given);
-                this.showToast(I18n.t('gave_card_you', { target: target.name }));
-                this.updateUI();
-                callback();
-            };
         });
     }
 
     handleBoShlakh(card, player) {
         this.showGameMessage(I18n.t('m_boshlakh'));
-        if (this.autoDecide(player)) {
-            if (player.hand.length > 0) {
-                player.hand.splice(0, 1);
-                this.showToast(I18n.t('discarded_extra', { name: player.name }));
+        if (player.hand.length > 0) {
+            this.showToast(I18n.t('pick_discard'));
+            const options = player.hand.map(handCard => ({
+                id: handCard.id,
+                name: I18n.cardName(handCard),
+            }));
+            this.requestEffectDecision(player, 'card', {
+                owner: player,
+                options,
+                title: I18n.t('pick_discard'),
+            }, (cardId) => {
+                this._discardCard(player, cardId);
+                this.showToast(I18n.t('discarded_done'));
                 this.updateUI();
-            }
-            this.finishTurn(card, player);
-        } else {
-            if (player.hand.length > 0) {
-                this.showToast(I18n.t('pick_discard'));
-                this.enableCardDiscard(player, () => this.finishTurn(card, player));
-            } else {
                 this.finishTurn(card, player);
-            }
+            });
+        } else {
+            this.finishTurn(card, player);
         }
-    }
-
-    enableCardDiscard(player, callback) {
-        if (this.isRemoteActor()) {
-            if (player.hand.length > 0) {
-                const discarded = player.hand.splice(Math.floor(Math.random() * player.hand.length), 1)[0];
-                this.discardPile.push(discarded);
-                this.showToast(I18n.t('discarded_done'));
-                this.updateUI();
-            }
-            callback();
-            return;
-        }
-        const container = document.getElementById(player.containerId);
-        const cards = container.querySelectorAll('.card');
-        cards.forEach((el, i) => {
-            el.classList.add('playable');
-            el.classList.remove('disabled');
-            el.onclick = () => {
-                const discarded = player.hand.splice(i, 1)[0];
-                this.discardPile.push(discarded);
-                this.showToast(I18n.t('discarded_done'));
-                this.updateUI();
-                callback();
-            };
-        });
     }
 
     handleUmWajhain(card, player) {
         this.showGameMessage(I18n.t('m_um'));
-        if (this.autoDecide(player)) {
-            const targets = this.players.filter(p => p.id !== player.id);
-            const target = targets[Math.floor(Math.random() * targets.length)];
-            if (Math.random() > 0.5 && target.hand.length > 0) {
-                target.hand.splice(0, 1);
-                this.showToast(I18n.t('discarded_extra', { name: target.name }));
-                this.updateUI();
-                this.finishTurn(card, player);
-            } else {
+        this.pickTargetPlayer(player, (target) => {
+            this.requestEffectDecision(player, 'choice', {
+                title: I18n.t('um_choice', { name: target.name }),
+                opt1: I18n.t('um_discard'),
+                opt2: I18n.t('um_draw'),
+                botChoice: () => Math.random() > 0.5 ? 0 : 1,
+            }, (choice) => {
+                if (choice === 0) {
+                    if (target.hand.length > 0) this._discardRandomCard(target);
+                    this.showToast(I18n.t('discarded_extra', { name: target.name }));
+                    this.updateUI();
+                    this.finishTurn(card, player);
+                    return;
+                }
                 this.drawMultiple(target, 1, () => {
                     this.showToast(I18n.t('drew_card', { name: target.name }));
                     this.finishTurn(card, player);
                 });
-            }
-        } else {
-            this.pickTargetPlayer(player, (target) => {
-                this.showChoiceModal(
-                    I18n.t('um_choice', { name: target.name }),
-                    I18n.t('um_discard'), I18n.t('um_draw'),
-                    () => {
-                        if (target.hand.length > 0) {
-                            target.hand.splice(Math.floor(Math.random() * target.hand.length), 1);
-                            this.showToast(I18n.t('discarded_extra', { name: target.name }));
-                        }
-                        this.updateUI();
-                        this.finishTurn(card, player);
-                    },
-                    () => {
-                        this.drawMultiple(target, 1, () => {
-                            this.showToast(I18n.t('drew_card', { name: target.name }));
-                            this.finishTurn(card, player);
-                        });
-                    }
-                );
             });
-        }
+        });
     }
 
     pickTargetPlayer(player, callback) {
-        if (this.autoDecide(player)) {
-            const targets = this.players.filter(p => p.id !== player.id);
-            callback(targets[Math.floor(Math.random() * targets.length)]);
-            return;
-        }
-        if (this.isRemoteActor()) {
-            const options = this.players.filter(p => p.id !== player.id).map(p => ({ idx: this.players.indexOf(p), name: p.name }));
-            this.promptRemote('target', { options }, (idx) => {
-                const t = this.players[idx];
-                callback(t && t.id !== player.id ? t : this.players.filter(p => p.id !== player.id)[0]);
-            });
-            return;
-        }
-        UI.playerPickerList.replaceChildren();
-        this.players.filter(p => p.id !== player.id).forEach(target => {
-            const btn = document.createElement('button');
-            btn.className = 'picker-btn';
-            btn.innerText = target.name;
-            btn.onclick = () => {
-                UI.playerPicker.classList.add('hidden');
-                callback(target);
-            };
-            UI.playerPickerList.appendChild(btn);
+        const targets = this.players.filter(candidate => candidate.id !== player.id);
+        const options = targets.map(target => ({
+            idx: this.players.indexOf(target),
+            name: target.name,
+        }));
+        this.requestEffectDecision(player, 'target', { options }, (index) => {
+            const target = this.players[index];
+            callback(target && target.id !== player.id ? target : targets[0]);
         });
-        UI.playerPicker.classList.remove('hidden');
+    }
+
+    _storeDiscardedCards(cards) {
+        const validCards = cards.filter(Boolean);
+        if (!validCards.length) return;
+        const topIndex = Math.max(0, this.discardPile.length - 1);
+        this.discardPile.splice(topIndex, 0, ...validCards);
+    }
+
+    _discardCard(player, cardId) {
+        const index = player.hand.findIndex(handCard => handCard.id === cardId);
+        if (index < 0) return false;
+        this._storeDiscardedCards(player.hand.splice(index, 1));
+        return true;
+    }
+
+    _discardRandomCard(player) {
+        if (!player.hand.length) return false;
+        const index = Math.floor(Math.random() * player.hand.length);
+        return this._discardCard(player, player.hand[index].id);
+    }
+
+    _transferCard(from, to, cardId) {
+        const index = from.hand.findIndex(handCard => handCard.id === cardId);
+        if (index < 0) return false;
+        to.hand.push(from.hand.splice(index, 1)[0]);
+        return true;
     }
 
     showChoiceModal(title, opt1Text, opt2Text, cb1, cb2) {
-        if (this.isRemoteActor()) {
-            this.promptRemote('choice', { title, opt1: opt1Text, opt2: opt2Text }, (v) => { v === 0 ? cb1() : cb2(); });
-            return;
-        }
         const modal = UI.choiceModal;
         modal.querySelector('h3').innerText = title;
         const btns = modal.querySelectorAll('.choice-btn');
@@ -2197,12 +2263,7 @@ class MehGame {
         human.hand.forEach((card, i) => {
             let playable = false;
             if (isHumanTurn && !this.actionInProgress) {
-                if (this.pendingDraws > 0) {
-                    playable = ['draw2', 'draw4Wild', 'meh', 'counterAttack'].includes(card.type)
-                        || (card.type === 'phantom' && card.isPlayable(this.topCard, this.activeColor));
-                } else {
-                    playable = card.isPlayable(this.topCard, this.activeColor);
-                }
+                playable = this.isCardPlayableNow(card);
             }
             const el = this.createCardElement(card, false, playable, i);
 

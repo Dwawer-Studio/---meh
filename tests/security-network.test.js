@@ -10,6 +10,7 @@ function makeElement(tagName = 'div') {
         tagName: tagName.toUpperCase(),
         children: [],
         className: '',
+        classList: { add() {}, remove() {}, toggle() {} },
         style: {},
         textContent: '',
         appendChild(child) { this.children.push(child); return child; },
@@ -185,6 +186,103 @@ test('NET-02: invalid values cannot consume the current prompt', () => {
     assert.equal(resolved, false);
     assert.deepEqual(game._promptTimer, { active: true });
     assert.equal(game._remotePromptId, 3);
+});
+
+test('RULE-02: a remote card decision accepts only an offered card id', () => {
+    const { MehGame } = loadGame();
+    const game = Object.create(MehGame.prototype);
+    let resolved = null;
+    game.players = [{ connPeer: 'peer-1' }];
+    game.currentPlayerIndex = 0;
+    game._remoteResolve = value => { resolved = value; };
+    game._remoteKind = 'card';
+    game._remotePromptId = 9;
+    game._remotePromptPeer = 'peer-1';
+    game._remoteAllowedValues = ['card123', 'card456'];
+    game._promptTimer = { active: true };
+
+    assert.equal(game.resolveRemotePrompt(
+        { promptId: 9, value: 'not-offered' },
+        { peer: 'peer-1' },
+    ), false);
+    assert.equal(resolved, null);
+    assert.equal(game._remotePromptId, 9);
+
+    assert.equal(game.resolveRemotePrompt(
+        { promptId: 9, value: 'card456' },
+        { peer: 'peer-1' },
+    ), true);
+    assert.equal(resolved, 'card456');
+    assert.equal(game._remotePromptId, null);
+});
+
+test('RULE-02: remote card prompts reject malformed or duplicate options', () => {
+    const { MehGame } = loadGame();
+    const game = Object.create(MehGame.prototype);
+    const valid = {
+        t: 'prompt',
+        kind: 'card',
+        promptId: 4,
+        title: 'اختر بطاقة',
+        options: [
+            { id: 'card123', name: 'بطاقة أولى' },
+            { id: 'card456', name: 'بطاقة ثانية' },
+        ],
+    };
+
+    assert.deepEqual(
+        JSON.parse(JSON.stringify(game._normalizeRemotePrompt(valid))),
+        { kind: 'card', promptId: 4, title: valid.title, options: valid.options },
+    );
+    assert.equal(game._normalizeRemotePrompt({
+        ...valid,
+        options: [{ id: 'card123', name: 'بطاقة' }, { id: 'card123', name: 'مكررة' }],
+    }), null);
+    assert.equal(game._normalizeRemotePrompt({
+        ...valid,
+        options: [{ id: '../escape', name: 'بطاقة' }],
+    }), null);
+});
+
+test('RULE-02: a remote player can choose the exact card used by an effect', () => {
+    const picker = makeElement();
+    const pickerList = makeElement();
+    const sent = [];
+    const document = {
+        addEventListener() {},
+        createElement: makeElement,
+        getElementById(id) {
+            if (id === 'player-picker') return picker;
+            if (id === 'player-picker-list') return pickerList;
+            return null;
+        },
+        querySelectorAll() { return []; },
+        body: makeElement('body'),
+    };
+    const { MehGame } = loadGame({
+        document,
+        Net: { send(message) { sent.push(message); } },
+    });
+    const game = Object.create(MehGame.prototype);
+
+    assert.equal(game.showRemotePrompt({
+        t: 'prompt',
+        kind: 'card',
+        promptId: 12,
+        title: 'اختر بطاقة',
+        options: [
+            { id: 'card123', name: 'بطاقة أولى' },
+            { id: 'card456', name: 'بطاقة ثانية' },
+        ],
+    }), true);
+    assert.equal(pickerList.children.length, 2);
+
+    pickerList.children[1].onclick();
+
+    assert.deepEqual(
+        JSON.parse(JSON.stringify(sent)),
+        [{ t: 'choice', promptId: 12, value: 'card456' }],
+    );
 });
 
 test('NET-03: full rooms and late joins are rejected without changing the lobby', () => {

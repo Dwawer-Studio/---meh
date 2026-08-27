@@ -65,6 +65,7 @@ test('local flow starts, deals, draws, plays, and restarts a game', () => {
     assert.equal(game.players[0].avatar, '🤖');
     assert.equal(game.discardPile.length, 1);
     assert.notEqual(game.topCard.color, 'black');
+    assert.equal(game.topCard.type, 'normal');
     assert.equal(game.activeColor, game.topCard.color);
     assert.equal(countCards(game), 60);
     assert.equal(events.playTurns, 1);

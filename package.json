@@ -6,12 +6,14 @@
   "scripts": {
     "check": "node tools/check-all.js",
     "check:clean": "node tools/check-clean.js",
+    "serve": "node tools/serve.js",
     "check:syntax": "node tools/check-syntax.js",
     "validate": "npm run validate:html && npm run validate:css",
     "validate:html": "html-validate index.html",
     "validate:css": "stylelint style.css",
     "check:assets": "node --test tests/assets.test.js",
     "test": "node --test",
+    "test:security": "node --test tests/security-network.test.js",
     "test:smoke": "node --test tests/smoke.test.js tests/storage.test.js tests/game-flow.test.js"
   },
   "engines": {

@@ -48,6 +48,9 @@ const INSTR_POWER = [
 ];
 
 const AVATARS = ['😎','😀','😂','🤩','😍','🥳','🤠','👻','🐱','🦁','🐯','🦄','🐲','🤖','👑','🌟'];
+const ONLINE_COLORS = ['orange', 'gray', 'purple'];
+const MAX_ONLINE_PLAYERS = 4;
+const MAX_PLAYER_NAME_LENGTH = 24;
 
 class MehGame {
     constructor() {
@@ -71,6 +74,13 @@ class MehGame {
         this.myIndex = 0;                 // مقعد هذا الجهاز (دائماً 0 في عرضه)
         this.awaitingRemote = false;      // المضيف ينتظر حركة لاعب بعيد
         this.turnTimer = null;            // مؤقّت الدور (لعب تلقائي عند التأخّر)
+        this._promptTimer = null;
+        this._remotePromptSeq = 0;
+        this._remotePromptId = null;
+        this._remotePromptPeer = null;
+        this._remoteAllowedValues = null;
+        this._joinRejected = false;
+        this._rejectedConnections = new WeakSet();
         this._pendingAvatar = '😎';
 
         // الإعدادات والعضو
@@ -200,7 +210,7 @@ class MehGame {
 
     renderAvatarPicker() {
         const wrap = document.getElementById('avatar-picker');
-        wrap.innerHTML = '';
+        wrap.replaceChildren();
         this._pendingAvatar = this._pendingAvatar || AVATARS[0];
         AVATARS.forEach(a => {
             const b = document.createElement('button');
@@ -217,19 +227,25 @@ class MehGame {
 
     renderProfileList() {
         const list = document.getElementById('profile-list');
-        list.innerHTML = '';
+        list.replaceChildren();
         const profiles = Storage.getProfiles();
         const currentId = (Storage.getCurrentProfile() || {}).id;
         profiles.forEach(p => {
             const item = document.createElement('div');
             item.className = 'profile-item' + (p.id === currentId ? ' current' : '');
             const s = p.stats || { wins: 0, losses: 0, games: 0 };
-            item.innerHTML = `
-                <span class="profile-avatar">${p.avatar}</span>
-                <span class="profile-name">${p.name}</span>
-                <span class="profile-stats">🏆 ${s.wins} · 🎮 ${s.games}</span>
-                <button class="profile-del" title="delete">🗑️</button>`;
-            item.querySelector('.profile-del').onclick = (e) => {
+            const avatar = this._safeAvatar(p.avatar) || '😎';
+            const name = this._safePlayerName(p.name) || I18n.t('guest');
+            const wins = Number.isSafeInteger(s.wins) && s.wins >= 0 ? s.wins : 0;
+            const games = Number.isSafeInteger(s.games) && s.games >= 0 ? s.games : 0;
+            const deleteButton = this._createTextElement('button', 'profile-del', '🗑️');
+            deleteButton.type = 'button';
+            deleteButton.title = 'delete';
+            item.appendChild(this._createTextElement('span', 'profile-avatar', avatar));
+            item.appendChild(this._createTextElement('span', 'profile-name', name));
+            item.appendChild(this._createTextElement('span', 'profile-stats', `🏆 ${wins} · 🎮 ${games}`));
+            item.appendChild(deleteButton);
+            deleteButton.onclick = (e) => {
                 e.stopPropagation();
                 Storage.deleteProfile(p.id);
                 if (this.humanProfile && this.humanProfile.id === p.id) {
@@ -254,7 +270,15 @@ class MehGame {
         if (!chip) return;
         if (this.humanProfile && !this.humanProfile.guest) {
             const s = this.humanProfile.stats || { wins: 0, games: 0 };
-            chip.innerHTML = `${this.humanProfile.avatar} <strong>${this.humanProfile.name}</strong> &nbsp;🏆 ${s.wins} · 🎮 ${s.games}`;
+            const avatar = this._safeAvatar(this.humanProfile.avatar) || '😎';
+            const name = this._safePlayerName(this.humanProfile.name) || I18n.t('guest');
+            const wins = Number.isSafeInteger(s.wins) && s.wins >= 0 ? s.wins : 0;
+            const games = Number.isSafeInteger(s.games) && s.games >= 0 ? s.games : 0;
+            chip.replaceChildren(
+                this._createTextElement('span', 'chip-avatar', `${avatar} `),
+                this._createTextElement('strong', 'chip-name', name),
+                this._createTextElement('span', 'chip-stats', `  🏆 ${wins} · 🎮 ${games}`),
+            );
             chip.classList.remove('hidden');
         } else {
             chip.classList.add('hidden');
@@ -310,28 +334,152 @@ class MehGame {
         if (el) { el.textContent = msg || ''; el.classList.toggle('error', !!isError); }
     }
 
+    _isRecord(value) {
+        return !!value && typeof value === 'object' && !Array.isArray(value);
+    }
+
+    _safeText(value, maxLength) {
+        if (typeof value !== 'string') return null;
+        const normalized = typeof value.normalize === 'function' ? value.normalize('NFKC') : value;
+        const text = normalized.trim();
+        if (!text || Array.from(text).length > maxLength) return null;
+        if (/[\u0000-\u001f\u007f]/.test(text)) return null;
+        return text;
+    }
+
+    _safePlayerName(value) {
+        return this._safeText(value, MAX_PLAYER_NAME_LENGTH);
+    }
+
+    _safeAvatar(value) {
+        return typeof value === 'string' && AVATARS.includes(value) ? value : null;
+    }
+
+    _safePeerId(value) {
+        return typeof value === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(value) ? value : null;
+    }
+
+    _createTextElement(tagName, className, value) {
+        const element = document.createElement(tagName);
+        element.className = className;
+        element.textContent = String(value ?? '');
+        return element;
+    }
+
+    _sanitizeLobbyPlayers(players) {
+        if (!Array.isArray(players) || players.length < 1 || players.length > MAX_ONLINE_PLAYERS) return null;
+        const ids = new Set();
+        const result = [];
+        for (let i = 0; i < players.length; i++) {
+            const player = players[i];
+            if (!this._isRecord(player)) return null;
+            const id = this._safePeerId(player.id);
+            const name = this._safePlayerName(player.name);
+            const avatar = this._safeAvatar(player.avatar);
+            const host = player.host === true;
+            if (!id || ids.has(id) || !name || !avatar) return null;
+            if ((i === 0) !== host) return null;
+            ids.add(id);
+            result.push({ id, name, avatar, host });
+        }
+        return result;
+    }
+
+    _rejectConnection(conn, reason) {
+        if (!conn || typeof conn !== 'object') return;
+        if (!this._rejectedConnections) this._rejectedConnections = new WeakSet();
+        if (this._rejectedConnections.has(conn)) return;
+        this._rejectedConnections.add(conn);
+        Net.sendTo(conn, { t: 'rejected', reason });
+        Net.disconnect(conn);
+    }
+
+    handleHostMessage(msg, conn) {
+        if (!this._isRecord(msg) || !conn || !this._safePeerId(conn.peer)) return false;
+
+        if (msg.t === 'hello') {
+            if (this.online) { this._rejectConnection(conn, 'started'); return false; }
+            if ((this.lobbyPlayers || []).some(p => p.id === conn.peer)) return true;
+            if ((this.lobbyPlayers || []).length >= MAX_ONLINE_PLAYERS) {
+                this._rejectConnection(conn, 'full');
+                return false;
+            }
+
+            const name = this._safePlayerName(msg.name);
+            const avatar = this._safeAvatar(msg.avatar);
+            if (!name || !avatar) {
+                this._rejectConnection(conn, 'invalid');
+                return false;
+            }
+
+            this.lobbyPlayers.push({ id: conn.peer, name, avatar, host: false });
+            this.showToast(I18n.t('net_player_joined', { name }));
+            this._broadcastLobby();
+            this.renderLobby();
+            return true;
+        }
+
+        if (msg.t === 'play' || msg.t === 'draw') {
+            this.applyRemoteAction(conn, msg);
+            return true;
+        }
+        if (msg.t === 'choice') {
+            this.resolveRemotePrompt(msg, conn);
+            return true;
+        }
+        return false;
+    }
+
+    handleClientMessage(msg) {
+        if (!this._isRecord(msg) || typeof msg.t !== 'string') return false;
+        if (msg.t === 'lobby') {
+            const players = this._sanitizeLobbyPlayers(msg.players);
+            if (!players) return false;
+            this.lobbyPlayers = players;
+            this.renderLobby();
+        } else if (msg.t === 'gamestart') {
+            this.beginClientGame();
+        } else if (msg.t === 'state') {
+            return this.applyState(msg);
+        } else if (msg.t === 'prompt') {
+            return this.showRemotePrompt(msg);
+        } else if (msg.t === 'gameover') {
+            const winnerName = this._safePlayerName(msg.winnerName);
+            if (typeof msg.youWon !== 'boolean' || !winnerName) return false;
+            this.onlineGameOver({ youWon: msg.youWon, winnerName });
+        } else if (msg.t === 'toast') {
+            const message = this._safeText(msg.text, 160);
+            if (!message) return false;
+            this.showToast(message);
+        } else if (msg.t === 'rejected') {
+            if (this._joinRejected) return true;
+            const key = msg.reason === 'full' ? 'room_full'
+                : msg.reason === 'started' ? 'game_already_started'
+                    : 'invalid_player_data';
+            this._joinRejected = true;
+            this.online = false;
+            this.showScreen('online-screen');
+            this.showOnlineStatus(I18n.t(key), true);
+            Net.close();
+        } else {
+            return false;
+        }
+        return true;
+    }
+
     // ----- المضيف -----
     createRoom() {
         if (!Net.available()) { this.showOnlineStatus(I18n.t('no_peerjs'), true); return; }
         this.showOnlineStatus(I18n.t('creating_room'));
-        this.lobbyPlayers = [{ id: 'host', name: this.humanProfile.name, avatar: this.humanProfile.avatar, host: true }];
+        const hostName = this._safePlayerName(this.humanProfile.name) || I18n.t('guest');
+        const hostAvatar = this._safeAvatar(this.humanProfile.avatar) || '😎';
+        this.lobbyPlayers = [{ id: 'host', name: hostName, avatar: hostAvatar, host: true }];
 
-        Net.onPlayerJoin = () => {};   // ننتظر رسالة hello
-        Net.onData = (msg, conn) => {
-            if (!msg) return;
-            if (msg.t === 'hello') {
-                if (!this.lobbyPlayers.find(p => p.id === conn.peer)) {
-                    this.lobbyPlayers.push({ id: conn.peer, name: msg.name, avatar: msg.avatar, host: false });
-                    this.showToast(I18n.t('net_player_joined', { name: msg.name }));
-                }
-                this._broadcastLobby();
-                this.renderLobby();
-            } else if (msg.t === 'play' || msg.t === 'draw') {
-                this.applyRemoteAction(conn, msg);
-            } else if (msg.t === 'choice') {
-                this.resolveRemotePrompt(msg.value, conn);
-            }
+        Net.onPlayerJoin = (conn) => {
+            if (this.online) this._rejectConnection(conn, 'started');
+            else if (this.lobbyPlayers.length >= MAX_ONLINE_PLAYERS) this._rejectConnection(conn, 'full');
         };
+        Net.onData = (msg, conn) => this.handleHostMessage(msg, conn);
         Net.onPlayerLeave = (conn) => {
             const peer = conn && conn.peer;
             if (this.online) {
@@ -373,19 +521,13 @@ class MehGame {
     joinRoom() {
         if (!Net.available()) { this.showOnlineStatus(I18n.t('no_peerjs'), true); return; }
         const code = (document.getElementById('room-code-input').value || '').trim().toUpperCase();
-        if (code.length < 4) { this.showOnlineStatus(I18n.t('conn_error'), true); return; }
+        if (!/^[A-HJ-NP-Z2-9]{5}$/.test(code)) { this.showOnlineStatus(I18n.t('conn_error'), true); return; }
+        this._joinRejected = false;
         this.showOnlineStatus(I18n.t('connecting'));
 
-        Net.onData = (msg) => {
-            if (!msg) return;
-            if (msg.t === 'lobby') { this.lobbyPlayers = msg.players; this.renderLobby(); }
-            else if (msg.t === 'gamestart') { this.beginClientGame(); }
-            else if (msg.t === 'state') { this.applyState(msg); }
-            else if (msg.t === 'prompt') { this.showRemotePrompt(msg); }
-            else if (msg.t === 'gameover') { this.onlineGameOver(msg); }
-            else if (msg.t === 'toast') { this.showToast(msg.text); }
-        };
+        Net.onData = (msg) => this.handleClientMessage(msg);
         Net.onPlayerLeave = () => {
+            if (this._joinRejected) return;
             if (this.online) { this.showToast('انقطع الاتصال بالمضيف'); this.showScreen('main-menu'); this.online = false; }
             else this.showOnlineStatus('انقطع الاتصال بالمضيف', true);
         };
@@ -403,13 +545,19 @@ class MehGame {
     renderLobby() {
         const wrap = document.getElementById('lobby-players');
         if (!wrap) return;
-        wrap.innerHTML = '';
+        wrap.replaceChildren();
         (this.lobbyPlayers || []).forEach(p => {
             const div = document.createElement('div');
             div.className = 'lobby-player';
-            div.innerHTML = `<span class="lp-avatar">${p.avatar || '😎'}</span>` +
-                `<span class="lp-name">${p.name}</span>` +
-                (p.host ? `<span class="lp-host">👑 ${I18n.lang === 'ar' ? 'المضيف' : 'Host'}</span>` : '');
+            div.appendChild(this._createTextElement('span', 'lp-avatar', p.avatar || '😎'));
+            div.appendChild(this._createTextElement('span', 'lp-name', p.name || ''));
+            if (p.host) {
+                div.appendChild(this._createTextElement(
+                    'span',
+                    'lp-host',
+                    `👑 ${I18n.lang === 'ar' ? 'المضيف' : 'Host'}`,
+                ));
+            }
             wrap.appendChild(div);
         });
     }
@@ -426,12 +574,19 @@ class MehGame {
     promptRemote(kind, data, resolve) {
         const conn = (Net.conns || []).find(c => c.peer === this.currentPlayer.connPeer);
         if (!conn) { resolve(this._autoPromptValue(kind)); return; }
+        this._remotePromptSeq = (this._remotePromptSeq % Number.MAX_SAFE_INTEGER) + 1;
+        const promptId = this._remotePromptSeq;
         this._remoteResolve = resolve;
         this._remoteKind = kind;
+        this._remotePromptId = promptId;
+        this._remotePromptPeer = conn.peer;
+        this._remoteAllowedValues = kind === 'target' && Array.isArray(data.options)
+            ? data.options.map(option => option.idx).filter(Number.isSafeInteger)
+            : null;
         this.clearTurnTimer();
         if (this._promptTimer) clearTimeout(this._promptTimer);
         this._promptTimer = setTimeout(() => this.autoResolvePrompt(), 12000);
-        Net.sendTo(conn, Object.assign({ t: 'prompt', kind }, data));
+        Net.sendTo(conn, Object.assign({ t: 'prompt', kind, promptId }, data));
     }
 
     _autoPromptValue(kind) {
@@ -453,40 +608,99 @@ class MehGame {
         const r = this._remoteResolve; this._remoteResolve = null;
         const v = this._autoPromptValue(this._remoteKind);
         this._remoteKind = null;
+        this._remotePromptId = null;
+        this._remotePromptPeer = null;
+        this._remoteAllowedValues = null;
+        this._promptTimer = null;
         this.showToast('⏱️ لعب تلقائي');
         r(v);
     }
 
+    _validateRemotePromptValue(kind, value) {
+        if (kind === 'color') return ONLINE_COLORS.includes(value) ? value : null;
+        if (kind === 'choice') return value === 0 || value === 1 ? value : null;
+        if (kind === 'target') {
+            return Number.isSafeInteger(value)
+                && Array.isArray(this._remoteAllowedValues)
+                && this._remoteAllowedValues.includes(value)
+                ? value : null;
+        }
+        return null;
+    }
+
     // المضيف يستقبل اختيار اللاعب البعيد
-    resolveRemotePrompt(value, conn) {
-        if (!this._remoteResolve) return;
-        if (!this.currentPlayer || this.currentPlayer.connPeer !== (conn && conn.peer)) return;
+    resolveRemotePrompt(msg, conn) {
+        if (!this._remoteResolve || !this._isRecord(msg)) return false;
+        if (!Number.isSafeInteger(msg.promptId) || msg.promptId !== this._remotePromptId) return false;
+        if (!conn || conn.peer !== this._remotePromptPeer) return false;
+        if (!this.currentPlayer || this.currentPlayer.connPeer !== conn.peer) return false;
+        const value = this._validateRemotePromptValue(this._remoteKind, msg.value);
+        if (value === null) return false;
         if (this._promptTimer) { clearTimeout(this._promptTimer); this._promptTimer = null; }
-        const r = this._remoteResolve; this._remoteResolve = null; this._remoteKind = null;
+        const r = this._remoteResolve;
+        this._remoteResolve = null;
+        this._remoteKind = null;
+        this._remotePromptId = null;
+        this._remotePromptPeer = null;
+        this._remoteAllowedValues = null;
         r(value);
+        return true;
+    }
+
+    _normalizeRemotePrompt(msg) {
+        if (!this._isRecord(msg) || !Number.isSafeInteger(msg.promptId) || msg.promptId < 1) return null;
+        if (msg.kind === 'color') return { kind: 'color', promptId: msg.promptId };
+        if (msg.kind === 'choice') {
+            const title = this._safeText(msg.title, 120);
+            const opt1 = this._safeText(msg.opt1, 80);
+            const opt2 = this._safeText(msg.opt2, 80);
+            return title && opt1 && opt2 ? { kind: 'choice', promptId: msg.promptId, title, opt1, opt2 } : null;
+        }
+        if (msg.kind === 'target') {
+            if (!Array.isArray(msg.options) || msg.options.length < 1 || msg.options.length > 3) return null;
+            const seen = new Set();
+            const options = [];
+            for (const option of msg.options) {
+                if (!this._isRecord(option) || !Number.isSafeInteger(option.idx)
+                    || option.idx < 0 || option.idx >= MAX_ONLINE_PLAYERS || seen.has(option.idx)) return null;
+                const name = this._safePlayerName(option.name);
+                if (!name) return null;
+                seen.add(option.idx);
+                options.push({ idx: option.idx, name });
+            }
+            return { kind: 'target', promptId: msg.promptId, options };
+        }
+        return null;
     }
 
     // العميل يعرض نافذة الاختيار المطلوبة من المضيف
     showRemotePrompt(msg) {
-        const send = (value) => Net.send({ t: 'choice', value });
-        if (msg.kind === 'color') {
+        const prompt = this._normalizeRemotePrompt(msg);
+        if (!prompt) return false;
+        const send = (value) => Net.send({ t: 'choice', promptId: prompt.promptId, value });
+        if (prompt.kind === 'color') {
             this.isAwaitingColor = false;
             UI.colorPicker.classList.remove('hidden');
             document.querySelectorAll('.color-btn').forEach(b => {
-                b.onclick = () => { UI.colorPicker.classList.add('hidden'); send(b.dataset.color); };
+                b.onclick = () => {
+                    if (!ONLINE_COLORS.includes(b.dataset.color)) return;
+                    UI.colorPicker.classList.add('hidden');
+                    send(b.dataset.color);
+                };
             });
-        } else if (msg.kind === 'choice') {
-            this.showChoiceModal(msg.title, msg.opt1, msg.opt2, () => send(0), () => send(1));
-        } else if (msg.kind === 'target') {
-            UI.playerPickerList.innerHTML = '';
-            (msg.options || []).forEach(o => {
+        } else if (prompt.kind === 'choice') {
+            this.showChoiceModal(prompt.title, prompt.opt1, prompt.opt2, () => send(0), () => send(1));
+        } else if (prompt.kind === 'target') {
+            UI.playerPickerList.replaceChildren();
+            prompt.options.forEach(o => {
                 const btn = document.createElement('button');
-                btn.className = 'picker-btn'; btn.innerText = o.name;
+                btn.type = 'button'; btn.className = 'picker-btn'; btn.textContent = o.name;
                 btn.onclick = () => { UI.playerPicker.classList.add('hidden'); send(o.idx); };
                 UI.playerPickerList.appendChild(btn);
             });
             UI.playerPicker.classList.remove('hidden');
         }
+        return true;
     }
 
     _areaEl(p) {
@@ -497,6 +711,104 @@ class MehGame {
 
     _serCard(c) {
         return c ? { color: c.color, name: c.name, type: c.type, emoji: c.emoji, svgFile: c.svgFile, id: c.id } : null;
+    }
+
+    _networkCardCatalog() {
+        if (!this._trustedNetworkCards) {
+            this._trustedNetworkCards = new Map();
+            const deck = new Deck();
+            deck.cards.forEach(card => {
+                this._trustedNetworkCards.set(`${card.color}\u0000${card.name}`, {
+                    color: card.color,
+                    name: card.name,
+                    type: card.type,
+                    emoji: card.emoji,
+                    svgFile: card.svgFile,
+                });
+            });
+        }
+        return this._trustedNetworkCards;
+    }
+
+    _deserializeNetworkCard(raw) {
+        if (!this._isRecord(raw) || typeof raw.id !== 'string' || !/^[a-z0-9]{1,32}$/.test(raw.id)) return null;
+        if (typeof raw.color !== 'string' || typeof raw.name !== 'string') return null;
+        const definition = this._networkCardCatalog().get(`${raw.color}\u0000${raw.name}`);
+        if (!definition) return null;
+        const card = new Card(
+            definition.color,
+            definition.name,
+            definition.type,
+            definition.emoji,
+            definition.svgFile,
+        );
+        card.id = raw.id;
+        return card;
+    }
+
+    _normalizeGameState(state) {
+        if (!this._isRecord(state) || !this._isRecord(state.me)) return null;
+        const meName = this._safePlayerName(state.me.name);
+        const meAvatar = this._safeAvatar(state.me.avatar);
+        if (!meName || !meAvatar || !Array.isArray(state.hand) || state.hand.length > 60) return null;
+
+        const seenCardIds = new Set();
+        const parseCard = (raw) => {
+            const card = this._deserializeNetworkCard(raw);
+            if (!card || seenCardIds.has(card.id)) return null;
+            seenCardIds.add(card.id);
+            return card;
+        };
+        const hand = [];
+        for (const rawCard of state.hand) {
+            const card = parseCard(rawCard);
+            if (!card) return null;
+            hand.push(card);
+        }
+
+        const top = parseCard(state.top);
+        if (!top) return null;
+        const second = state.second == null ? null : parseCard(state.second);
+        if (state.second != null && !second) return null;
+
+        if (!Array.isArray(state.others) || state.others.length > 3) return null;
+        const others = [];
+        for (const other of state.others) {
+            if (!this._isRecord(other)) return null;
+            const name = this._safePlayerName(other.name);
+            const avatar = this._safeAvatar(other.avatar);
+            if (!name || !avatar || typeof other.isBot !== 'boolean'
+                || !Number.isSafeInteger(other.count) || other.count < 0 || other.count > 60) return null;
+            others.push({ name, avatar, isBot: other.isBot, count: other.count });
+        }
+
+        const playerCount = 1 + others.length;
+        if (!ONLINE_COLORS.includes(state.activeColor) || (state.direction !== 1 && state.direction !== -1)) return null;
+        if (!Number.isSafeInteger(state.current) || state.current < 0 || state.current >= playerCount) return null;
+        if (!Number.isSafeInteger(state.pending) || state.pending < 0 || state.pending > 60) return null;
+        if (typeof state.canPlay !== 'boolean' || !Array.isArray(state.skipped)) return null;
+
+        const skipped = [];
+        const seenSkipped = new Set();
+        for (const index of state.skipped) {
+            if (!Number.isSafeInteger(index) || index < 0 || index >= playerCount || seenSkipped.has(index)) return null;
+            seenSkipped.add(index);
+            skipped.push(index);
+        }
+
+        return {
+            me: { name: meName, avatar: meAvatar },
+            hand,
+            others,
+            top,
+            second,
+            activeColor: state.activeColor,
+            direction: state.direction,
+            current: state.current,
+            pending: state.pending,
+            skipped,
+            canPlay: state.canPlay,
+        };
     }
 
     buildOnlineSeats() {
@@ -531,7 +843,11 @@ class MehGame {
 
     // ----- المضيف يبدأ اللعبة -----
     startOnlineGame() {
-        if (!Net.isHost) return;
+        if (!Net.isHost || this.online) return;
+        const acceptedPeers = new Set((this.lobbyPlayers || []).slice(1).map(player => player.id));
+        (Net.conns || []).slice().forEach(conn => {
+            if (!acceptedPeers.has(conn.peer)) this._rejectConnection(conn, 'started');
+        });
         this.online = true; this.isHost = true; this.myIndex = 0;
         Net.broadcast({ t: 'gamestart' });
 
@@ -609,25 +925,24 @@ class MehGame {
 
     // ----- العميل يطبّق الحالة ويعرض -----
     applyState(s) {
-        if (!s) return;
+        s = this._normalizeGameState(s);
+        if (!s) return false;
         const layout = [
             { id: 'seat-0', containerId: 'human-hand', countId: null },
             { id: 'seat-1', containerId: 'bot-1-hand', countId: 'bot-1-count' },
             { id: 'seat-2', containerId: 'bot-2-hand', countId: 'bot-2-count' },
             { id: 'seat-3', containerId: 'bot-3-hand', countId: 'bot-3-count' },
         ];
-        const mk = (c) => { const card = new Card(c.color, c.name, c.type, c.emoji, c.svgFile); card.id = c.id; return card; };
-
         const players = [];
-        players.push({ ...layout[0], name: s.me.name, avatar: s.me.avatar, isBot: false, isRemote: false, hand: (s.hand || []).map(mk) });
+        players.push({ ...layout[0], name: s.me.name, avatar: s.me.avatar, isBot: false, isRemote: false, hand: s.hand });
         (s.others || []).forEach((o, i) => {
             players.push({ ...layout[i + 1], name: o.name, avatar: o.avatar, isBot: o.isBot, isRemote: !o.isBot, hand: new Array(o.count).fill(null) });
         });
         this.players = players;
 
         this.discardPile = [];
-        if (s.second) this.discardPile.push(mk(s.second));
-        this.discardPile.push(mk(s.top));
+        if (s.second) this.discardPile.push(s.second);
+        this.discardPile.push(s.top);
         this.activeColor = s.activeColor;
         this.direction = s.direction;
         this.currentPlayerIndex = s.current;
@@ -639,21 +954,23 @@ class MehGame {
         this.isAwaitingColor = false;
         if (this.selectedCardIndex >= (this.players[0].hand.length)) this.selectedCardIndex = -1;
         this.updateUI();
+        return true;
     }
 
     // ----- المضيف يطبّق حركة لاعب بعيد -----
     applyRemoteAction(conn, msg) {
-        if (!this.online || !this.isHost) return;
+        if (!this.online || !this.isHost || !conn || !this._isRecord(msg)) return;
         const seat = this.players.find(p => p.connPeer === conn.peer);
         if (!seat || this.players[this.currentPlayerIndex] !== seat) return;
         if (!this.awaitingRemote || this.actionInProgress) return;
-        this.clearTurnTimer();
 
         if (msg.t === 'draw') {
+            this.clearTurnTimer();
             this.awaitingRemote = false;
             this.actionInProgress = true;
             this.doDrawForCurrent();
         } else if (msg.t === 'play') {
+            if (typeof msg.cardId !== 'string' || !/^[a-z0-9]{1,32}$/.test(msg.cardId)) return;
             const idx = seat.hand.findIndex(c => c.id === msg.cardId);
             if (idx < 0) return;
             const card = seat.hand[idx];
@@ -665,6 +982,7 @@ class MehGame {
                 ok = card.isPlayable(this.topCard, this.activeColor);
             }
             if (!ok) return;
+            this.clearTurnTimer();
             this.awaitingRemote = false;
             this.actionInProgress = true;
             this.playCard(seat, idx);
@@ -723,7 +1041,7 @@ class MehGame {
         Sound.play(msg.youWon ? 'win' : 'lose');
         if (msg.youWon) this.launchConfetti();
         UI.winnerText.innerText = msg.youWon ? I18n.t('you_win') : I18n.t('bot_win', { name: msg.winnerName });
-        const st = document.getElementById('end-stats'); if (st) st.innerHTML = '';
+        const st = document.getElementById('end-stats'); if (st) st.replaceChildren();
         this.showScreen('end-screen');
         Net.close();
     }
@@ -1518,7 +1836,7 @@ class MehGame {
             });
             return;
         }
-        UI.playerPickerList.innerHTML = '';
+        UI.playerPickerList.replaceChildren();
         this.players.filter(p => p.id !== player.id).forEach(target => {
             const btn = document.createElement('button');
             btn.className = 'picker-btn';
@@ -1573,9 +1891,9 @@ class MehGame {
         if (statsEl) {
             if (this.humanProfile && !this.humanProfile.guest) {
                 const s = this.humanProfile.stats || { wins: 0, losses: 0, games: 0 };
-                statsEl.innerHTML = `🏆 ${s.wins} ${I18n.t('wins')} · ❌ ${s.losses} ${I18n.t('losses')} · 🎮 ${s.games} ${I18n.t('games')}`;
+                statsEl.textContent = `🏆 ${s.wins} ${I18n.t('wins')} · ❌ ${s.losses} ${I18n.t('losses')} · 🎮 ${s.games} ${I18n.t('games')}`;
             } else {
-                statsEl.innerHTML = '';
+                statsEl.textContent = '';
             }
         }
         this.showScreen('end-screen');
@@ -1618,12 +1936,13 @@ class MehGame {
             img.style.transform = 'scale(1.045)';   // قصّ الإطار المدمج المتضارب داخل الصورة
 
             img.onerror = () => {
+                img.onerror = null;
                 img.style.display = 'none';
-                div.innerHTML = `
-                    <div class="card-wheel">
-                        <span class="card-emoji">${card.emoji}</span>
-                    </div>
-                    <div class="card-label">${I18n.cardName(card)}</div>`;
+                const wheel = document.createElement('div');
+                wheel.className = 'card-wheel';
+                wheel.appendChild(this._createTextElement('span', 'card-emoji', card.emoji));
+                const label = this._createTextElement('div', 'card-label', I18n.cardName(card));
+                div.replaceChildren(wheel, label);
                 this._addColorSymbol(div, card);
             };
 
@@ -1666,7 +1985,7 @@ class MehGame {
 
     updateUI() {
         // Discard pile
-        UI.discardPile.innerHTML = '';
+        UI.discardPile.replaceChildren();
         if (this.discardPile.length > 1) {
             const secondTop = this.discardPile[this.discardPile.length - 2];
             const secondEl = this.createCardElement(secondTop, false, false);
@@ -1698,7 +2017,7 @@ class MehGame {
             const el = document.getElementById(bot.countId);
             if (el) el.innerText = bot.hand.length;
             const container = document.getElementById(bot.containerId);
-            container.innerHTML = '';
+            container.replaceChildren();
             const count = Math.min(bot.hand.length, 9);
             if (count === 0) { container.style.transform = 'none'; return; }
 
@@ -1725,7 +2044,7 @@ class MehGame {
         // Human hand — fan into an arc when many cards
         const human = this.players[0];
         const hc = document.getElementById(human.containerId);
-        hc.innerHTML = '';
+        hc.replaceChildren();
         // اسم وصورة العضو
         const hArea = document.getElementById('player-human');
         if (hArea) {

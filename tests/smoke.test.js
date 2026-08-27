@@ -32,6 +32,16 @@ test('HTML has a doctype, unique ids, and expected script order', () => {
     ]);
 });
 
+test('external PeerJS is pinned with SRI and no external stylesheet remains', () => {
+    const peerScript = html.match(/<script\b[^>]*src="https:\/\/unpkg\.com\/peerjs@1\.5\.4\/dist\/peerjs\.min\.js"[^>]*><\/script>/);
+    assert.ok(peerScript, 'PeerJS script tag is missing');
+    assert.match(peerScript[0], /integrity="sha384-nlUQ8ZqCbvStErob\+biJNzSgltf6urV3VGqhfIfzhmg9RXmpeRm76ELw0pYnKlTR"/);
+    assert.match(peerScript[0], /crossorigin="anonymous"/);
+
+    const externalStyles = [...html.matchAll(/<link\b[^>]*href="https?:\/\/[^\"]+"[^>]*>/g)];
+    assert.deepEqual(externalStyles, []);
+});
+
 test('non-void HTML tags are properly nested and closed', () => {
     const withoutComments = html.replace(/<!--[\s\S]*?-->/g, '');
     const voidTags = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'source', 'track', 'wbr']);

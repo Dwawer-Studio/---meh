@@ -66,14 +66,16 @@ npm ci
 npm run check
 ```
 
-يمكن تشغيل الأجزاء منفردة عبر `npm run validate` و`npm test` و`npm run test:smoke`
-و`npm run check:assets`. ولإعادة الاختبار من لقطة مؤقتة بلا `node_modules` مسبق:
+يمكن تشغيل الأجزاء منفردة عبر `npm run validate` و`npm test` و`npm run test:security`
+و`npm run test:smoke` و`npm run check:assets`. ولإعادة الاختبار من لقطة مؤقتة بلا
+`node_modules` مسبق:
 
 ```bash
 npm run check:clean
 ```
 
-تفاصيل خط الأساس والعيوب المسجّلة موجودة في `docs/BASELINE.md`.
+تفاصيل خط الأساس والعيوب المسجّلة موجودة في `docs/BASELINE.md`، وتقرير إصلاحات
+الأمان والشبكة في `docs/PHASE-1-SECURITY.md`.
 
 ---
 

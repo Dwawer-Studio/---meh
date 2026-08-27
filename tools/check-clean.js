@@ -7,7 +7,7 @@ const path = require('node:path');
 
 const ROOT = path.resolve(__dirname, '..');
 const TEMP_ROOT = fs.realpathSync(os.tmpdir());
-const TEMP_DIR = fs.mkdtempSync(path.join(TEMP_ROOT, 'meh-phase0-'));
+const TEMP_DIR = fs.mkdtempSync(path.join(TEMP_ROOT, 'meh-clean-'));
 const EXCLUDED = new Set(['.git', 'node_modules']);
 
 function assertTemporaryTarget(target) {
@@ -62,7 +62,7 @@ try {
     run('git', [
         '-c', 'user.name=Phase 0 Check',
         '-c', 'user.email=phase0-check@example.invalid',
-        'commit', '--quiet', '-m', 'Isolated phase 0 snapshot',
+        'commit', '--quiet', '-m', 'Isolated verification snapshot',
     ], 'Commit isolated snapshot');
     assertGitClean();
     runNpm(['ci', '--ignore-scripts', '--prefer-offline', '--no-audit', '--no-fund'], 'Clean dependency install');

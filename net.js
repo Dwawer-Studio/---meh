@@ -15,6 +15,7 @@ const Net = {
     hostConn: null,   // العميل: الاتصال بالمضيف
     isHost: false,
     roomCode: null,
+    _disconnecting: new WeakSet(),
 
     onPlayerJoin: null,
     onPlayerLeave: null,
@@ -31,6 +32,10 @@ const Net = {
     },
 
     _peerId(code) { return 'meh-game-' + code; },
+
+    _validCode(code) {
+        return typeof code === 'string' && /^[A-HJ-NP-Z2-9]{5}$/.test(code);
+    },
 
     // ===== المضيف =====
     host(cb) {
@@ -60,6 +65,7 @@ const Net = {
     // ===== العميل =====
     join(code, cb) {
         if (!this.available()) { this.onError && this.onError({ type: 'no-lib' }); return; }
+        if (!this._validCode(code)) { this.onError && this.onError({ type: 'invalid-code' }); return; }
         this.isHost = false;
         this.roomCode = code;
         this.peer = new Peer();
@@ -91,10 +97,23 @@ const Net = {
         if (this.hostConn && this.hostConn.open) this.hostConn.send(msg);
     },
 
+    // المضيف يزيل اتصالاً غير مقبول فوراً من قائمة البث، ثم يغلقه بعد منح
+    // رسالة الرفض زمناً قصيراً للوصول إلى العميل.
+    disconnect(conn) {
+        if (!conn) return;
+        if (this._disconnecting.has(conn)) return;
+        this._disconnecting.add(conn);
+        this.conns = this.conns.filter(c => c !== conn);
+        setTimeout(() => {
+            try { conn.close(); } catch (e) {}
+        }, 60);
+    },
+
     // ===== إنهاء =====
     close() {
         try { if (this.peer) this.peer.destroy(); } catch (e) {}
         this.peer = null; this.conns = []; this.hostConn = null;
+        this._disconnecting = new WeakSet();
         this.isHost = false; this.roomCode = null;
     },
 };

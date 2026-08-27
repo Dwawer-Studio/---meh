@@ -74,7 +74,7 @@ html[dir="ltr"] .game-subtitle { letter-spacing: 3px; }
   padding: 16px 48px; font-size: 1.3rem; font-weight: 900;
   border: none; border-radius: 50px; cursor: pointer;
   transition: transform .2s, box-shadow .2s, background .2s;
-  font-family: 'Tajawal', sans-serif;
+  font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
   display: flex; align-items: center; gap: 10px;
   justify-content: center; min-width: 240px;
 }

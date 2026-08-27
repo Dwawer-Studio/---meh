@@ -75,6 +75,9 @@ class MehGame {
         this.awaitingRemote = false;      // المضيف ينتظر حركة لاعب بعيد
         this.turnTimer = null;            // مؤقّت الدور (لعب تلقائي عند التأخّر)
         this._promptTimer = null;
+        this._bcTimer = null;
+        this._disconnectTurnTimer = null;
+        this._remoteResolve = null;
         this._remotePromptSeq = 0;
         this._remotePromptId = null;
         this._remotePromptPeer = null;
@@ -318,14 +321,14 @@ class MehGame {
             this.showOnlineStatus('');
             g('room-code-input').value = '';
         };
-        g('online-back-btn').onclick = () => { this.online = false; this.isHost = false; Net.close(); this.showScreen('main-menu'); };
+        g('online-back-btn').onclick = () => this._leaveOnlineSession('main-menu');
         g('create-room-btn').onclick = () => this.createRoom();
         g('join-room-btn').onclick = () => this.joinRoom();
         g('copy-code-btn').onclick = () => {
             if (Net.roomCode && navigator.clipboard) navigator.clipboard.writeText(Net.roomCode).catch(() => {});
             this.showToast(I18n.t('code_copied'));
         };
-        g('lobby-leave-btn').onclick = () => { this.online = false; this.isHost = false; Net.close(); this.showScreen('main-menu'); };
+        g('lobby-leave-btn').onclick = () => this._leaveOnlineSession('main-menu');
         g('lobby-start-btn').onclick = () => this.startOnlineGame();
     }
 
@@ -394,12 +397,77 @@ class MehGame {
         Net.disconnect(conn);
     }
 
+    _clearRemotePrompt() {
+        if (this._promptTimer) clearTimeout(this._promptTimer);
+        this._promptTimer = null;
+        this._remoteResolve = null;
+        this._remoteKind = null;
+        this._remotePromptId = null;
+        this._remotePromptPeer = null;
+        this._remoteAllowedValues = null;
+    }
+
+    _clearOnlineRuntime() {
+        this.clearTurnTimer();
+        this._clearRemotePrompt();
+        if (this._bcTimer) clearTimeout(this._bcTimer);
+        if (this._disconnectTurnTimer) clearTimeout(this._disconnectTurnTimer);
+        this._bcTimer = null;
+        this._disconnectTurnTimer = null;
+        this.awaitingRemote = false;
+        this.humanCanPlay = false;
+        ['color-picker', 'player-picker', 'choice-modal'].forEach(id => {
+            const element = document.getElementById(id);
+            if (element) element.classList.add('hidden');
+        });
+    }
+
+    _leaveOnlineSession(screenId, messageKey) {
+        this._clearOnlineRuntime();
+        this.online = false;
+        this.isHost = false;
+        WakeLock.disable();
+        Net.close();
+        if (screenId) this.showScreen(screenId);
+        if (messageKey) this.showToast(I18n.t(messageKey));
+    }
+
+    _resumeRemotePlayer(conn) {
+        const peer = conn && conn.peer;
+        const seat = this.players && this.players.find(player => player.connPeer === peer);
+        if (!seat) return false;
+        const wasDisconnected = seat.isBot || !seat.isRemote;
+        seat.isBot = false;
+        seat.isRemote = true;
+
+        if (wasDisconnected && this.players[this.currentPlayerIndex] === seat
+            && !this.actionInProgress && !this._remoteResolve) {
+            if (this._disconnectTurnTimer) clearTimeout(this._disconnectTurnTimer);
+            this._disconnectTurnTimer = null;
+            this.awaitingRemote = true;
+            this.startTurnTimer();
+        }
+
+        Net.sendTo(conn, { t: 'resumed' });
+        this.showToast(I18n.t('net_player_reconnected', { name: seat.name }));
+        this.updateUI();
+        this._doBroadcast();
+        return true;
+    }
+
     handleHostMessage(msg, conn) {
         if (!this._isRecord(msg) || !conn || !this._safePeerId(conn.peer)) return false;
 
         if (msg.t === 'hello') {
-            if (this.online) { this._rejectConnection(conn, 'started'); return false; }
-            if ((this.lobbyPlayers || []).some(p => p.id === conn.peer)) return true;
+            if (this.online) {
+                if (this._resumeRemotePlayer(conn)) return true;
+                this._rejectConnection(conn, 'started');
+                return false;
+            }
+            if ((this.lobbyPlayers || []).some(p => p.id === conn.peer)) {
+                Net.sendTo(conn, { t: 'lobby', players: this.lobbyPlayers });
+                return true;
+            }
             if ((this.lobbyPlayers || []).length >= MAX_ONLINE_PLAYERS) {
                 this._rejectConnection(conn, 'full');
                 return false;
@@ -461,6 +529,9 @@ class MehGame {
             this.showScreen('online-screen');
             this.showOnlineStatus(I18n.t(key), true);
             Net.close();
+        } else if (msg.t === 'resumed') {
+            this.online = true;
+            this.showToast(I18n.t('connection_restored'));
         } else {
             return false;
         }
@@ -476,33 +547,20 @@ class MehGame {
         this.lobbyPlayers = [{ id: 'host', name: hostName, avatar: hostAvatar, host: true }];
 
         Net.onPlayerJoin = (conn) => {
-            if (this.online) this._rejectConnection(conn, 'started');
-            else if (this.lobbyPlayers.length >= MAX_ONLINE_PLAYERS) this._rejectConnection(conn, 'full');
-        };
-        Net.onData = (msg, conn) => this.handleHostMessage(msg, conn);
-        Net.onPlayerLeave = (conn) => {
-            const peer = conn && conn.peer;
             if (this.online) {
-                // لاعب خرج أثناء اللعبة → حوّل مقعده لبوت ليكمل
-                const seat = this.players && this.players.find(p => p.connPeer === peer);
-                if (seat) {
-                    seat.isBot = true; seat.isRemote = false; seat.connPeer = null;
-                    this.showToast(I18n.t('net_player_left', { name: seat.name }));
-                    if (this.players[this.currentPlayerIndex] === seat && this.awaitingRemote) {
-                        this.awaitingRemote = false;
-                        setTimeout(() => this.playBotTurn(), 600);
-                    }
-                    this.updateUI();
+                if (!(this.players || []).some(player => player.connPeer === conn.peer)) {
+                    this._rejectConnection(conn, 'started');
                 }
                 return;
             }
-            const left = this.lobbyPlayers.find(p => p.id === peer);
-            this.lobbyPlayers = this.lobbyPlayers.filter(p => p.id !== peer);
-            if (left) this.showToast(I18n.t('net_player_left', { name: left.name }));
-            this._broadcastLobby();
-            this.renderLobby();
+            if (this.lobbyPlayers.length >= MAX_ONLINE_PLAYERS) this._rejectConnection(conn, 'full');
         };
-        Net.onError = () => this.showOnlineStatus(I18n.t('conn_error'), true);
+        Net.onData = (msg, conn) => this.handleHostMessage(msg, conn);
+        Net.onPlayerLeave = (conn) => this._handleHostPlayerLeave(conn);
+        Net.onReconnecting = () => this.showToast(I18n.t('reconnecting'));
+        Net.onReconnect = null;
+        Net.onSignalReconnect = () => this.showToast(I18n.t('connection_restored'));
+        Net.onError = (error) => this._handleOnlineNetworkError(error);
 
         Net.host((code) => {
             document.getElementById('lobby-room-code').textContent = code;
@@ -517,6 +575,41 @@ class MehGame {
         Net.broadcast({ t: 'lobby', players: this.lobbyPlayers });
     }
 
+    _handleHostPlayerLeave(conn) {
+        const peer = conn && conn.peer;
+        if (this.online) {
+            const seat = this.players && this.players.find(player => player.connPeer === peer);
+            if (!seat) return;
+            seat.isBot = true;
+            seat.isRemote = false;
+            this.showToast(I18n.t('net_player_left', { name: seat.name }));
+
+            if (this._remoteResolve && this._remotePromptPeer === peer) {
+                const resolve = this._remoteResolve;
+                const fallback = this._autoPromptValue(this._remoteKind);
+                this._clearRemotePrompt();
+                resolve(fallback);
+            } else if (this.players[this.currentPlayerIndex] === seat && this.awaitingRemote) {
+                this.clearTurnTimer();
+                this.awaitingRemote = false;
+                if (this._disconnectTurnTimer) clearTimeout(this._disconnectTurnTimer);
+                this._disconnectTurnTimer = setTimeout(() => {
+                    this._disconnectTurnTimer = null;
+                    if (this.online && this.isHost && this.currentPlayer === seat
+                        && seat.isBot && !this.actionInProgress) this.playBotTurn();
+                }, 600);
+            }
+            this.updateUI();
+            return;
+        }
+
+        const left = (this.lobbyPlayers || []).find(player => player.id === peer);
+        this.lobbyPlayers = (this.lobbyPlayers || []).filter(player => player.id !== peer);
+        if (left) this.showToast(I18n.t('net_player_left', { name: left.name }));
+        this._broadcastLobby();
+        this.renderLobby();
+    }
+
     // ----- العميل -----
     joinRoom() {
         if (!Net.available()) { this.showOnlineStatus(I18n.t('no_peerjs'), true); return; }
@@ -526,12 +619,16 @@ class MehGame {
         this.showOnlineStatus(I18n.t('connecting'));
 
         Net.onData = (msg) => this.handleClientMessage(msg);
-        Net.onPlayerLeave = () => {
-            if (this._joinRejected) return;
-            if (this.online) { this.showToast('انقطع الاتصال بالمضيف'); this.showScreen('main-menu'); this.online = false; }
-            else this.showOnlineStatus('انقطع الاتصال بالمضيف', true);
+        Net.onPlayerLeave = () => this._handleClientPlayerLeave();
+        Net.onReconnecting = () => {
+            if (this.online) this.showToast(I18n.t('reconnecting'));
+            else this.showOnlineStatus(I18n.t('reconnecting'));
         };
-        Net.onError = () => this.showOnlineStatus(I18n.t('conn_error'), true);
+        Net.onReconnect = () => {
+            Net.send({ t: 'hello', name: this.humanProfile.name, avatar: this.humanProfile.avatar });
+        };
+        Net.onSignalReconnect = () => this.showToast(I18n.t('connection_restored'));
+        Net.onError = (error) => this._handleOnlineNetworkError(error);
 
         Net.join(code, () => {
             Net.send({ t: 'hello', name: this.humanProfile.name, avatar: this.humanProfile.avatar });
@@ -540,6 +637,23 @@ class MehGame {
             document.getElementById('lobby-wait').classList.remove('hidden');
             this.showScreen('lobby-screen');
         });
+    }
+
+    _handleClientPlayerLeave() {
+        if (this._joinRejected) return;
+        this.humanCanPlay = false;
+        this.hideConfirmBar();
+        if (this.online) this.showToast(I18n.t('reconnecting'));
+        else this.showOnlineStatus(I18n.t('reconnecting'), true);
+    }
+
+    _handleOnlineNetworkError(error) {
+        if (error && error.type === 'reconnect-failed') {
+            this._leaveOnlineSession('main-menu', 'reconnect_failed');
+            return;
+        }
+        if (this.online) this.showToast(I18n.t('conn_error'));
+        else this.showOnlineStatus(I18n.t('conn_error'), true);
     }
 
     renderLobby() {
@@ -844,6 +958,7 @@ class MehGame {
     // ----- المضيف يبدأ اللعبة -----
     startOnlineGame() {
         if (!Net.isHost || this.online) return;
+        this._clearOnlineRuntime();
         const acceptedPeers = new Set((this.lobbyPlayers || []).slice(1).map(player => player.id));
         (Net.conns || []).slice().forEach(conn => {
             if (!acceptedPeers.has(conn.peer)) this._rejectConnection(conn, 'started');
@@ -875,6 +990,7 @@ class MehGame {
 
     // ----- العميل يدخل شاشة اللعبة -----
     beginClientGame() {
+        this._clearOnlineRuntime();
         this.online = true; this.isHost = false; this.myIndex = 0;
         this.actionInProgress = false; this.humanCanPlay = false;
         this.selectedCardIndex = -1; this.isAwaitingColor = false;
@@ -1033,6 +1149,7 @@ class MehGame {
 
     // ----- نهاية اللعبة أونلاين (لدى العميل) -----
     onlineGameOver(msg) {
+        this._clearOnlineRuntime();
         this.online = false;
         WakeLock.disable();
         Storage.recordResult(!!msg.youWon);
@@ -1109,6 +1226,7 @@ class MehGame {
     }
 
     startGame() {
+        this._clearOnlineRuntime();
         this.online = false; this.isHost = false; this.awaitingRemote = false;
         Net.close();
         this.showScreen('game-screen');
@@ -1871,6 +1989,7 @@ class MehGame {
                 Net.sendTo(conn, { t: 'gameover', youWon: winner.connPeer === conn.peer, winnerName: winner.name });
             });
         }
+        this._clearOnlineRuntime();
         const humanWon = this.online ? (winner === this.players[0]) : !winner.isBot;
         Storage.recordResult(humanWon);
         this.humanProfile = Storage.getCurrentProfile() || this.humanProfile;

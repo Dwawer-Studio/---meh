@@ -2,7 +2,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { loadScript } = require('./helpers/load-script');
+const { loadScript, loadScripts } = require('./helpers/load-script');
 
 function memoryLocalStorage() {
     const values = new Map();
@@ -12,6 +12,57 @@ function memoryLocalStorage() {
         removeItem(key) { values.delete(key); },
         clear() { values.clear(); },
     };
+}
+
+function appDocument() {
+    const elements = new Map();
+    const makeElement = () => {
+        const classes = new Set();
+        const element = {
+            children: [],
+            className: '',
+            dataset: {},
+            style: {},
+            value: '',
+            textContent: '',
+            innerText: '',
+            innerHTML: '',
+            classList: {
+                add(...names) { names.forEach(name => classes.add(name)); },
+                remove(...names) { names.forEach(name => classes.delete(name)); },
+                toggle(name, force) {
+                    if (force === true) classes.add(name);
+                    else if (force === false) classes.delete(name);
+                    else if (classes.has(name)) classes.delete(name);
+                    else classes.add(name);
+                },
+                contains(name) { return classes.has(name); },
+            },
+            addEventListener() {},
+            appendChild(child) { this.children.push(child); return child; },
+            replaceChildren(...children) { this.children = children; },
+            querySelector() { return makeElement(); },
+            querySelectorAll() { return []; },
+            closest() { return null; },
+            focus() {},
+            remove() {},
+        };
+        return element;
+    };
+    const document = {
+        visibilityState: 'visible',
+        documentElement: makeElement(),
+        body: makeElement(),
+        addEventListener() {},
+        removeEventListener() {},
+        createElement: makeElement,
+        getElementById(id) {
+            if (!elements.has(id)) elements.set(id, makeElement());
+            return elements.get(id);
+        },
+        querySelectorAll() { return []; },
+    };
+    return document;
 }
 
 test('profile lifecycle covers create, select, record result, and delete', () => {
@@ -63,4 +114,58 @@ test('malformed JSON falls back without crashing', () => {
     localStorage.setItem('meh_profiles', '{broken');
     const { Storage } = loadScript('storage.js', ['Storage'], { localStorage });
     assert.deepEqual(Array.from(Storage.getProfiles()), []);
+});
+
+test('PLATFORM-01: blocked localStorage never prevents storage operations or startup reads', () => {
+    const blocked = {
+        getItem() { throw new DOMException('blocked', 'SecurityError'); },
+        setItem() { throw new DOMException('blocked', 'SecurityError'); },
+        removeItem() { throw new DOMException('blocked', 'SecurityError'); },
+    };
+    const { Storage } = loadScript('storage.js', ['Storage'], { localStorage: blocked });
+
+    assert.doesNotThrow(() => Storage.getSettings());
+    assert.deepEqual(Array.from(Storage.getProfiles()), []);
+    assert.equal(Storage.getCurrentProfile(), null);
+    assert.doesNotThrow(() => Storage.setCurrentProfile('missing'));
+    assert.doesNotThrow(() => Storage.createProfile('ضيف', '😎'));
+    assert.doesNotThrow(() => Storage.deleteProfile('missing'));
+    assert.doesNotThrow(() => Storage.recordResult(true));
+});
+
+test('PLATFORM-01: the complete app constructor survives a blocked localStorage', () => {
+    const blocked = {
+        getItem() { throw new DOMException('blocked', 'SecurityError'); },
+        setItem() { throw new DOMException('blocked', 'SecurityError'); },
+        removeItem() { throw new DOMException('blocked', 'SecurityError'); },
+    };
+    const document = appDocument();
+    const loaded = loadScripts(
+        ['storage.js', 'i18n.js', 'features.js', 'sound.js', 'net.js', 'deck.js', 'game.js'],
+        ['MehGame'],
+        {
+            document,
+            navigator: {},
+            localStorage: blocked,
+            setTimeout(callback) { callback(); return 1; },
+            clearTimeout() {},
+        },
+    );
+
+    assert.doesNotThrow(() => new loaded.MehGame());
+});
+
+test('corrupt storage shapes are normalized before callers iterate over them', () => {
+    const localStorage = memoryLocalStorage();
+    localStorage.setItem('meh_profiles', JSON.stringify({ not: 'an array' }));
+    localStorage.setItem('meh_settings', JSON.stringify('invalid'));
+    localStorage.setItem('meh_current_profile', 'missing');
+    const { Storage } = loadScript('storage.js', ['Storage'], { localStorage });
+
+    assert.deepEqual(Array.from(Storage.getProfiles()), []);
+    assert.equal(Storage.getCurrentProfile(), null);
+    assert.deepEqual(
+        Object.fromEntries(Object.entries(Storage.getSettings())),
+        Object.fromEntries(Object.entries(Storage.defaultSettings())),
+    );
 });

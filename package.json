@@ -14,6 +14,7 @@
     "check:assets": "node --test tests/assets.test.js",
     "test": "node --test",
     "test:security": "node --test tests/security-network.test.js",
+    "test:reliability": "node --test tests/storage.test.js tests/reliability.test.js",
     "test:smoke": "node --test tests/smoke.test.js tests/storage.test.js tests/game-flow.test.js"
   },
   "engines": {

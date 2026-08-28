@@ -103,6 +103,8 @@ npm run check:clean
 `docs/THREAT-MODEL-P0.md`. أما تنفيذ الشريحة الاجتماعية P1 وحالتها الصادقة ففي
 `docs/PHASE-P1-SOCIAL-SESSION.md`، ودليل اختبارها البشري في
 `docs/P1-VALIDATION-RUNBOOK.md`، ونموذج تهديدها في `docs/THREAT-MODEL-P1.md`.
+والاختبارات البشرية والميدانية المؤجلة بقرار مالك المنتج مجمعة في
+`docs/DEFERRED-VALIDATION-REGISTER.md`.
 
 خلال التطوير تشغّل GitHub Actions بوابة الاختبارات فقط. نشر Azure محفوظ كفعل
 يدوي صريح، ولا يعمل تلقائيًا على الفروع أو طلبات الدمج إلى أن تُجهز الاستضافة.

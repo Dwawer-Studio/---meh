@@ -8,27 +8,79 @@
 // ===== منع نوم الشاشة (Screen Wake Lock API) =====
 const WakeLock = {
     _lock: null,
-    async enable() {
-        if (!('wakeLock' in navigator)) return false;
-        try {
-            this._lock = await navigator.wakeLock.request('screen');
-            // إعادة الطلب تلقائياً عند العودة للتبويب
+    _requestPromise: null,
+    _enabled: false,
+    _listening: false,
+
+    enable() {
+        this._enabled = true;
+        if (!navigator || !navigator.wakeLock || typeof navigator.wakeLock.request !== 'function') {
+            return Promise.resolve(false);
+        }
+        if (!this._listening) {
             document.addEventListener('visibilitychange', this._onVisible);
-            return true;
+            this._listening = true;
+        }
+        if (document.visibilityState === 'hidden') return Promise.resolve(false);
+        if (this._lock && !this._lock.released) return Promise.resolve(true);
+        if (this._lock && this._lock.released) this._lock = null;
+        if (this._requestPromise) return this._requestPromise;
+
+        let request;
+        try {
+            request = navigator.wakeLock.request('screen');
         } catch (e) {
-            return false;
+            return Promise.resolve(false);
         }
+
+        const pending = Promise.resolve(request)
+            .then(async (sentinel) => {
+                if (!sentinel) return false;
+                if (!this._enabled || document.visibilityState === 'hidden') {
+                    try { await sentinel.release(); } catch (e) {}
+                    return false;
+                }
+                this._lock = sentinel;
+                if (typeof sentinel.addEventListener === 'function') {
+                    sentinel.addEventListener('release', () => this._handleRelease(sentinel));
+                }
+                return true;
+            })
+            .catch(() => false)
+            .finally(() => {
+                if (this._requestPromise === pending) this._requestPromise = null;
+            });
+        this._requestPromise = pending;
+        return pending;
     },
+
     async disable() {
-        document.removeEventListener('visibilitychange', this._onVisible);
-        if (this._lock) {
-            try { await this._lock.release(); } catch (e) {}
-            this._lock = null;
+        this._enabled = false;
+        if (this._listening) {
+            document.removeEventListener('visibilitychange', this._onVisible);
+            this._listening = false;
+        }
+        if (this._requestPromise) await this._requestPromise;
+        const sentinel = this._lock;
+        this._lock = null;
+        if (sentinel && !sentinel.released) {
+            try { await sentinel.release(); } catch (e) {}
+        }
+        return true;
+    },
+
+    _handleRelease(sentinel) {
+        if (this._lock !== sentinel) return;
+        this._lock = null;
+        if (this._enabled && document.visibilityState === 'visible') {
+            setTimeout(() => {
+                if (this._enabled && !this._lock) this.enable();
+            }, 0);
         }
     },
+
     _onVisible: async () => {
-        if (document.visibilityState === 'visible' && WakeLock._lock === null
-            && Storage.getSettings().wakeLock) {
+        if (document.visibilityState === 'visible' && WakeLock._enabled && WakeLock._lock === null) {
             await WakeLock.enable();
         }
     },

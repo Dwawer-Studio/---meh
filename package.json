@@ -1,0 +1,40 @@
+{
+  "name": "meh-card-game",
+  "version": "0.1.0",
+  "private": true,
+  "description": "لعبة مِهْ مع أدوات فحص واختبارات خط الأساس",
+  "scripts": {
+    "check": "node tools/check-all.js",
+    "check:clean": "node tools/check-clean.js",
+    "serve": "node tools/serve.js",
+    "check:syntax": "node tools/check-syntax.js",
+    "validate": "npm run validate:html && npm run validate:css",
+    "validate:html": "html-validate index.html tests/fixtures/responsive-harness.html",
+    "validate:css": "stylelint style.css",
+    "check:assets": "node --test tests/assets.test.js",
+    "test": "node --test",
+    "test:security": "node --test tests/security-network.test.js",
+    "test:reliability": "node --test tests/storage.test.js tests/reliability.test.js",
+    "test:rules": "node --test tests/game-rules.test.js tests/security-network.test.js",
+    "test:quality": "node --test tests/quality.test.js",
+    "test:responsive": "node --test tests/responsive.test.js",
+    "test:architecture": "node --test tests/architecture.test.js",
+    "test:workflows": "node --test tests/workflows.test.js",
+    "test:final": "node --test tests/final-audit.test.js",
+    "test:e2e": "playwright test",
+    "test:e2e:install": "playwright install chromium",
+    "test:smoke": "node --test tests/smoke.test.js tests/storage.test.js tests/game-flow.test.js"
+  },
+  "engines": {
+    "node": "^22.22.0 || >=24.8.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.62.1",
+    "html-validate": "^11.10.0",
+    "peer": "1.0.2",
+    "peerjs": "1.5.4",
+    "stylelint": "^17.14.1",
+    "stylelint-config-recommended": "^18.0.0",
+    "yaml": "2.9.0"
+  }
+}

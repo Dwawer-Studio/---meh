@@ -10,19 +10,42 @@ const Storage = {
         settings: 'meh_settings',       // الإعدادات العامة
     },
 
-    // ---- أدوات JSON آمنة ----
-    _read(key, fallback) {
+    // ---- وصول آمن للتخزين وJSON ----
+    _getItem(key) {
         try {
-            const raw = localStorage.getItem(key);
-            return raw ? JSON.parse(raw) : fallback;
+            return localStorage.getItem(key);
+        } catch (e) {
+            return null;
+        }
+    },
+    _setItem(key, value) {
+        try {
+            localStorage.setItem(key, value);
+            return true;
+        } catch (e) {
+            return false;
+        }
+    },
+    _removeItem(key) {
+        try {
+            localStorage.removeItem(key);
+            return true;
+        } catch (e) {
+            return false;
+        }
+    },
+    _read(key, fallback) {
+        const raw = this._getItem(key);
+        if (!raw) return fallback;
+        try {
+            return JSON.parse(raw);
         } catch (e) {
             return fallback;
         }
     },
     _write(key, value) {
         try {
-            localStorage.setItem(key, JSON.stringify(value));
-            return true;
+            return this._setItem(key, JSON.stringify(value));
         } catch (e) {
             return false;
         }
@@ -40,7 +63,9 @@ const Storage = {
         };
     },
     getSettings() {
-        return Object.assign(this.defaultSettings(), this._read(this.KEYS.settings, {}));
+        const stored = this._read(this.KEYS.settings, {});
+        const overrides = stored && typeof stored === 'object' && !Array.isArray(stored) ? stored : {};
+        return Object.assign(this.defaultSettings(), overrides);
     },
     setSetting(key, value) {
         const s = this.getSettings();
@@ -54,15 +79,16 @@ const Storage = {
 
     // ============ الأعضاء ============
     getProfiles() {
-        return this._read(this.KEYS.profiles, []);
+        const profiles = this._read(this.KEYS.profiles, []);
+        return Array.isArray(profiles) ? profiles : [];
     },
     getCurrentProfile() {
-        const id = localStorage.getItem(this.KEYS.current);
+        const id = this._getItem(this.KEYS.current);
         if (!id) return null;
         return this.getProfiles().find(p => p.id === id) || null;
     },
     setCurrentProfile(id) {
-        localStorage.setItem(this.KEYS.current, id);
+        return this._setItem(this.KEYS.current, id);
     },
     createProfile(name, avatar) {
         const profiles = this.getProfiles();
@@ -89,8 +115,8 @@ const Storage = {
     deleteProfile(id) {
         let profiles = this.getProfiles().filter(p => p.id !== id);
         this._write(this.KEYS.profiles, profiles);
-        if (localStorage.getItem(this.KEYS.current) === id) {
-            localStorage.removeItem(this.KEYS.current);
+        if (this._getItem(this.KEYS.current) === id) {
+            this._removeItem(this.KEYS.current);
         }
     },
     // تسجيل نتيجة مباراة للعضو الحالي

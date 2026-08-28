@@ -16,6 +16,9 @@ module.exports = defineConfig({
         baseURL,
         browserName: 'chromium',
         locale: 'ar-BH',
+        launchOptions: {
+            args: ['--disable-features=WebRtcHideLocalIpsWithMdns'],
+        },
         screenshot: 'only-on-failure',
         trace: 'retain-on-failure',
     },

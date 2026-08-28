@@ -144,9 +144,10 @@ class FakeConnection extends Emitter {
 function peerFactory() {
     const peers = [];
     class FakePeer extends Emitter {
-        constructor(id) {
+        constructor(...args) {
             super();
-            this.id = id;
+            this.args = args;
+            this.id = typeof args[0] === 'string' ? args[0] : undefined;
             this.open = false;
             this.disconnected = false;
             this.destroyed = false;
@@ -165,6 +166,45 @@ function peerFactory() {
     }
     return { FakePeer, peers };
 }
+
+test('NET-05: PeerJS keeps its production defaults unless runtime options are explicit', () => {
+    const { FakePeer, peers } = peerFactory();
+    const { Net } = loadScript('net.js', ['Net'], { Peer: FakePeer });
+
+    Net.host(() => {});
+    assert.deepEqual(peers[0].args, ['meh-game-' + Net.roomCode]);
+    Net.join('ABCDE', () => {});
+    assert.deepEqual(peers[1].args, []);
+});
+
+test('NET-05: explicit PeerJS runtime options reach both host and client', () => {
+    const { FakePeer, peers } = peerFactory();
+    const peerOptions = {
+        host: '127.0.0.1',
+        port: 9001,
+        path: '/meh',
+        secure: false,
+    };
+    const { Net } = loadScript('net.js', ['Net'], {
+        Peer: FakePeer,
+        window: { MEH_PEER_OPTIONS: peerOptions },
+    });
+
+    Net.host(() => {});
+    const hostPeerId = 'meh-game-' + Net.roomCode;
+    Net.join('ABCDE', () => {});
+
+    assert.equal(peers[0].args[0], hostPeerId);
+    assert.equal(peers[0].args[1].host, peerOptions.host);
+    assert.equal(peers[0].args[1].port, peerOptions.port);
+    assert.equal(peers[0].args[1].path, peerOptions.path);
+    assert.equal(peers[0].args[1].secure, peerOptions.secure);
+    assert.equal(peers[1].args[0].host, peerOptions.host);
+    assert.equal(peers[1].args[0].port, peerOptions.port);
+    assert.equal(peers[1].args[0].path, peerOptions.path);
+    assert.equal(peers[1].args[0].secure, peerOptions.secure);
+    assert.notEqual(peers[0].args[1], peerOptions);
+});
 
 test('NET-04: callbacks from a closed network session cannot mutate the next session', () => {
     const { FakePeer, peers } = peerFactory();

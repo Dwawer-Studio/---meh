@@ -44,6 +44,18 @@ const Net = {
 
     _peerId(code) { return 'meh-game-' + code; },
 
+    _peerOptions() {
+        const options = typeof window !== 'undefined' ? window.MEH_PEER_OPTIONS : null;
+        if (!options || typeof options !== 'object' || Array.isArray(options)) return null;
+        return { ...options };
+    },
+
+    _createPeer(id) {
+        const options = this._peerOptions();
+        if (typeof id === 'string') return options ? new Peer(id, options) : new Peer(id);
+        return options ? new Peer(options) : new Peer();
+    },
+
     _validCode(code) {
         return typeof code === 'string' && /^[A-HJ-NP-Z2-9]{5}$/.test(code);
     },
@@ -125,7 +137,7 @@ const Net = {
         if (!this.available()) { this.onError && this.onError({ type: 'no-lib' }); return; }
         const code = this._genCode();
         const epoch = this._beginSession(true, code);
-        const peer = new Peer(this._peerId(code));
+        const peer = this._createPeer(this._peerId(code));
         this.peer = peer;
 
         this._bindPeerLifecycle(peer, epoch, (recovered) => {
@@ -162,7 +174,7 @@ const Net = {
         if (!this._validCode(code)) { this.onError && this.onError({ type: 'invalid-code' }); return; }
         const epoch = this._beginSession(false, code);
         this._initialConnectCallback = cb;
-        const peer = new Peer();
+        const peer = this._createPeer();
         this.peer = peer;
 
         this._bindPeerLifecycle(peer, epoch, () => {

@@ -30,6 +30,7 @@
   "devDependencies": {
     "@playwright/test": "1.62.1",
     "html-validate": "^11.10.0",
+    "peer": "1.0.2",
     "peerjs": "1.5.4",
     "stylelint": "^17.14.1",
     "stylelint-config-recommended": "^18.0.0",

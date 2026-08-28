@@ -5,13 +5,15 @@ class MehGameOnlineModule {
     bindOnlineEvents() {
         const g = (id) => document.getElementById(id);
         g('online-btn').onclick = () => {
-            if (!Net.available()) { this.showToast(I18n.t('no_peerjs')); return; }
+            if (!this._authoritativeServiceAvailable() && !Net.available()) { this.showToast(I18n.t('no_peerjs')); return; }
             this.showScreen('online-screen');
             this.showOnlineStatus('');
             g('room-code-input').value = '';
         };
         g('online-back-btn').onclick = () => this._leaveOnlineSession('main-menu');
         g('create-room-btn').onclick = () => this.createRoom();
+        g('quick-play-btn').onclick = () => this._createAuthoritativeRoom('quick');
+        g('quick-play-btn').classList.toggle('hidden', !this._authoritativeServiceAvailable());
         g('join-room-btn').onclick = () => this.joinRoom();
         g('copy-code-btn').onclick = () => {
             if (this._productFeatureEnabled('deep_link_join')) {
@@ -157,6 +159,22 @@ class MehGameOnlineModule {
     }
 
     _leaveOnlineSession(screenId, messageKey) {
+        if (this._authoritativeClient) {
+            const client = this._authoritativeClient;
+            this._authoritativeClient = null;
+            client.leave().catch(() => client.close());
+            this._clearOnlineRuntime();
+            this.online = false;
+            this.isHost = false;
+            this._authoritativeSnapshot = null;
+            this._authoritativeMatchView = null;
+            this._closeTableSession();
+            Net.roomCode = null;
+            Net.isHost = false;
+            if (screenId) this.showScreen(screenId);
+            if (messageKey) this.showToast(I18n.t(messageKey));
+            return;
+        }
         if (!this.isHost && Net.hostConn && Net.hostConn.open) Net.send({ t: 'leave' });
         this._productCompleteTable(messageKey ? 'network-exit' : 'user-exit');
         this._clearOnlineRuntime();
@@ -336,6 +354,10 @@ class MehGameOnlineModule {
 
     // ----- المضيف -----
     createRoom() {
+        if (this._authoritativeServiceAvailable()) {
+            this._createAuthoritativeRoom('private');
+            return;
+        }
         this._trackProductEvent('room.join_started', { role: 'host', method: 'create' });
         if (!Net.available()) {
             this._trackProductEvent('room.join_failed', { stage: 'availability', reason: 'peer-unavailable' });
@@ -456,6 +478,10 @@ class MehGameOnlineModule {
 
     // ----- العميل -----
     joinRoom(options = {}) {
+        if (this._authoritativeServiceAvailable()) {
+            this._joinAuthoritativeRoom(options);
+            return;
+        }
         const method = options.method === 'link' ? 'link' : 'code';
         this._activeJoinSurface = options.surface === 'invite' ? 'invite' : 'online';
         this._trackProductEvent('room.join_started', { role: 'guest', method });
@@ -874,6 +900,10 @@ class MehGameOnlineModule {
 
     // ----- المضيف يبدأ اللعبة -----
     startOnlineGame() {
+        if (this._authoritativeClient) {
+            this._authoritativeClient.setReady(true).catch(() => this.showToast(I18n.t('conn_error')));
+            return;
+        }
         if (!Net.isHost || this.online) return;
         if (!this._beginTableMatch()) return;
         this._clearOnlineRuntime();

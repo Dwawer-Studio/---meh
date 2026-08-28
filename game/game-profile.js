@@ -27,6 +27,7 @@ class MehGameProfileModule {
             btn.onclick = () => {
                 this.settings.lang = btn.dataset.lang;
                 Storage.setSetting('lang', this.settings.lang);
+                this._syncAuthoritativeSettings();
                 I18n.setLang(this.settings.lang);
                 this.renderInstructions();
                 this.updateMenuChip();
@@ -39,6 +40,7 @@ class MehGameProfileModule {
                 const key = row.dataset.setting;
                 this.settings[key] = !this.settings[key];
                 Storage.setSetting(key, this.settings[key]);
+                this._syncAuthoritativeSettings();
                 if (key === 'colorblind') document.body.classList.toggle('colorblind', this.settings[key]);
                 if (key === 'batterySaver') document.body.classList.toggle('battery-saver', this.settings[key]);
                 if (key === 'wakeLock') {

@@ -229,6 +229,12 @@ class MehGameRuleModule {
 
     handleDrawClick() {
         if (!this.humanCanPlay || this.isAwaitingColor || this.actionInProgress) return;
+        if (this._authoritativeClient) {
+            this.selectedCardIndex = -1;
+            this.hideConfirmBar();
+            this._submitAuthoritativeDraw();
+            return;
+        }
         if (this.online && !this.isHost) {
             this._trackProductEvent('action.committed', { actor: 'self', action: 'draw' });
             this.humanCanPlay = false; this.selectedCardIndex = -1; this.hideConfirmBar();
@@ -270,6 +276,13 @@ class MehGameRuleModule {
     confirmSelectedCard() {
         if (this.selectedCardIndex < 0 || !this.humanCanPlay) return;
         const idx = this.selectedCardIndex;
+        if (this._authoritativeClient) {
+            const card = this.players[0] && this.players[0].hand[idx];
+            this.selectedCardIndex = -1;
+            this.hideConfirmBar();
+            this._submitAuthoritativePlay(card);
+            return;
+        }
         this.selectedCardIndex = -1;
         this.hideConfirmBar();
         this.humanCanPlay = false;

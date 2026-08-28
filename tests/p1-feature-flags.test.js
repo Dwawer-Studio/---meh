@@ -31,3 +31,20 @@ test('P1 host configuration can roll back an individual slice before startup', (
     assert.equal(loaded.ProductFeatureFlags.isEnabled('persistent_table'), false);
     assert.equal(loaded.ProductFeatureFlags.isEnabled('action_journal'), true);
 });
+
+test('P2 authority is enabled only when a service endpoint exists', () => {
+    const withoutService = loadScripts(
+        ['product/release-config.js', 'product/feature-flags.js'],
+        ['P2_RELEASE_DEFAULTS', 'ProductFeatureFlags'],
+        { window: {} },
+    );
+    assert.equal(withoutService.P2_RELEASE_DEFAULTS.authoritative_service, false);
+    assert.equal(withoutService.ProductFeatureFlags.isEnabled('authoritative_service'), false);
+
+    const withService = loadScripts(
+        ['product/release-config.js', 'product/feature-flags.js'],
+        ['P2_RELEASE_DEFAULTS', 'ProductFeatureFlags'],
+        { window: { MEH_SERVICE_URL: 'wss://game.example/realtime' } },
+    );
+    assert.equal(withService.ProductFeatureFlags.isEnabled('authoritative_service'), true);
+});

@@ -78,6 +78,7 @@ const MEH_GAME_METHOD_MODULES = Object.freeze([
     MehGameTableMethods,
     MehGameGuidanceMethods,
     MehGameProfileMethods,
+    MehGameAuthoritativeMethods,
     MehGameOnlineMethods,
     MehGameScreenMethods,
     MehGameRuleMethods,

@@ -6,6 +6,7 @@ const PRODUCT_FEATURE_FLAG_DEFINITIONS = Object.freeze({
     action_journal: Object.freeze({ defaultValue: false, scope: 'presentation' }),
     contextual_ftue: Object.freeze({ defaultValue: false, scope: 'presentation' }),
     session_score: Object.freeze({ defaultValue: false, scope: 'table-session' }),
+    authoritative_service: Object.freeze({ defaultValue: false, scope: 'transport' }),
     catalog_expansion: Object.freeze({ defaultValue: false, scope: 'catalog-selection' }),
 });
 

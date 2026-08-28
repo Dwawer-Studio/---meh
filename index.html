@@ -161,6 +161,7 @@
                 <p class="profile-hint" data-i18n="online_hint">العب مع أصدقائك بكود غرفة</p>
 
                 <button id="create-room-btn" class="btn primary-btn" type="button"><span data-i18n="create_room">➕ إنشاء غرفة</span></button>
+                <button id="quick-play-btn" class="btn secondary-btn hidden" type="button"><span data-i18n="quick_play">⚡ لعب سريع</span></button>
 
                 <div class="online-divider"><span data-i18n="or">أو</span></div>
 
@@ -371,9 +372,12 @@
     <script src="net.js"></script>
     <script src="game/game-manifests.js"></script>
     <script src="game/core-evidence.js"></script>
+    <script src="shared/match-reducer.js"></script>
+    <script src="game/authoritative-client.js"></script>
     <script src="game/table-session.js"></script>
     <script src="deck.js"></script>
     <script src="vendor/qrcode-generator-1.4.4.js"></script>
+    <script src="product/service-config.js"></script>
     <script src="product/release-config.js"></script>
     <script src="product/feature-flags.js"></script>
     <script src="product/telemetry-schema.js"></script>
@@ -384,6 +388,7 @@
     <script src="game/game-guidance.js"></script>
     <script src="game/game-config.js"></script>
     <script src="game/game-profile.js"></script>
+    <script src="game/game-authoritative.js"></script>
     <script src="game/game-online.js"></script>
     <script src="game/game-screen.js"></script>
     <script src="game/game-rules.js"></script>

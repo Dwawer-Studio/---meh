@@ -45,7 +45,8 @@
 
 ## 🛠️ التقنيات
 
-- **HTML / CSS / JavaScript** بلا إطار عمل، مع **PeerJS** لاتصال اللعب الجماعي
+- **HTML / CSS / JavaScript** بلا إطار عمل في المتصفح
+- **Node.js + WebSocket + PostgreSQL** لمسار اللعب صاحب السلطة، مع PeerJS كمسار ودي قديم بلا نتائج موثوقة
 - **Web Audio API** للأصوات
 - **localStorage** لحفظ الأعضاء والإعدادات
 
@@ -62,6 +63,18 @@ npm run serve
 # افتح http://127.0.0.1:4173
 ```
 
+ولتجربة خدمة P2 صاحبة السلطة محليًا، اترك خادم الواجهة يعمل وشغّل في نافذة
+طرفية ثانية:
+
+```bash
+npm run serve:service
+# افتح http://127.0.0.1:4173/?service=local
+```
+
+مشغّل التطوير يستخدم ذاكرة مؤقتة عمدًا؛ تفقد الغرف والحسابات عند إيقافه. وضع
+الإنتاج يرفض البدء بلا `DATABASE_URL` و`MEH_APP_SECRET`، وتوجد القيم الموثقة
+في `.env.example`.
+
 ## 🧪 الفحص للمطورين
 
 تحتاج أدوات الفحص إلى Node.js 22.22 أو أحدث ضمن الإصدار 22، أو Node.js 24.8
@@ -77,7 +90,9 @@ npm run check
 و`npm run test:reliability` و`npm run test:rules` و`npm run test:quality`
 و`npm run test:responsive` و`npm run test:architecture` و`npm run test:smoke`
 و`npm run test:workflows` و`npm run test:final` و`npm run test:e2e`
-و`npm run check:assets`. ولإعادة
+و`npm run check:assets`. بوابات P2 المنفصلة هي `npm run test:p2`،
+و`npm run test:p2:replay`، و`npm run test:p2:load`،
+و`npm run test:p2:network-load`، و`npm run test:p2:recovery`. ولإعادة
 الاختبار من لقطة مؤقتة بلا `node_modules` مسبق:
 
 ```bash
@@ -103,6 +118,9 @@ npm run check:clean
 `docs/THREAT-MODEL-P0.md`. أما تنفيذ الشريحة الاجتماعية P1 وحالتها الصادقة ففي
 `docs/PHASE-P1-SOCIAL-SESSION.md`، ودليل اختبارها البشري في
 `docs/P1-VALIDATION-RUNBOOK.md`، ونموذج تهديدها في `docs/THREAT-MODEL-P1.md`.
+وتنفيذ خدمة P2 وعقدها وتشغيلها موثق في `docs/PHASE-P2-SOCIAL-SERVICE.md`،
+و`docs/P2-PROTOCOL.md`، و`docs/P2-OPERATIONS-RUNBOOK.md`، ونموذج تهديدها في
+`docs/THREAT-MODEL-P2.md`.
 والاختبارات البشرية والميدانية المؤجلة بقرار مالك المنتج مجمعة في
 `docs/DEFERRED-VALIDATION-REGISTER.md`.
 

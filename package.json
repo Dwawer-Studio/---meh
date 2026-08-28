@@ -7,6 +7,7 @@
     "check": "node tools/check-all.js",
     "check:clean": "node tools/check-clean.js",
     "serve": "node tools/serve.js",
+    "serve:service": "node tools/serve-service.js",
     "check:syntax": "node tools/check-syntax.js",
     "validate": "npm run validate:html && npm run validate:css",
     "validate:html": "html-validate index.html tests/fixtures/responsive-harness.html",
@@ -24,12 +25,18 @@
     "test:final": "node --test tests/final-audit.test.js",
     "test:e2e": "playwright test",
     "test:e2e:install": "playwright install chromium",
-    "test:smoke": "node --test tests/smoke.test.js tests/storage.test.js tests/game-flow.test.js"
+    "test:smoke": "node --test tests/smoke.test.js tests/storage.test.js tests/game-flow.test.js",
+    "test:p2": "node --test tests/match-reducer.test.js tests/p2-postgres-integration.test.js tests/p2-protocol.test.js tests/p2-realtime.test.js tests/p2-service.test.js",
+    "test:p2:replay": "node tools/p2-replay-gate.js",
+    "test:p2:load": "node tools/p2-load-gate.js",
+    "test:p2:network-load": "node tools/p2-realtime-load-gate.js",
+    "test:p2:recovery": "node tools/p2-recovery-gate.js"
   },
   "engines": {
     "node": "^22.22.0 || >=24.8.0"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "0.5.7",
     "@playwright/test": "1.62.1",
     "html-validate": "^11.10.0",
     "peer": "1.0.2",
@@ -39,6 +46,8 @@
     "yaml": "2.9.0"
   },
   "dependencies": {
-    "qrcode-generator": "1.4.4"
+    "pg": "8.23.0",
+    "qrcode-generator": "1.4.4",
+    "ws": "8.21.3"
   }
 }

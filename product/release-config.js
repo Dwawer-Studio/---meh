@@ -11,7 +11,12 @@ const P1_RELEASE_DEFAULTS = Object.freeze({
     session_score: true,
 });
 
+const P2_RELEASE_DEFAULTS = Object.freeze({
+    authoritative_service: typeof window.MEH_SERVICE_URL === 'string',
+});
+
 window.MEH_FEATURE_FLAGS = Object.freeze({
     ...P1_RELEASE_DEFAULTS,
+    ...P2_RELEASE_DEFAULTS,
     ...(window.MEH_FEATURE_FLAGS || {}),
 });

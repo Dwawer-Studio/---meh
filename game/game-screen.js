@@ -17,37 +17,44 @@ class MehGameScreenModule {
         const toggleBtn = document.getElementById('dev-toggle-btn');
         const closeBtn = document.getElementById('dev-close-btn');
         const panel = document.getElementById('dev-panel');
-        if (toggleBtn) toggleBtn.onclick = () => panel.classList.toggle('hidden');
+        if (toggleBtn) toggleBtn.onclick = () => {
+            if (!this._authoritativeClient) panel.classList.toggle('hidden');
+        };
         if (closeBtn) closeBtn.onclick = () => panel.classList.add('hidden');
         // اختصار سرّي للمطوّر فقط (الزر مخفي عن اللاعبين)
         document.addEventListener('keydown', (e) => {
             if (e.ctrlKey && e.shiftKey && (e.key === 'D' || e.key === 'd')) {
                 e.preventDefault();
-                panel.classList.toggle('hidden');
+                if (!this._authoritativeClient) panel.classList.toggle('hidden');
             }
         });
 
         document.getElementById('dev-reveal-btn').onclick = () => {
+            if (this._authoritativeClient) return;
             this.devShowBotHands = !this.devShowBotHands;
             this.updateUI();
             this.showToast(this.devShowBotHands ? 'تم كشف أوراق البوتات 👁️' : 'تم إخفاء الأوراق 🔒');
         };
         document.getElementById('dev-skip-btn').onclick = () => {
+            if (this._authoritativeClient) return;
             this.showToast('تم تخطي الدور ⏩');
             this.advanceTurn();
         };
         document.getElementById('dev-color-btn').onclick = () => {
+            if (this._authoritativeClient) return;
             if (!this.topCard) return;
             this.isAwaitingColor = true;
             this.setDialogOpen(UI.colorPicker, true);
             this.showToast('اختر لوناً جديداً 🎨');
         };
         document.getElementById('dev-draw-btn').onclick = () => {
+            if (this._authoritativeClient) return;
             this.showToast('سحب 4 بطاقات للاعب الحالي 🃏');
             this.pendingDraws += 4;
             this.playTurn();
         };
         document.getElementById('dev-win-btn').onclick = () => {
+            if (this._authoritativeClient) return;
             this.endGame(this.players[0]);
         };
     }

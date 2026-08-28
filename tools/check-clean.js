@@ -8,6 +8,7 @@ const path = require('node:path');
 const ROOT = path.resolve(__dirname, '..');
 const TEMP_ROOT = fs.realpathSync(os.tmpdir());
 const TEMP_DIR = fs.mkdtempSync(path.join(TEMP_ROOT, 'meh-clean-'));
+const TEMP_NPM_CACHE = fs.mkdtempSync(path.join(TEMP_ROOT, 'meh-npm-cache-'));
 const EXCLUDED = new Set(['.git', 'node_modules']);
 
 function assertTemporaryTarget(target) {
@@ -33,6 +34,7 @@ function run(command, args, label, options = {}) {
         cwd: TEMP_DIR,
         stdio: options.capture ? 'pipe' : 'inherit',
         encoding: options.capture ? 'utf8' : undefined,
+        env: options.env || process.env,
     });
     if (result.error) throw result.error;
     if (result.status !== 0) throw new Error(`${label} failed with exit code ${result.status}.`);
@@ -42,7 +44,9 @@ function run(command, args, label, options = {}) {
 function runNpm(args, label) {
     const npmCli = process.env.npm_execpath;
     if (!npmCli) throw new Error('Run this check through "npm run check:clean".');
-    run(process.execPath, [npmCli, ...args], label);
+    run(process.execPath, [npmCli, ...args], label, {
+        env: { ...process.env, npm_config_cache: TEMP_NPM_CACHE },
+    });
 }
 
 function assertGitClean() {
@@ -71,5 +75,7 @@ try {
     console.log('\nIsolated clean-tree check passed.');
 } finally {
     assertTemporaryTarget(TEMP_DIR);
-    fs.rmSync(TEMP_DIR, { recursive: true, force: true });
+    assertTemporaryTarget(TEMP_NPM_CACHE);
+    fs.rmSync(TEMP_DIR, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
+    fs.rmSync(TEMP_NPM_CACHE, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
 }

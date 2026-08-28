@@ -118,6 +118,18 @@ class MehGameTableModule {
     _markLocalReady() {
         if (!this.tableSession && !this.tableSnapshot) return false;
         this._localReady = true;
+        if (this._authoritativeClient) {
+            this._authoritativeClient.setReady(true).catch(() => {
+                this._localReady = false;
+                const button = document.getElementById('restart-btn');
+                if (button) button.disabled = false;
+                this.showToast(I18n.t('conn_error'));
+            });
+            this._trackProductEvent('rematch.ready', { mode: 'authoritative-service' });
+            const button = document.getElementById('restart-btn');
+            if (button) button.disabled = true;
+            return true;
+        }
         if (this.isHost) {
             if (!this.tableSession.setReady('host', true)) return false;
             this._trackProductEvent('rematch.ready', { mode: 'online-host' });

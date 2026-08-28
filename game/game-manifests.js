@@ -88,3 +88,7 @@ if (typeof window !== 'undefined') {
     window.MEH_CORE_MANIFEST = MEH_CORE_MANIFEST;
     window.MEH_CATALOG_MANIFEST = MEH_CATALOG_MANIFEST;
 }
+
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = { MEH_CORE_MANIFEST, MEH_CATALOG_MANIFEST };
+}

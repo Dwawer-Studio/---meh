@@ -10,6 +10,10 @@ async function main() {
     const production = process.env.NODE_ENV === 'production';
     const pepper = process.env.MEH_APP_SECRET;
     if (!pepper || pepper.length < 32) throw new Error('MEH_APP_SECRET must contain at least 32 characters');
+    const internalAdminToken = process.env.MEH_INTERNAL_ADMIN_TOKEN || null;
+    if (production && (!internalAdminToken || internalAdminToken.length < 32)) {
+        throw new Error('MEH_INTERNAL_ADMIN_TOKEN must contain at least 32 characters in production');
+    }
     let store;
     let pool = null;
     if (process.env.DATABASE_URL) {
@@ -32,6 +36,7 @@ async function main() {
         allowedOrigins,
         requireTls: production,
         trustProxy: process.env.MEH_TRUST_PROXY === 'true',
+        internalAdminToken,
     });
     const port = Number(process.env.PORT || 8787);
     const host = process.env.HOST || '127.0.0.1';

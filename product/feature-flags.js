@@ -7,6 +7,11 @@ const PRODUCT_FEATURE_FLAG_DEFINITIONS = Object.freeze({
     contextual_ftue: Object.freeze({ defaultValue: false, scope: 'presentation' }),
     session_score: Object.freeze({ defaultValue: false, scope: 'table-session' }),
     authoritative_service: Object.freeze({ defaultValue: false, scope: 'transport' }),
+    recent_majalis: Object.freeze({ defaultValue: false, scope: 'social-return' }),
+    one_tap_reinvite: Object.freeze({ defaultValue: false, scope: 'social-return' }),
+    majlis_session_score: Object.freeze({ defaultValue: false, scope: 'social-context' }),
+    majlis_schedule: Object.freeze({ defaultValue: false, scope: 'social-return' }),
+    safe_quick_chat: Object.freeze({ defaultValue: false, scope: 'social-safety' }),
     catalog_expansion: Object.freeze({ defaultValue: false, scope: 'catalog-selection' }),
 });
 

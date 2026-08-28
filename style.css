@@ -59,6 +59,325 @@ body {
   border-radius: 12px;
   box-shadow: 0 10px 20px rgba(0,0,0,0.5);
 }
+
+/* ===== RETURNING MAJLIS ===== */
+.recent-majalis {
+  width: min(100%, 520px);
+  margin: 14px 0 2px;
+  padding: 14px;
+  border: 1px solid var(--glass-border);
+  border-radius: 18px;
+  background: rgba(0, 0, 0, 0.24);
+}
+
+.majlis-section-heading,
+.majlis-card-identity,
+.majlis-identity-row,
+.quick-chat-heading,
+.table-safety-row,
+.majlis-invitations > div {
+  display: flex;
+  align-items: center;
+}
+
+.majlis-section-heading,
+.quick-chat-heading,
+.table-safety-row,
+.majlis-invitations > div {
+  justify-content: space-between;
+}
+
+.majlis-section-heading h3,
+.quick-chat-heading h2 {
+  margin: 0;
+}
+
+.majlis-consent-note,
+.majlis-empty {
+  margin: 6px 0 10px;
+  color: rgba(255, 255, 255, 0.74);
+  font-size: .82rem;
+  line-height: 1.45;
+}
+
+.recent-majalis-list {
+  display: grid;
+  gap: 8px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.majlis-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.majlis-card-identity {
+  min-width: 0;
+  gap: 9px;
+}
+
+.majlis-card-identity div {
+  display: grid;
+  min-width: 0;
+}
+
+.majlis-card-identity strong,
+.majlis-card-identity small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.majlis-card-identity small {
+  color: rgba(255, 255, 255, 0.66);
+}
+
+.majlis-mark {
+  font-size: 1.6rem;
+}
+
+.majlis-regroup-btn {
+  min-width: 0;
+  padding: 8px 14px;
+  font-size: .82rem;
+}
+
+.compact-action {
+  padding: 7px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.danger-action {
+  border-color: rgba(248, 113, 113, 0.48);
+  color: #fecaca;
+}
+
+.quick-chat-control {
+  position: absolute;
+  z-index: 46;
+  bottom: 12px;
+  inset-inline-end: 12px;
+}
+
+.quick-chat-toggle {
+  width: 48px;
+  height: 48px;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 50%;
+  background: var(--glass-strong);
+  color: #fff;
+  font-size: 1.3rem;
+  cursor: pointer;
+  box-shadow: var(--shadow-soft);
+}
+
+.quick-chat-panel {
+  position: absolute;
+  right: 0;
+  bottom: 58px;
+  width: min(340px, calc(100vw - 24px));
+  max-height: min(470px, 72vh);
+  padding: 14px;
+  overflow-y: auto;
+  border: 1px solid var(--glass-border);
+  border-radius: 18px;
+  background: rgba(20, 8, 8, 0.96);
+  box-shadow: 0 16px 50px rgba(0, 0, 0, 0.62);
+}
+
+html[dir="ltr"] .quick-chat-panel {
+  right: auto;
+  left: 0;
+}
+
+.quick-chat-heading button {
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  cursor: pointer;
+}
+
+.quick-chat-phrases {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 12px 0 16px;
+}
+
+.quick-phrase {
+  min-height: 42px;
+  padding: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  cursor: pointer;
+}
+
+.quick-phrase:disabled {
+  opacity: .45;
+  cursor: wait;
+}
+
+.table-safety-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.table-safety-row {
+  flex-wrap: wrap;
+  gap: 7px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.table-safety-row select {
+  max-width: 130px;
+  padding: 7px;
+  border-radius: 9px;
+}
+
+.quick-chat-feed {
+  position: absolute;
+  right: 54px;
+  bottom: 0;
+  display: grid;
+  gap: 4px;
+  width: min(310px, calc(100vw - 86px));
+  pointer-events: none;
+}
+
+html[dir="ltr"] .quick-chat-feed {
+  right: auto;
+  left: 54px;
+}
+
+.quick-chat-feed p {
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.78);
+  color: #fff;
+  font-size: .84rem;
+  box-shadow: var(--shadow-soft);
+}
+
+.majlis-result-panel {
+  width: min(100%, 620px);
+  max-height: 43vh;
+  margin-bottom: 12px;
+  padding: 14px;
+  overflow-y: auto;
+  border: 1px solid rgba(251, 191, 36, 0.34);
+  border-radius: 18px;
+  background: rgba(0, 0, 0, 0.28);
+}
+
+.majlis-result-panel h2,
+.majlis-result-panel h3 {
+  margin-bottom: 7px;
+}
+
+.majlis-result-status,
+.majlis-member-line {
+  margin: 7px 0;
+  line-height: 1.45;
+}
+
+.majlis-result-status.error {
+  color: #fecaca;
+}
+
+.majlis-create-controls,
+.majlis-detail,
+.majlis-schedule-controls {
+  display: grid;
+  gap: 9px;
+}
+
+.majlis-identity-row {
+  gap: 10px;
+}
+
+.majlis-identity-row label {
+  display: grid;
+  flex: 1;
+  gap: 4px;
+  text-align: start;
+}
+
+.majlis-identity-row select,
+.majlis-schedule-controls input {
+  min-height: 42px;
+  padding: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 10px;
+  background: #fff;
+  color: #291111;
+}
+
+.majlis-score-list {
+  display: grid;
+  gap: 4px;
+  padding-inline-start: 24px;
+  text-align: start;
+}
+
+.majlis-invitations {
+  display: grid;
+  gap: 7px;
+}
+
+.majlis-invitations > div {
+  gap: 10px;
+  padding: 8px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+@media (max-width: 600px), (max-height: 600px) {
+  .recent-majalis {
+    padding: 10px;
+  }
+
+  .recent-majalis-list {
+    max-height: 150px;
+  }
+
+  .quick-chat-control {
+    bottom: 7px;
+    inset-inline-end: 7px;
+  }
+
+  .quick-chat-panel {
+    bottom: 50px;
+  }
+
+  .quick-chat-toggle {
+    width: 42px;
+    height: 42px;
+  }
+
+  .majlis-result-panel {
+    max-height: 38vh;
+    padding: 10px;
+  }
+}
 .game-title {
   font-size: 8rem; font-weight: 900;
   color: #fff;

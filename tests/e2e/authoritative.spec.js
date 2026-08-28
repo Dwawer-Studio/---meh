@@ -5,6 +5,8 @@ const path = require('node:path');
 const { test, expect } = require('@playwright/test');
 const { RealtimeRuntime } = require('../../server/runtime');
 const { MemoryStore } = require('../../server/stores/memory-store');
+const { MatchReducer } = require('../../shared/match-reducer');
+const { MEH_CORE_MANIFEST, MEH_CATALOG_MANIFEST } = require('../../game/game-manifests');
 const { createServer } = require('../../tools/serve');
 
 const peerScript = fs.readFileSync(
@@ -115,5 +117,96 @@ test('browser quick play is rendered from the authoritative service and blocks l
         await expect.poll(() => page.locator('#human-count').textContent()).not.toBe('7');
         await page.keyboard.press('Control+Shift+D');
         await expect(page.locator('#dev-panel')).toHaveClass(/\bhidden\b/);
+        expect(diagnostics).toEqual([]);
+    });
+
+test('browser creates a consent-bound Majlis from results and regroups it from the recent list',
+    { timeout: 30_000 }, async ({ page }) => {
+        const diagnostics = [];
+        page.on('pageerror', error => diagnostics.push(`pageerror: ${error.message}`));
+        page.on('console', message => {
+            if (message.type() === 'error') diagnostics.push(`console: ${message.text()}`);
+        });
+        await page.route('https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js', route => route.fulfill({
+            body: peerScript, contentType: 'text/javascript', status: 200,
+        }));
+        await page.addInitScript(({ realtimeUrl, httpUrl }) => {
+            window.MEH_SERVICE_URL = realtimeUrl;
+            window.MEH_SERVICE_HTTP_URL = httpUrl;
+            window.MEH_FEATURE_FLAGS = {
+                recent_majalis: true,
+                one_tap_reinvite: true,
+                majlis_session_score: true,
+                majlis_schedule: true,
+                safe_quick_chat: true,
+            };
+            localStorage.clear();
+            sessionStorage.clear();
+            localStorage.setItem('meh_settings', JSON.stringify({
+                lang: 'ar', colorblind: false, batterySaver: true,
+                wakeLock: false, confirmPlay: true, sound: false, haptics: false,
+            }));
+        }, {
+            realtimeUrl: `ws://127.0.0.1:${servicePort}/v1/realtime`,
+            httpUrl: `http://127.0.0.1:${servicePort}`,
+        });
+
+        await page.goto('/');
+        await page.locator('#splash').waitFor({ state: 'detached' });
+        await page.locator('#show-create-profile').click();
+        await page.locator('#profile-name-input').fill('صاحب المجلس');
+        await page.locator('#avatar-picker .avatar-option').first().click();
+        await page.locator('#save-profile-btn').click();
+        await page.locator('#online-btn').click();
+        await expect(page.locator('#recent-majalis')).toBeVisible();
+        await page.locator('#create-room-btn').click();
+        await expect(page.locator('#lobby-screen')).toHaveClass(/\bactive\b/);
+
+        const roomId = await page.evaluate(() => game._authoritativeSnapshot.payload.room.roomId);
+        const current = await runtime.store.getRoom(roomId);
+        const second = await runtime.accounts.createGuest('عضو موافق لاحقًا');
+        current.seats[1] = {
+            ...current.seats[1], accountId: second.account.accountId,
+            displayName: second.account.displayName, isBot: false, status: 'CONNECTED', ready: false,
+            connectionSessionId: 'conn_browser_second_0001',
+        };
+        const matchId = 'match_browser_majlis_0001';
+        const matchState = MatchReducer.createMatch({
+            seed: 81, matchId, coreManifest: MEH_CORE_MANIFEST,
+            catalogManifest: MEH_CATALOG_MANIFEST,
+            deckRecipeId: current.room.deckRecipeId,
+            players: current.seats.map(seat => ({ id: seat.seatId, isBot: seat.isBot })),
+        });
+        matchState.phase = 'COMPLETE';
+        matchState.winnerId = current.seats[0].seatId;
+        current.room.phase = 'RESULTS';
+        current.room.matchId = matchId;
+        current.room.matchState = matchState;
+        current.room.stateVersion = matchState.stateVersion;
+        current.room.serverSeq++;
+        await runtime.store.updateRoomAndSeats(current.room, current.seats);
+        await page.evaluate(() => game._authoritativeClient.requestSnapshot());
+
+        await expect(page.locator('#end-screen')).toHaveClass(/\bactive\b/);
+        await expect(page.locator('#majlis-result-panel')).toBeVisible();
+        await expect(page.locator('#majlis-create-controls')).toBeVisible();
+        await page.locator('#majlis-name-input').fill('مجلس المختبر');
+        await page.locator('#majlis-banner-select').selectOption('dhow');
+        await page.locator('#majlis-theme-select').selectOption('sea');
+        await page.locator('#majlis-create-btn').click();
+        await expect(page.locator('#majlis-detail')).toBeVisible();
+        await expect(page.locator('#majlis-result-status')).toContainText('مجلس المختبر');
+        await expect(page.locator('.majlis-score-list')).toHaveCount(1);
+
+        await page.locator('#end-menu-btn').click();
+        await expect(page.locator('#main-menu')).toHaveClass(/\bactive\b/);
+        await page.locator('#online-btn').click();
+        await expect(page.locator('.majlis-card')).toHaveCount(1);
+        await expect(page.locator('.majlis-card')).toContainText('مجلس المختبر');
+        await page.locator('.majlis-regroup-btn').click();
+        await expect(page.locator('#lobby-screen')).toHaveClass(/\bactive\b/);
+        const regroupedMajlisId = await page.evaluate(() =>
+            game._authoritativeSnapshot.payload.room.majlisId);
+        expect(regroupedMajlisId).toMatch(/^majlis_/);
         expect(diagnostics).toEqual([]);
     });

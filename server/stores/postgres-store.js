@@ -4,8 +4,10 @@ const crypto = require('node:crypto');
 const { StoreConflict } = require('./memory-store');
 
 const BACKUP_TABLES = [
-    'accounts', 'account_sessions', 'majalis', 'majlis_memberships', 'rooms', 'seats', 'request_idempotency',
-    'match_actions', 'audit_log', 'deletion_tombstones',
+    'accounts', 'account_sessions', 'majalis', 'majlis_memberships', 'majlis_invitations',
+    'majlis_reminders', 'rooms', 'seats', 'request_idempotency', 'match_actions',
+    'majlis_sessions', 'majlis_session_players', 'moderation_reports', 'audit_log',
+    'deletion_tombstones',
 ];
 
 class PostgresStore {
@@ -71,9 +73,12 @@ class PostgresStore {
         try {
             await client.query('BEGIN');
             await client.query(
-                `INSERT INTO majalis (majlis_id, display_name, revision, created_at, updated_at)
-                 VALUES ($1,$2,$3,$4,$5)`,
-                [majlis.majlisId, majlis.displayName, majlis.revision, majlis.createdAt, majlis.updatedAt],
+                `INSERT INTO majalis (majlis_id, display_name, revision, created_at, updated_at,
+                    owner_account_id, source_room_id, banner_id, table_theme_id, majlis_status)
+                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+                [majlis.majlisId, majlis.displayName, majlis.revision, majlis.createdAt, majlis.updatedAt,
+                    majlis.ownerAccountId || null, majlis.sourceRoomId || null, majlis.bannerId || 'pearl',
+                    majlis.tableThemeId || 'classic', majlis.majlisStatus || 'active'],
             );
             for (const membership of memberships) {
                 await client.query(
@@ -82,6 +87,13 @@ class PostgresStore {
                     [majlis.majlisId, membership.accountId, membership.memberRole,
                         membership.membershipStatus, membership.consentedAt, membership.updatedAt],
                 );
+            }
+            if (majlis.sourceRoomId) {
+                const linked = await client.query(
+                    `UPDATE rooms SET majlis_id=$1 WHERE room_id=$2 AND majlis_id IS NULL RETURNING room_id`,
+                    [majlis.majlisId, majlis.sourceRoomId],
+                );
+                if (!linked.rows.length) throw new StoreConflict('SOURCE_ROOM_UNAVAILABLE');
             }
             await client.query('COMMIT');
             return majlis;
@@ -96,15 +108,250 @@ class PostgresStore {
 
     async listAccountMajalis(accountId) {
         const result = await this.pool.query(
-            `SELECT m.majlis_id AS "majlisId", m.display_name AS "displayName",
-                    m.revision, mm.member_role AS "memberRole", mm.consented_at AS "consentedAt",
-                    mm.updated_at AS "updatedAt"
+            `SELECT m.majlis_id AS "majlisId"
              FROM majlis_memberships mm JOIN majalis m ON m.majlis_id=mm.majlis_id
-             WHERE mm.account_id=$1 AND mm.membership_status='active'
-             ORDER BY mm.updated_at DESC`,
+             WHERE mm.account_id=$1 AND mm.membership_status='active' AND m.majlis_status='active'
+             ORDER BY m.updated_at DESC LIMIT 8`,
             [accountId],
         );
-        return result.rows.map(row => ({ ...row, revision: Number(row.revision) }));
+        return Promise.all(result.rows.map(row => this.getMajlisForMember(row.majlisId, accountId)));
+    }
+
+    async findActiveMajlisRoom(majlisId, excludeRoomId = null) {
+        const result = await this.pool.query(
+            `SELECT room_id FROM rooms WHERE majlis_id=$1 AND closed_at IS NULL
+                AND phase IN ('FORMING','IN_MATCH') AND ($2::text IS NULL OR room_id<>$2)
+             ORDER BY last_activity_at DESC LIMIT 1`,
+            [majlisId, excludeRoomId],
+        );
+        return result.rows.length ? this.getRoom(result.rows[0].room_id) : null;
+    }
+
+    async getMajlisDefinition(majlisId) {
+        const result = await this.pool.query(
+            `SELECT majlis_id AS "majlisId", display_name AS "displayName",
+                    owner_account_id AS "ownerAccountId", source_room_id AS "sourceRoomId",
+                    banner_id AS "bannerId", table_theme_id AS "tableThemeId",
+                    majlis_status AS "majlisStatus", revision, created_at AS "createdAt",
+                    updated_at AS "updatedAt"
+             FROM majalis WHERE majlis_id=$1`, [majlisId]);
+        return result.rows.length ? { ...result.rows[0], revision: Number(result.rows[0].revision) } : null;
+    }
+
+    async isMajlisMember(majlisId, accountId) {
+        const result = await this.pool.query(
+            `SELECT 1 FROM majlis_memberships mm JOIN majalis m ON m.majlis_id=mm.majlis_id
+             WHERE mm.majlis_id=$1 AND mm.account_id=$2 AND mm.membership_status='active'
+                   AND m.majlis_status='active'`, [majlisId, accountId]);
+        return result.rows.length > 0;
+    }
+
+    async acceptMajlisMembership(majlisId, accountId, nowIso) {
+        const client = await this.pool.connect();
+        try {
+            await client.query('BEGIN');
+            await client.query(
+                `INSERT INTO majlis_memberships (majlis_id, account_id, member_role,
+                    membership_status, consented_at, updated_at)
+                 VALUES ($1,$2,'member','active',$3,$3)
+                 ON CONFLICT (majlis_id, account_id) DO UPDATE SET membership_status='active', updated_at=$3`,
+                [majlisId, accountId, nowIso]);
+            await client.query(
+                `UPDATE majalis SET revision=revision+1, updated_at=$2
+                 WHERE majlis_id=$1 AND majlis_status='active'`, [majlisId, nowIso]);
+            await client.query('COMMIT');
+            return true;
+        } catch (error) {
+            await client.query('ROLLBACK');
+            throw error;
+        } finally {
+            client.release();
+        }
+    }
+
+    async getMajlisForMember(majlisId, accountId) {
+        const membership = await this.pool.query(
+            `SELECT m.majlis_id AS "majlisId", m.display_name AS "displayName",
+                    m.banner_id AS "bannerId", m.table_theme_id AS "tableThemeId",
+                    m.revision, m.updated_at AS "updatedAt", mm.member_role AS "memberRole",
+                    mm.consented_at AS "consentedAt"
+             FROM majalis m JOIN majlis_memberships mm ON mm.majlis_id=m.majlis_id
+             WHERE m.majlis_id=$1 AND mm.account_id=$2 AND mm.membership_status='active'
+                   AND m.majlis_status='active'`, [majlisId, accountId]);
+        if (!membership.rows.length) return null;
+        const [members, scores, sessions, invitations, activeRoom] = await Promise.all([
+            this.pool.query(
+                `SELECT a.display_name AS "displayName", mm.member_role AS "memberRole"
+                 FROM majlis_memberships mm JOIN accounts a ON a.account_id=mm.account_id
+                 WHERE mm.majlis_id=$1 AND mm.membership_status='active'
+                 ORDER BY mm.consented_at`, [majlisId]),
+            this.pool.query(
+                `SELECT p.display_name AS "displayName", count(*)::int AS matches,
+                        count(*) FILTER (WHERE p.won)::int AS wins
+                 FROM majlis_session_players p
+                 JOIN majlis_sessions s ON s.majlis_session_id=p.majlis_session_id
+                 WHERE s.majlis_id=$1
+                 GROUP BY p.account_id, p.display_name
+                 ORDER BY wins DESC, matches DESC, p.display_name`, [majlisId]),
+            this.pool.query(
+                `SELECT majlis_session_id AS "majlisSessionId", completed_at AS "completedAt"
+                 FROM majlis_sessions WHERE majlis_id=$1 ORDER BY completed_at DESC LIMIT 10`, [majlisId]),
+            this.pool.query(
+                `SELECT i.invitation_id AS "invitationId", i.scheduled_for AS "scheduledFor",
+                        i.expires_at AS "expiresAt", COALESCE(r.enabled, false) AS "reminderEnabled"
+                 FROM majlis_invitations i LEFT JOIN majlis_reminders r
+                   ON r.invitation_id=i.invitation_id AND r.account_id=$2
+                 WHERE i.majlis_id=$1 AND i.canceled_at IS NULL AND i.expires_at>now()
+                 ORDER BY i.scheduled_for`, [majlisId, accountId]),
+            this.findActiveMajlisRoom(majlisId),
+        ]);
+        const recentSessions = [];
+        for (const session of sessions.rows) {
+            const players = await this.pool.query(
+                `SELECT display_name AS "displayName", won FROM majlis_session_players
+                 WHERE majlis_session_id=$1 ORDER BY display_name`, [session.majlisSessionId]);
+            recentSessions.push({ ...session, players: players.rows });
+        }
+        const row = membership.rows[0];
+        return {
+            ...row,
+            revision: Number(row.revision),
+            members: members.rows,
+            sessionScore: scores.rows.map(item => ({
+                ...item, matches: Number(item.matches), wins: Number(item.wins),
+            })),
+            recentSessions,
+            upcomingInvitations: invitations.rows,
+            activeRoom: activeRoom ? {
+                roomCode: activeRoom.room.roomCode,
+                phase: activeRoom.room.phase,
+            } : null,
+        };
+    }
+
+    async createMajlisInvitation(invitation) {
+        await this.pool.query(
+            `INSERT INTO majlis_invitations (invitation_id, majlis_id, created_by_account_id,
+                scheduled_for, expires_at, created_at, canceled_at) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+            [invitation.invitationId, invitation.majlisId, invitation.createdByAccountId,
+                invitation.scheduledFor, invitation.expiresAt, invitation.createdAt, invitation.canceledAt],
+        );
+        return invitation;
+    }
+
+    async getMajlisInvitation(invitationId) {
+        const result = await this.pool.query(
+            `SELECT invitation_id AS "invitationId", majlis_id AS "majlisId",
+                    created_by_account_id AS "createdByAccountId", scheduled_for AS "scheduledFor",
+                    expires_at AS "expiresAt", created_at AS "createdAt", canceled_at AS "canceledAt"
+             FROM majlis_invitations WHERE invitation_id=$1 AND canceled_at IS NULL`, [invitationId]);
+        return result.rows[0] || null;
+    }
+
+    async setMajlisReminder(reminder) {
+        const result = await this.pool.query(
+            `INSERT INTO majlis_reminders
+                (invitation_id, account_id, remind_at, enabled, notified_at, updated_at)
+             VALUES ($1,$2,$3,$4,NULL,$5)
+             ON CONFLICT (invitation_id, account_id) DO UPDATE SET
+                remind_at=$3, enabled=$4, notified_at=NULL, updated_at=$5
+             RETURNING invitation_id AS "invitationId", account_id AS "accountId",
+                remind_at AS "remindAt", enabled, notified_at AS "notifiedAt",
+                updated_at AS "updatedAt"`,
+            [reminder.invitationId, reminder.accountId, reminder.remindAt,
+                reminder.enabled, reminder.updatedAt]);
+        return result.rows[0];
+    }
+
+    async claimDueMajlisReminders(accountId, nowIso) {
+        const result = await this.pool.query(
+            `UPDATE majlis_reminders r SET notified_at=$2
+             FROM majlis_invitations i, majalis m
+             WHERE r.invitation_id=i.invitation_id AND i.majlis_id=m.majlis_id
+               AND r.account_id=$1 AND r.enabled=true AND r.notified_at IS NULL
+               AND r.remind_at <= $2 AND i.canceled_at IS NULL AND i.expires_at > $2
+             RETURNING i.invitation_id AS "invitationId", i.majlis_id AS "majlisId",
+                m.display_name AS "majlisDisplayName", i.scheduled_for AS "scheduledFor"`,
+            [accountId, nowIso],
+        );
+        return result.rows;
+    }
+
+    async recordMajlisSession(session) {
+        const client = await this.pool.connect();
+        try {
+            await client.query('BEGIN');
+            const inserted = await client.query(
+                `INSERT INTO majlis_sessions (majlis_session_id, majlis_id, room_id, match_id, completed_at)
+                 VALUES ($1,$2,$3,$4,$5) ON CONFLICT (room_id, match_id) DO NOTHING
+                 RETURNING majlis_session_id`,
+                [session.majlisSessionId, session.majlisId, session.roomId,
+                    session.matchId, session.completedAt]);
+            if (!inserted.rows.length) {
+                await client.query('COMMIT');
+                return null;
+            }
+            for (const player of session.players) {
+                await client.query(
+                    `INSERT INTO majlis_session_players
+                        (majlis_session_id, player_index, account_id, display_name, won)
+                     VALUES ($1,$2,$3,$4,$5)`,
+                    [session.majlisSessionId, player.playerIndex, player.accountId,
+                        player.displayName, player.won]);
+            }
+            await client.query(
+                `UPDATE majalis SET revision=revision+1, updated_at=$2 WHERE majlis_id=$1`,
+                [session.majlisId, session.completedAt]);
+            await client.query('COMMIT');
+            return session;
+        } catch (error) {
+            await client.query('ROLLBACK');
+            throw error;
+        } finally {
+            client.release();
+        }
+    }
+
+    async createModerationReport(report) {
+        try {
+            await this.pool.query(
+                `INSERT INTO moderation_reports (report_id, room_id, match_id, reporter_account_id,
+                    reported_account_id, reason_code, report_status, created_at, reviewed_at)
+                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+                [report.reportId, report.roomId, report.matchId, report.reporterAccountId,
+                    report.reportedAccountId, report.reasonCode, report.reportStatus,
+                    report.createdAt, report.reviewedAt]);
+            return report;
+        } catch (error) {
+            if (error.code === '23505') throw new StoreConflict('REPORT_ALREADY_SUBMITTED');
+            throw error;
+        }
+    }
+
+    async listModerationReports(limit = 100) {
+        const result = await this.pool.query(
+            `SELECT report_id AS "reportId", room_id AS "roomId", match_id AS "matchId",
+                    reporter_account_id AS "reporterAccountId",
+                    reported_account_id AS "reportedAccountId", reason_code AS "reasonCode",
+                    report_status AS "reportStatus", created_at AS "createdAt",
+                    reviewed_at AS "reviewedAt"
+             FROM moderation_reports WHERE report_status IN ('open', 'reviewing')
+             ORDER BY created_at LIMIT $1`,
+            [Math.max(1, Math.min(100, limit))],
+        );
+        return result.rows;
+    }
+
+    async updateModerationReport(reportId, reportStatus, reviewedAt) {
+        const result = await this.pool.query(
+            `UPDATE moderation_reports SET report_status=$2, reviewed_at=$3 WHERE report_id=$1
+             RETURNING report_id AS "reportId", room_id AS "roomId", match_id AS "matchId",
+                reason_code AS "reasonCode", report_status AS "reportStatus",
+                created_at AS "createdAt", reviewed_at AS "reviewedAt"`,
+            [reportId, reportStatus, reviewedAt],
+        );
+        if (!result.rows.length) throw new StoreConflict('REPORT_NOT_FOUND');
+        return result.rows[0];
     }
 
     async createSession(session) {
@@ -150,17 +397,22 @@ class PostgresStore {
             await client.query('BEGIN');
             await client.query(
                 `INSERT INTO rooms (room_id, room_code, mode, phase, rules_version, catalog_version,
-                    deck_recipe_id, match_id, match_state, state_version, server_seq, created_at, last_activity_at)
-                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10,$11,$12,$13)`,
+                    deck_recipe_id, match_id, match_state, state_version, server_seq, created_at,
+                    last_activity_at, majlis_id)
+                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10,$11,$12,$13,$14)`,
                 [room.roomId, room.roomCode, room.mode, room.phase, room.rulesVersion, room.catalogVersion,
                     room.deckRecipeId, room.matchId || null, JSON.stringify(room.matchState || null), room.stateVersion,
-                    room.serverSeq, room.createdAt, room.lastActivityAt],
+                    room.serverSeq, room.createdAt, room.lastActivityAt, room.majlisId || null],
             );
             for (const seat of seats) await this._insertSeat(client, room.roomId, seat);
             await client.query('COMMIT');
             return { room, seats };
         } catch (error) {
             await client.query('ROLLBACK');
+            if (error.code === '23505' && room.majlisId
+                && await this.findActiveMajlisRoom(room.majlisId)) {
+                throw new StoreConflict('MAJLIS_ROOM_EXISTS');
+            }
             if (error.code === '23505') throw new StoreConflict('ROOM_OR_CODE_EXISTS');
             throw error;
         } finally {
@@ -203,6 +455,7 @@ class PostgresStore {
             roomId: row.room_id, roomCode: row.room_code, mode: row.mode, phase: row.phase,
             rulesVersion: row.rules_version, catalogVersion: row.catalog_version,
             deckRecipeId: row.deck_recipe_id, matchId: row.match_id, matchState: row.match_state,
+            majlisId: row.majlis_id,
             stateVersion: Number(row.state_version), serverSeq: Number(row.server_seq),
             createdAt: row.created_at, lastActivityAt: row.last_activity_at, closedAt: row.closed_at,
         };
@@ -453,6 +706,13 @@ class PostgresStore {
             await client.query(
                 `DELETE FROM majalis m WHERE m.updated_at < $1::timestamptz - interval '30 days'
                  AND NOT EXISTS (SELECT 1 FROM majlis_memberships mm WHERE mm.majlis_id=m.majlis_id)`, [nowIso]);
+            await client.query(
+                `DELETE FROM majlis_invitations
+                 WHERE expires_at < $1::timestamptz - interval '30 days'`, [nowIso]);
+            await client.query(
+                `DELETE FROM moderation_reports
+                 WHERE report_status IN ('closed', 'dismissed')
+                   AND created_at < $1::timestamptz - interval '180 days'`, [nowIso]);
             await client.query('DELETE FROM deletion_tombstones WHERE expires_at <= $1', [nowIso]);
             await client.query('COMMIT');
         } catch (error) {

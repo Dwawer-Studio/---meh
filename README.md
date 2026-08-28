@@ -15,6 +15,7 @@
 - 🃏 **لعب فوري في المتصفّح** — بدون تثبيت، فقط افتح ولعب
 - 🤖 **3 خصوم أذكياء** (أحمد، نورة، خالد) بذكاء اصطناعي
 - 🌐 **لعب جماعي أونلاين** — أنشئ غرفة وشارك كودها مع أصدقائك، مع استعادة الاتصال المؤقت
+- 🪑 **مجالس عائدة اختيارية** — موافقة صريحة، إعادة تجميع، حصيلة مجلس وموعد اختياري خلف أعلام مستقلة
 - 👤 **نظام أعضاء** — احفظ اسمك وصورتك وإحصائياتك (فوز/خسارة)
 - 🌐 **لغتان** — عربي / English مع دعم كامل للاتجاهين (RTL/LTR)
 - 🔊 **مؤثرات صوتية** مولّدة برمجياً (بلا ملفات صوت)
@@ -72,8 +73,8 @@ npm run serve:service
 ```
 
 مشغّل التطوير يستخدم ذاكرة مؤقتة عمدًا؛ تفقد الغرف والحسابات عند إيقافه. وضع
-الإنتاج يرفض البدء بلا `DATABASE_URL` و`MEH_APP_SECRET`، وتوجد القيم الموثقة
-في `.env.example`.
+الإنتاج يرفض البدء بلا `DATABASE_URL` و`MEH_APP_SECRET` و`MEH_INTERNAL_ADMIN_TOKEN`
+مستقل، وتوجد القيم الموثقة في `.env.example`.
 
 ## 🧪 الفحص للمطورين
 
@@ -92,7 +93,8 @@ npm run check
 و`npm run test:workflows` و`npm run test:final` و`npm run test:e2e`
 و`npm run check:assets`. بوابات P2 المنفصلة هي `npm run test:p2`،
 و`npm run test:p2:replay`، و`npm run test:p2:load`،
-و`npm run test:p2:network-load`، و`npm run test:p2:recovery`. ولإعادة
+و`npm run test:p2:network-load`، و`npm run test:p2:recovery`. وبوابتا P3 هما
+`npm run test:p3` و`npm run test:p3:load`. ولإعادة
 الاختبار من لقطة مؤقتة بلا `node_modules` مسبق:
 
 ```bash
@@ -120,7 +122,10 @@ npm run check:clean
 `docs/P1-VALIDATION-RUNBOOK.md`، ونموذج تهديدها في `docs/THREAT-MODEL-P1.md`.
 وتنفيذ خدمة P2 وعقدها وتشغيلها موثق في `docs/PHASE-P2-SOCIAL-SERVICE.md`،
 و`docs/P2-PROTOCOL.md`، و`docs/P2-OPERATIONS-RUNBOOK.md`، ونموذج تهديدها في
-`docs/THREAT-MODEL-P2.md`.
+`docs/THREAT-MODEL-P2.md`. وتنفيذ المجلس العائد P3 موثق في
+`docs/PHASE-P3-RETURNING-MAJLIS.md`، وخطة تجاربه في `docs/P3-EXPERIMENT-PLAN.md`،
+وتشغيل البلاغات في `docs/P3-MODERATION-RUNBOOK.md`، ونموذج تهديده في
+`docs/THREAT-MODEL-P3.md`.
 والاختبارات البشرية والميدانية المؤجلة بقرار مالك المنتج مجمعة في
 `docs/DEFERRED-VALIDATION-REGISTER.md`.
 

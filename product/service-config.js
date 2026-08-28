@@ -7,4 +7,12 @@ if (!window.MEH_SERVICE_URL && localServiceRequested
     && ['127.0.0.1', 'localhost'].includes(window.location.hostname)) {
     window.MEH_SERVICE_URL = 'ws://127.0.0.1:8787/v1/realtime';
     window.MEH_SERVICE_HTTP_URL = 'http://127.0.0.1:8787';
+    window.MEH_FEATURE_FLAGS = {
+        recent_majalis: true,
+        one_tap_reinvite: true,
+        majlis_session_score: true,
+        majlis_schedule: true,
+        safe_quick_chat: true,
+        ...(window.MEH_FEATURE_FLAGS || {}),
+    };
 }

@@ -30,7 +30,9 @@
     "test:p2:replay": "node tools/p2-replay-gate.js",
     "test:p2:load": "node tools/p2-load-gate.js",
     "test:p2:network-load": "node tools/p2-realtime-load-gate.js",
-    "test:p2:recovery": "node tools/p2-recovery-gate.js"
+    "test:p2:recovery": "node tools/p2-recovery-gate.js",
+    "test:p3": "node --test tests/p3-feature-flags.test.js tests/p3-postgres-integration.test.js tests/p3-realtime.test.js tests/p3-returning-majlis.test.js",
+    "test:p3:load": "node tools/p3-social-load-gate.js"
   },
   "engines": {
     "node": "^22.22.0 || >=24.8.0"

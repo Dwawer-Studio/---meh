@@ -9,6 +9,8 @@ class MehGameOnlineModule {
             this.showScreen('online-screen');
             this.showOnlineStatus('');
             g('room-code-input').value = '';
+            this._recordMajlisExperimentExposure('p3_recent_majalis', 'recent_majalis');
+            void this._loadRecentMajalis();
         };
         g('online-back-btn').onclick = () => this._leaveOnlineSession('main-menu');
         g('create-room-btn').onclick = () => this.createRoom();

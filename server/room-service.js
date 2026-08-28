@@ -29,6 +29,9 @@ class RoomService {
         this.pepper = options.pepper || '';
         this.now = options.now || Date.now;
         this.metrics = options.metrics || null;
+        this.authorizeMajlisMembership = options.authorizeMajlisMembership || (async () => false);
+        this.onMatchCompleted = options.onMatchCompleted || (async () => null);
+        this.analyticsToken = options.analyticsToken || (() => null);
         this.serial = new KeyedSerialExecutor(depth => {
             if (this.metrics) this.metrics.gauge('room.queue_depth', depth);
         });
@@ -38,6 +41,23 @@ class RoomService {
     async createRoom(account, connectionSessionId, options = {}) {
         if (!account || !account.accountId) throw new RoomError('UNAUTHENTICATED');
         const mode = options.mode === 'quick' ? 'quick' : 'private';
+        const majlisId = options.majlisId || null;
+        if (majlisId !== null) {
+            if (typeof majlisId !== 'string' || !/^majlis_[A-Za-z0-9_-]{8,96}$/.test(majlisId)) {
+                throw new RoomError('BAD_MAJLIS_ID');
+            }
+            let authorized = false;
+            try { authorized = await this.authorizeMajlisMembership(majlisId, account.accountId); }
+            catch (error) { authorized = false; }
+            if (!authorized) {
+                throw new RoomError('MAJLIS_MEMBERS_ONLY');
+            }
+            const active = await this.store.findActiveMajlisRoom(majlisId);
+            if (active && active.room.phase === 'FORMING') {
+                return this.joinRoom(active.room.roomCode, account, connectionSessionId, options.clientSeq || 0);
+            }
+            if (active) throw new RoomError('MAJLIS_SESSION_ACTIVE');
+        }
         const nowIso = new Date(this.now()).toISOString();
         for (let attempt = 0; attempt < 8; attempt++) {
             const room = {
@@ -45,6 +65,7 @@ class RoomService {
                 phase: 'FORMING', rulesVersion: this.coreManifest.rulesVersion,
                 catalogVersion: this.catalogManifest.catalogVersion,
                 deckRecipeId: this.catalogManifest.activeRecipeId, matchId: null,
+                majlisId,
                 matchState: null, stateVersion: 0, serverSeq: 0,
                 createdAt: nowIso, lastActivityAt: nowIso, closedAt: null,
             };
@@ -64,6 +85,15 @@ class RoomService {
                     recoveryToken: issued.recoveryToken,
                 };
             } catch (error) {
+                if (error.code === 'MAJLIS_ROOM_EXISTS' && majlisId) {
+                    const active = await this.store.findActiveMajlisRoom(majlisId);
+                    if (active && active.room.phase === 'FORMING') {
+                        return this.joinRoom(
+                            active.room.roomCode, account, connectionSessionId, options.clientSeq || 0,
+                        );
+                    }
+                    throw new RoomError('MAJLIS_SESSION_ACTIVE');
+                }
                 if (!['ROOM_CODE_EXISTS', 'ROOM_OR_CODE_EXISTS'].includes(error.code) || attempt === 7) throw error;
             }
         }
@@ -78,6 +108,15 @@ class RoomService {
         return this.serial.run(found.room.roomId, async () => {
             const current = await this.store.getRoom(found.room.roomId);
             if (!current || current.room.phase !== 'FORMING') throw new RoomError('ROOM_STARTED');
+            if (current.room.majlisId) {
+                let authorized = false;
+                try {
+                    authorized = await this.authorizeMajlisMembership(
+                        current.room.majlisId, account.accountId,
+                    );
+                } catch (error) { authorized = false; }
+                if (!authorized) throw new RoomError('MAJLIS_MEMBERS_ONLY');
+            }
             const existing = current.seats.find(seat => seat.accountId === account.accountId && seat.status !== 'LEFT');
             if (existing) throw new RoomError('ALREADY_SEATED');
             const botIndex = current.seats.findIndex(seat => seat.isBot);
@@ -217,6 +256,7 @@ class RoomService {
         if (!current) throw new RoomError('ROOM_NOT_FOUND');
         const seat = current.seats.find(item => item.connectionSessionId === connectionSessionId);
         if (!seat) throw new RoomError('SEAT_NOT_CONNECTED');
+        if (current.room.phase === 'RESULTS') await this._recordCompleted(current);
         return this._oneView(current.room, current.seats, seat);
     }
 
@@ -320,7 +360,10 @@ class RoomService {
         const broadcasts = [];
         for (let step = 0; step < 5_000; step++) {
             const state = current.room.matchState;
-            if (!state || state.phase !== 'ACTIVE') return broadcasts;
+            if (!state || state.phase !== 'ACTIVE') {
+                if (current.room.phase === 'RESULTS') await this._recordCompleted(current);
+                return broadcasts;
+            }
             const actor = state.players[state.currentPlayerIndex];
             if (!actor.isBot) return broadcasts;
             const action = planBotAction(state, this.reducer);
@@ -339,7 +382,21 @@ class RoomService {
         throw new RoomError('BOT_SETTLE_LIMIT');
     }
 
+    async _recordCompleted(current) {
+        if (!current.room.majlisId || !current.room.matchId || !current.room.matchState) return null;
+        try {
+            return await this.onMatchCompleted(current.room.roomId);
+        } catch (error) {
+            this._metric('majlis.session_record_error', { code: error.code || 'UNKNOWN' });
+            return null;
+        }
+    }
+
     async _startMatch(current) {
+        if (current.room.majlisId && current.room.phase === 'RESULTS'
+            && await this.store.findActiveMajlisRoom(current.room.majlisId, current.room.roomId)) {
+            throw new RoomError('MAJLIS_SESSION_ACTIVE');
+        }
         const seed = crypto.randomBytes(4).readUInt32BE(0);
         const matchId = randomId('match');
         current.seats.forEach(seat => { seat.ready = false; });
@@ -404,11 +461,16 @@ class RoomService {
     }
 
     _publicRoom(room) {
-        return {
+        const result = {
             roomId: room.roomId, roomCode: room.roomCode, mode: room.mode, phase: room.phase,
             rulesVersion: room.rulesVersion, catalogVersion: room.catalogVersion,
-            deckRecipeId: room.deckRecipeId, matchId: room.matchId,
+            deckRecipeId: room.deckRecipeId, matchId: room.matchId, majlisId: room.majlisId || null,
         };
+        const analyticsGroupToken = room.majlisId && this.analyticsToken(room.majlisId, 'majlis');
+        const analyticsMatchToken = room.matchId && this.analyticsToken(room.matchId, 'match');
+        if (analyticsGroupToken) result.analyticsGroupToken = analyticsGroupToken;
+        if (analyticsMatchToken) result.analyticsMatchToken = analyticsMatchToken;
+        return result;
     }
 
     _publicSeats(seats) {

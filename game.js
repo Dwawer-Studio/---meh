@@ -38,6 +38,7 @@ class MehGame {
         this._initializeProductEvidence();
         this._initializeTableRuntime();
         this._initializeGuidance();
+        this._initializeMajlisRuntime();
 
         // الإعدادات والعضو
         this.settings = Storage.getSettings();
@@ -54,6 +55,7 @@ class MehGame {
         this.bindSettingsEvents();
         this.bindProfileEvents();
         this.bindEmojiEvents();
+        this.bindMajlisEvents();
         this.bindOnlineEvents();
         this.bindInviteEvents();
         this.bindGuidanceEvents();
@@ -78,6 +80,7 @@ const MEH_GAME_METHOD_MODULES = Object.freeze([
     MehGameTableMethods,
     MehGameGuidanceMethods,
     MehGameProfileMethods,
+    MehGameMajlisMethods,
     MehGameAuthoritativeMethods,
     MehGameOnlineMethods,
     MehGameScreenMethods,

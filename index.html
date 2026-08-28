@@ -163,6 +163,15 @@
                 <button id="create-room-btn" class="btn primary-btn" type="button"><span data-i18n="create_room">➕ إنشاء غرفة</span></button>
                 <button id="quick-play-btn" class="btn secondary-btn hidden" type="button"><span data-i18n="quick_play">⚡ لعب سريع</span></button>
 
+                <section id="recent-majalis" class="recent-majalis hidden" aria-labelledby="recent-majalis-title">
+                    <div class="majlis-section-heading">
+                        <h3 id="recent-majalis-title" data-i18n="recent_majalis">مجالسك الأخيرة</h3>
+                        <button id="refresh-majalis-btn" class="compact-action" type="button" data-i18n-attr="aria-label:refresh_majalis" aria-label="تحديث المجالس">↻</button>
+                    </div>
+                    <p class="majlis-consent-note" data-i18n="majlis_consent_note">لا نستخدم جهات الاتصال. يظهر هنا فقط مجلس وافقت على الانضمام إليه.</p>
+                    <div id="recent-majalis-list" class="recent-majalis-list" aria-live="polite"></div>
+                </section>
+
                 <div class="online-divider"><span data-i18n="or">أو</span></div>
 
                 <input id="room-code-input" class="profile-input room-code-input" type="text" maxlength="5"
@@ -328,6 +337,20 @@
             <button id="emoji-toggle-btn" class="emoji-toggle-btn" type="button" title="emoji" aria-label="أرسل إيموجي" data-i18n-attr="aria-label:send_emoji">😊</button>
             <div id="emoji-bar" class="emoji-bar hidden"></div>
 
+            <div id="quick-chat-control" class="quick-chat-control hidden">
+                <button id="quick-chat-toggle" class="quick-chat-toggle" type="button" data-i18n-attr="aria-label:quick_chat" aria-label="دردشة سريعة">💬</button>
+                <div id="quick-chat-panel" class="quick-chat-panel hidden" role="dialog" aria-modal="false" aria-labelledby="quick-chat-title" aria-hidden="true" inert>
+                    <div class="quick-chat-heading">
+                        <h2 id="quick-chat-title" data-i18n="quick_chat">دردشة سريعة</h2>
+                        <button id="quick-chat-close" type="button" data-i18n-attr="aria-label:close" aria-label="إغلاق">×</button>
+                    </div>
+                    <div id="quick-chat-phrases" class="quick-chat-phrases"></div>
+                    <h3 data-i18n="table_safety">أمان الطاولة</h3>
+                    <div id="table-safety-list" class="table-safety-list"></div>
+                </div>
+                <div id="quick-chat-feed" class="quick-chat-feed" aria-live="polite"></div>
+            </div>
+
             <!-- ===== لوحة تحكم المطور ===== -->
             <button id="dev-toggle-btn" class="dev-toggle-btn" type="button" aria-label="لوحة المطور" data-i18n-attr="aria-label:developer_panel">⚙️</button>
             <div id="dev-panel" class="dev-panel hidden">
@@ -352,6 +375,39 @@
                 <div id="table-ready-list" class="table-ready-list" aria-live="polite"></div>
                 <p id="rematch-status" class="online-status" role="status" aria-live="polite"></p>
                 <div id="end-stats" class="end-stats"></div>
+                <section id="majlis-result-panel" class="majlis-result-panel hidden" aria-labelledby="majlis-result-title">
+                    <h2 id="majlis-result-title" data-i18n="majlis_title">المجلس</h2>
+                    <p id="majlis-result-status" class="majlis-result-status" aria-live="polite"></p>
+                    <div id="majlis-create-controls" class="majlis-create-controls hidden">
+                        <p data-i18n="majlis_create_explainer">حوّل هذه الطاولة إلى مجلس دائم. كل لاعب ينضم بموافقته.</p>
+                        <input id="majlis-name-input" class="profile-input" type="text" maxlength="32" autocomplete="off"
+                               data-i18n-attr="placeholder:majlis_name_placeholder" placeholder="اسم المجلس">
+                        <div class="majlis-identity-row">
+                            <label><span data-i18n="majlis_banner">الشعار</span>
+                                <select id="majlis-banner-select">
+                                    <option value="pearl" data-i18n="banner_pearl">اللؤلؤة</option>
+                                    <option value="dhow" data-i18n="banner_dhow">المحمل</option>
+                                    <option value="falcon" data-i18n="banner_falcon">الصقر</option>
+                                </select>
+                            </label>
+                            <label><span data-i18n="majlis_table_theme">الطاولة</span>
+                                <select id="majlis-theme-select">
+                                    <option value="classic" data-i18n="theme_classic">كلاسيكية</option>
+                                    <option value="night" data-i18n="theme_night">ليلية</option>
+                                    <option value="sea" data-i18n="theme_sea">بحرية</option>
+                                </select>
+                            </label>
+                        </div>
+                        <button id="majlis-create-btn" class="btn secondary-btn" type="button" data-i18n="majlis_create">أنشئ المجلس</button>
+                    </div>
+                    <button id="majlis-accept-btn" class="btn secondary-btn hidden" type="button" data-i18n="majlis_accept">انضم بموافقتي</button>
+                    <div id="majlis-detail" class="majlis-detail hidden"></div>
+                    <div id="majlis-schedule-controls" class="majlis-schedule-controls hidden">
+                        <label for="majlis-schedule-input" data-i18n="majlis_schedule_label">موعد الجلسة القادمة</label>
+                        <input id="majlis-schedule-input" type="datetime-local">
+                        <button id="majlis-schedule-btn" class="btn secondary-btn" type="button" data-i18n="majlis_schedule">ثبّت الموعد</button>
+                    </div>
+                </section>
                 <button id="restart-btn" class="btn primary-btn" type="button" data-i18n="play_again">🔄 العب مرة ثانية</button>
                 <button id="end-menu-btn" class="btn secondary-btn" type="button" data-i18n="main_menu">🏠 القائمة الرئيسية</button>
             </div>
@@ -379,6 +435,7 @@
     <script src="vendor/qrcode-generator-1.4.4.js"></script>
     <script src="product/service-config.js"></script>
     <script src="product/release-config.js"></script>
+    <script src="product/experiment-assignment.js"></script>
     <script src="product/feature-flags.js"></script>
     <script src="product/telemetry-schema.js"></script>
     <script src="product/telemetry.js"></script>
@@ -388,6 +445,7 @@
     <script src="game/game-guidance.js"></script>
     <script src="game/game-config.js"></script>
     <script src="game/game-profile.js"></script>
+    <script src="game/game-majlis.js"></script>
     <script src="game/game-authoritative.js"></script>
     <script src="game/game-online.js"></script>
     <script src="game/game-screen.js"></script>

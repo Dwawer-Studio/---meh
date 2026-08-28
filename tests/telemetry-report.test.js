@@ -4,13 +4,14 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 const { buildTelemetryReport } = require('../tools/telemetry-report');
 
-function event(eventId, appSessionId, name, occurredAt, properties) {
+function event(eventId, appSessionId, name, occurredAt, properties, installId) {
     return {
         eventId,
         appSessionId,
         name,
         ...(occurredAt === undefined ? {} : { occurredAt }),
         ...(properties === undefined ? {} : { properties }),
+        ...(installId === undefined ? {} : { installId }),
     };
 }
 
@@ -78,4 +79,121 @@ test('P1 telemetry report computes I2S, TTS, MCR, M1→M2, and Wilson intervals'
     assert.equal(report.p1.mcr.percent, 50);
     assert.equal(report.p1.m1ToM2.percent, 50);
     assert.equal(report.p1.unguidedSocialSessions, 2);
+});
+
+test('P3 telemetry report deduplicates Majlis sessions and computes mature W1-GR cohorts', () => {
+    const day = 24 * 60 * 60 * 1000;
+    const start = Date.parse('2026-08-03T09:00:00.000Z');
+    const report = buildTelemetryReport({
+        exportedAt: start + 21 * day,
+        events: [
+            event('p3-a1', 'p3-s1', 'majlis.created', start,
+                { groupToken: 'group-a' }, 'install-a'),
+            event('p3-a2', 'p3-s2', 'majlis.session_started', start + day, {
+                groupToken: 'group-a', sessionToken: 'match-a', humanSeats: 2,
+            }, 'install-a'),
+            event('p3-a3', 'p3-s3', 'majlis.session_started', start + day + 1_000, {
+                groupToken: 'group-a', sessionToken: 'match-a', humanSeats: 2,
+            }, 'install-a'),
+            event('p3-b1', 'p3-s4', 'majlis.created', start + day,
+                { groupToken: 'group-b' }, 'install-b'),
+            event('p3-c1', 'p3-s5', 'majlis.created', start + 8 * day,
+                { groupToken: 'group-c' }, 'install-c'),
+            event('p3-c2', 'p3-s6', 'majlis.session_started', start + 10 * day, {
+                groupToken: 'group-c', sessionToken: 'match-c', humanSeats: 2,
+            }, 'install-c'),
+            event('p3-e1', 'p3-s7', 'experiment.exposed', start, {
+                experimentId: 'p3_recent_majalis', variant: 'treatment',
+            }, 'install-a'),
+            event('p3-e2', 'p3-s8', 'experiment.exposed', start + 1_000, {
+                experimentId: 'p3_recent_majalis', variant: 'treatment',
+            }, 'install-a'),
+            event('p3-e3', 'p3-s9', 'experiment.exposed', start + day, {
+                experimentId: 'p3_recent_majalis', variant: 'control',
+            }, 'install-b'),
+            event('p3-e4', 'p3-s10', 'experiment.exposed', start + 8 * day, {
+                experimentId: 'p3_recent_majalis', variant: 'treatment',
+            }, 'install-c'),
+            event('p3-x1', 'p3-s11', 'experiment.exposed', start, {
+                experimentId: 'p3_recent_majalis', variant: 'control',
+            }, 'install-x'),
+            event('p3-x2', 'p3-s12', 'experiment.exposed', start + 1_000, {
+                experimentId: 'p3_recent_majalis', variant: 'treatment',
+            }, 'install-x'),
+            event('p3-r1', 'p3-s7', 'moderation.report_submitted', start, { reasonCode: 'spam' }),
+        ],
+    });
+    assert.equal(report.p3.w1GroupReturn.total, 3);
+    assert.equal(report.p3.w1GroupReturn.successes, 2);
+    assert.equal(report.p3.w1GroupReturn.percent, 66.67);
+    assert.equal(report.p3.weeklyCohorts.length, 2);
+    const experiment = report.p3.experiments.p3_recent_majalis;
+    assert.deepEqual(experiment.assignedInstalls, { control: 1, treatment: 2 });
+    assert.equal(experiment.crossoverInstalls, 1);
+    assert.equal(experiment.analyzedUnits, 3);
+    assert.equal(experiment.control.successes, 0);
+    assert.equal(experiment.treatment.successes, 2);
+    assert.equal(experiment.effect.differencePercentagePoints, 100);
+    assert.equal(report.p3.safetyActions.reports, 1);
+    assert.doesNotMatch(JSON.stringify(report),
+        /group-a|group-b|group-c|match-a|match-c|install-a|install-b|install-c|install-x/);
+});
+
+test('P3 telemetry report analyzes regroup, second-match, and schedule experiments by assigned install', () => {
+    const minute = 60 * 1_000;
+    const day = 24 * 60 * minute;
+    const start = Date.parse('2026-08-03T09:00:00.000Z');
+    const events = [
+        event('e02-c-exp', 'e02-c', 'experiment.exposed', start, {
+            experimentId: 'p3_one_tap_reinvite', variant: 'control',
+        }, 'install-e02-c'),
+        event('e02-t-exp', 'e02-t', 'experiment.exposed', start, {
+            experimentId: 'p3_one_tap_reinvite', variant: 'treatment',
+        }, 'install-e02-t'),
+        event('e02-c-match', 'e02-c', 'match.started', start + 11 * minute,
+            { humanSeats: 2 }, 'install-e02-c'),
+        event('e02-t-match', 'e02-t', 'match.started', start + 5 * minute,
+            { humanSeats: 2 }, 'install-e02-t'),
+
+        event('e03-c-done', 'e03-c', 'majlis.session_completed', start, {
+            groupToken: 'e03-group-c', sessionToken: 'e03-match-c1',
+        }, 'install-e03-c'),
+        event('e03-t-done', 'e03-t', 'majlis.session_completed', start, {
+            groupToken: 'e03-group-t', sessionToken: 'e03-match-t1',
+        }, 'install-e03-t'),
+        event('e03-c-exp', 'e03-c', 'experiment.exposed', start + minute, {
+            experimentId: 'p3_majlis_session_score', variant: 'control', groupToken: 'e03-group-c',
+        }, 'install-e03-c'),
+        event('e03-t-exp', 'e03-t', 'experiment.exposed', start + minute, {
+            experimentId: 'p3_majlis_session_score', variant: 'treatment', groupToken: 'e03-group-t',
+        }, 'install-e03-t'),
+        event('e03-t-next', 'e03-t', 'majlis.session_started', start + 2 * minute, {
+            groupToken: 'e03-group-t', sessionToken: 'e03-match-t2', humanSeats: 2,
+        }, 'install-e03-t'),
+
+        event('e04-c-new', 'e04-c', 'majlis.created', start,
+            { groupToken: 'e04-group-c' }, 'install-e04-c'),
+        event('e04-t-new', 'e04-t', 'majlis.created', start,
+            { groupToken: 'e04-group-t' }, 'install-e04-t'),
+        event('e04-c-exp', 'e04-c', 'experiment.exposed', start + minute, {
+            experimentId: 'p3_majlis_schedule', variant: 'control', groupToken: 'e04-group-c',
+        }, 'install-e04-c'),
+        event('e04-t-exp', 'e04-t', 'experiment.exposed', start + minute, {
+            experimentId: 'p3_majlis_schedule', variant: 'treatment', groupToken: 'e04-group-t',
+        }, 'install-e04-t'),
+        event('e04-t-return', 'e04-t', 'majlis.session_started', start + 2 * day, {
+            groupToken: 'e04-group-t', sessionToken: 'e04-match-t2', humanSeats: 2,
+        }, 'install-e04-t'),
+    ];
+    const report = buildTelemetryReport({ exportedAt: start + 8 * day, events });
+    for (const experimentId of [
+        'p3_one_tap_reinvite', 'p3_majlis_session_score', 'p3_majlis_schedule',
+    ]) {
+        const result = report.p3.experiments[experimentId];
+        assert.equal(result.analyzedUnits, 2);
+        assert.equal(result.control.successes, 0);
+        assert.equal(result.treatment.successes, 1);
+        assert.equal(result.effect.differencePercentagePoints, 100);
+    }
+    assert.doesNotMatch(JSON.stringify(report), /install-e0|e03-group|e04-group|e03-match|e04-match/);
 });

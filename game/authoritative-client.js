@@ -25,6 +25,7 @@ class AuthoritativeGameClient {
         this.onSnapshot = options.onSnapshot || (() => {});
         this.onConnectionState = options.onConnectionState || (() => {});
         this.onRejected = options.onRejected || (() => {});
+        this.onEvent = options.onEvent || (() => {});
         this.reconnectWindowMs = options.reconnectWindowMs || 29_000;
         this.reconnectDelaysMs = options.reconnectDelaysMs || [250, 500, 1_000, 2_000, 4_000];
         this.manualClose = false;
@@ -45,8 +46,10 @@ class AuthoritativeGameClient {
         });
     }
 
-    createRoom(mode = 'private') {
-        return this._request('room.create', { mode }).then(message => this._acceptLease(message));
+    createRoom(mode = 'private', majlisId = null) {
+        const payload = { mode };
+        if (majlisId) payload.majlisId = majlisId;
+        return this._request('room.create', payload).then(message => this._acceptLease(message));
     }
 
     joinRoom(roomCode) {
@@ -73,6 +76,22 @@ class AuthoritativeGameClient {
 
     requestSnapshot() {
         return this._request('snapshot.request', {});
+    }
+
+    createMajlis(input) {
+        return this._request('majlis.create', input);
+    }
+
+    acceptMajlis(majlisId) {
+        return this._request('majlis.accept', { majlisId });
+    }
+
+    sendQuickChat(phraseId) {
+        return this._request('chat.send', { phraseId });
+    }
+
+    reportSeat(reportedSeatId, reasonCode) {
+        return this._request('report.submit', { reportedSeatId, reasonCode });
     }
 
     async leave() {
@@ -203,15 +222,16 @@ class AuthoritativeGameClient {
                 this.onSnapshot(snapshot, message);
             }
         }
-        if (message.type === 'match.rejected' || message.type === 'server.error') {
+        if (['match.rejected', 'social.rejected', 'server.error'].includes(message.type)) {
             this.onRejected(message.payload && message.payload.code, message);
         }
+        if (!message.ackRequestId && message.type !== 'room.snapshot') this.onEvent(message);
         if (message.ackRequestId) {
             const pending = this.pending.get(message.ackRequestId);
             if (pending) {
                 clearTimeout(pending.timer);
                 this.pending.delete(message.ackRequestId);
-                if (message.type === 'match.rejected' || message.type === 'server.error') {
+                if (['match.rejected', 'social.rejected', 'server.error'].includes(message.type)) {
                     pending.reject(new AuthoritativeClientError(message.payload && message.payload.code || 'REJECTED'));
                 } else {
                     pending.resolve(message);
@@ -266,6 +286,20 @@ class AuthoritativeGameClient {
 }
 
 class AuthoritativeAccountClient {
+    static async _json(baseUrl, path, accessToken, options = {}) {
+        const response = await fetch(`${String(baseUrl).replace(/\/$/, '')}${path}`, {
+            ...options,
+            headers: {
+                ...(options.body ? { 'content-type': 'application/json' } : {}),
+                authorization: `Bearer ${accessToken}`,
+                ...(options.headers || {}),
+            },
+        });
+        const body = await response.json();
+        if (!response.ok) throw new AuthoritativeClientError(body.error || 'REQUEST_FAILED');
+        return body;
+    }
+
     static async createGuest(baseUrl, displayName) {
         const response = await fetch(`${String(baseUrl).replace(/\/$/, '')}/v1/guest`, {
             method: 'POST',
@@ -286,6 +320,31 @@ class AuthoritativeAccountClient {
         const body = await response.json();
         if (!response.ok) throw new AuthoritativeClientError(body.error || 'SETTINGS_SYNC_FAILED');
         return body.account;
+    }
+
+    static listMajalis(baseUrl, accessToken) {
+        return this._json(baseUrl, '/v1/majalis', accessToken).then(body => body.majalis);
+    }
+
+    static getMajlis(baseUrl, accessToken, majlisId) {
+        return this._json(baseUrl, `/v1/majalis/${encodeURIComponent(majlisId)}`, accessToken)
+            .then(body => body.majlis);
+    }
+
+    static scheduleMajlis(baseUrl, accessToken, majlisId, scheduledFor) {
+        return this._json(baseUrl, `/v1/majalis/${encodeURIComponent(majlisId)}/invitations`, accessToken, {
+            method: 'POST', body: JSON.stringify({ scheduledFor }),
+        }).then(body => body.invitation);
+    }
+
+    static setMajlisReminder(baseUrl, accessToken, invitationId, enabled) {
+        return this._json(baseUrl, `/v1/invitations/${encodeURIComponent(invitationId)}/reminder`, accessToken, {
+            method: 'PATCH', body: JSON.stringify({ enabled }),
+        }).then(body => body.reminder);
+    }
+
+    static claimDueMajlisReminders(baseUrl, accessToken) {
+        return this._json(baseUrl, '/v1/reminders/due', accessToken).then(body => body.reminders);
     }
 }
 

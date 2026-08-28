@@ -25,6 +25,7 @@ class MehGameAuthoritativeModule {
             onSnapshot: snapshot => this._applyAuthoritativeSnapshot(snapshot),
             onConnectionState: state => this._handleAuthoritativeConnectionState(state),
             onRejected: code => this._handleAuthoritativeReject(code),
+            onEvent: message => this._handleMajlisEvent(message),
         });
         let welcome;
         try {
@@ -56,12 +57,12 @@ class MehGameAuthoritativeModule {
         ).catch(() => {});
     }
 
-    async _createAuthoritativeRoom(mode = 'private') {
+    async _createAuthoritativeRoom(mode = 'private', majlisId = null) {
         this._trackProductEvent('room.join_started', { role: 'host', method: mode });
         this.showOnlineStatus(I18n.t(mode === 'quick' ? 'quick_play_connecting' : 'creating_room'));
         try {
             const client = await this._ensureAuthoritativeClient();
-            const response = await client.createRoom(mode);
+            const response = await client.createRoom(mode, majlisId);
             Net.roomCode = client.roomCode;
             Net.isHost = true;
             this.isHost = false;
@@ -109,6 +110,7 @@ class MehGameAuthoritativeModule {
             host: seat.seatIndex === 0,
         }));
         this._syncAuthoritativeTable(room, seats, viewerSeatId);
+        this._syncMajlisFromSnapshot(room, seats);
 
         if (room.phase === 'FORMING') {
             document.getElementById('lobby-room-code').textContent = room.roomCode;

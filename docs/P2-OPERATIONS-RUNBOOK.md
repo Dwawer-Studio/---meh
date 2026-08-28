@@ -2,8 +2,9 @@
 
 ## الإعداد
 
-وضع الإنتاج يرفض البدء بلا `DATABASE_URL` وبلا `MEH_APP_SECRET` بطول 32 حرفًا
-على الأقل. PostgreSQL هو الإعداد المقبول؛ الذاكرة للتطوير/الاختبار فقط. تنفذ
+وضع الإنتاج يرفض البدء بلا `DATABASE_URL` وبلا `MEH_APP_SECRET` وبلا
+`MEH_INTERNAL_ADMIN_TOKEN` مستقل، وكل سر منهما بطول 32 حرفًا على الأقل.
+PostgreSQL هو الإعداد المقبول؛ الذاكرة للتطوير/الاختبار فقط. تنفذ
 الهجرات قبل فتح المنفذ، وتتحقق بصمة كل هجرة سبق تطبيقها.
 
 توضع الخدمة خلف TLS proxy موثوق وفي شبكة داخلية. يرفض وضع الإنتاج كل `/v1/*`
@@ -15,7 +16,8 @@
 
 - `/health/live`: العملية حية.
 - `/health/ready`: القناة جاهزة وعدد الاتصالات الحالي.
-- `/internal/metrics`: loopback فقط؛ يصدر العدادات وp50/p95/p99.
+- `/internal/metrics`: loopback فقط ومع `Authorization: Bearer <MEH_INTERNAL_ADMIN_TOKEN>`
+  في الإنتاج؛ يصدر العدادات وp50/p95/p99.
 - `/v1/realtime`: WebSocket فقط، من origins مصرح بها.
 - `/v1/account/sync`: snapshot مصادق عليه للإعدادات وعضويات المجالس.
 

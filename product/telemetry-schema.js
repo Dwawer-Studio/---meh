@@ -120,6 +120,93 @@ const PRODUCT_EVENT_SCHEMAS = Object.freeze({
             completedMatches: Object.freeze({ type: 'integer', min: 0, max: 999 }),
         }),
     }),
+    'majlis.list_viewed': Object.freeze({
+        required: ['count'],
+        fields: Object.freeze({ count: Object.freeze({ type: 'integer', min: 0, max: 8 }) }),
+    }),
+    'majlis.create_prompted': Object.freeze({
+        required: ['humanSeats'],
+        fields: Object.freeze({ humanSeats: Object.freeze({ type: 'integer', min: 2, max: 4 }) }),
+    }),
+    'majlis.created': Object.freeze({
+        required: ['memberCount', 'groupToken'],
+        fields: Object.freeze({
+            memberCount: Object.freeze({ type: 'integer', min: 1, max: 4 }),
+            groupToken: Object.freeze({ type: 'token', maxLength: 48 }),
+        }),
+    }),
+    'majlis.join_accepted': Object.freeze({
+        required: ['source', 'groupToken', 'memberCount'],
+        fields: Object.freeze({
+            source: Object.freeze({ type: 'enum', values: ['results'] }),
+            groupToken: Object.freeze({ type: 'token', maxLength: 48 }),
+            memberCount: Object.freeze({ type: 'integer', min: 1, max: 4 }),
+        }),
+    }),
+    'majlis.regroup_started': Object.freeze({
+        required: ['memberCount', 'groupToken'],
+        fields: Object.freeze({
+            memberCount: Object.freeze({ type: 'integer', min: 1, max: 4 }),
+            groupToken: Object.freeze({ type: 'token', maxLength: 48 }),
+        }),
+    }),
+    'majlis.session_started': Object.freeze({
+        required: ['groupToken', 'sessionToken', 'humanSeats'],
+        fields: Object.freeze({
+            groupToken: Object.freeze({ type: 'token', maxLength: 48 }),
+            sessionToken: Object.freeze({ type: 'token', maxLength: 48 }),
+            humanSeats: Object.freeze({ type: 'integer', min: 1, max: 4 }),
+        }),
+    }),
+    'majlis.session_completed': Object.freeze({
+        required: ['groupToken', 'sessionToken'],
+        fields: Object.freeze({
+            groupToken: Object.freeze({ type: 'token', maxLength: 48 }),
+            sessionToken: Object.freeze({ type: 'token', maxLength: 48 }),
+        }),
+    }),
+    'majlis.invitation_scheduled': Object.freeze({
+        required: ['leadMinutes', 'groupToken'],
+        fields: Object.freeze({
+            leadMinutes: Object.freeze({ type: 'integer', min: 15, max: 43200 }),
+            groupToken: Object.freeze({ type: 'token', maxLength: 48 }),
+        }),
+    }),
+    'majlis.reminder_changed': Object.freeze({
+        required: ['enabled'],
+        fields: Object.freeze({ enabled: Object.freeze({ type: 'boolean' }) }),
+    }),
+    'chat.phrase_sent': Object.freeze({
+        required: ['phraseId'],
+        fields: Object.freeze({
+            phraseId: Object.freeze({ type: 'enum', values: [
+                'salam', 'yalla', 'kafo', 'meh', 'good_game', 'one_more',
+            ] }),
+        }),
+    }),
+    'chat.player_muted': Object.freeze({
+        required: ['muted'],
+        fields: Object.freeze({ muted: Object.freeze({ type: 'boolean' }) }),
+    }),
+    'moderation.report_submitted': Object.freeze({
+        required: ['reasonCode'],
+        fields: Object.freeze({
+            reasonCode: Object.freeze({ type: 'enum', values: [
+                'spam', 'harassment', 'stalling', 'collusion',
+            ] }),
+        }),
+    }),
+    'experiment.exposed': Object.freeze({
+        required: ['experimentId', 'variant'],
+        fields: Object.freeze({
+            experimentId: Object.freeze({ type: 'enum', values: [
+                'p3_recent_majalis', 'p3_one_tap_reinvite',
+                'p3_majlis_session_score', 'p3_majlis_schedule',
+            ] }),
+            variant: Object.freeze({ type: 'enum', values: ['control', 'treatment'] }),
+            groupToken: Object.freeze({ type: 'token', maxLength: 48, optional: true }),
+        }),
+    }),
 });
 
 const TELEMETRY_FORBIDDEN_FIELDS = Object.freeze([

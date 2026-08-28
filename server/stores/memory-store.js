@@ -20,6 +20,10 @@ class MemoryStore {
         this.sessions = new Map();
         this.majalis = new Map();
         this.majlisMemberships = new Map();
+        this.majlisSessions = [];
+        this.majlisInvitations = new Map();
+        this.majlisReminders = new Map();
+        this.moderationReports = new Map();
         this.rooms = new Map();
         this.seats = new Map();
         this.idempotency = new Map();
@@ -59,6 +63,10 @@ class MemoryStore {
 
     async createMajlis(majlis, memberships) {
         if (this.majalis.has(majlis.majlisId)) throw new StoreConflict('MAJLIS_EXISTS');
+        const sourceRoom = majlis.sourceRoomId ? this.rooms.get(majlis.sourceRoomId) : null;
+        if (majlis.sourceRoomId && (!sourceRoom || sourceRoom.majlisId)) {
+            throw new StoreConflict('SOURCE_ROOM_UNAVAILABLE');
+        }
         this.majalis.set(majlis.majlisId, copy(majlis));
         for (const membership of memberships) {
             this.majlisMemberships.set(`${majlis.majlisId}:${membership.accountId}`, copy({
@@ -66,24 +74,187 @@ class MemoryStore {
                 majlisId: majlis.majlisId,
             }));
         }
+        if (sourceRoom) sourceRoom.majlisId = majlis.majlisId;
         return copy(majlis);
     }
 
     async listAccountMajalis(accountId) {
-        return [...this.majlisMemberships.values()]
+        const items = [...this.majlisMemberships.values()]
             .filter(item => item.accountId === accountId && item.membershipStatus === 'active')
-            .map(membership => {
-                const majlis = this.majalis.get(membership.majlisId);
-                return {
-                    majlisId: majlis.majlisId,
-                    displayName: majlis.displayName,
-                    revision: Number(majlis.revision),
-                    memberRole: membership.memberRole,
-                    consentedAt: membership.consentedAt,
-                    updatedAt: membership.updatedAt,
-                };
+            .sort((left, right) => {
+                const leftUpdatedAt = (this.majalis.get(left.majlisId) || {}).updatedAt || left.updatedAt;
+                const rightUpdatedAt = (this.majalis.get(right.majlisId) || {}).updatedAt || right.updatedAt;
+                return rightUpdatedAt.localeCompare(leftUpdatedAt);
             })
-            .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+            .slice(0, 8);
+        return Promise.all(items.map(item => this.getMajlisForMember(item.majlisId, accountId)));
+    }
+
+    async findActiveMajlisRoom(majlisId, excludeRoomId = null) {
+        const room = [...this.rooms.values()]
+            .filter(item => item.majlisId === majlisId && item.roomId !== excludeRoomId
+                && !item.closedAt && ['FORMING', 'IN_MATCH'].includes(item.phase))
+            .sort((left, right) => right.lastActivityAt.localeCompare(left.lastActivityAt))[0];
+        return room ? this.getRoom(room.roomId) : null;
+    }
+
+    async getMajlisDefinition(majlisId) {
+        return copy(this.majalis.get(majlisId) || null);
+    }
+
+    async isMajlisMember(majlisId, accountId) {
+        const membership = this.majlisMemberships.get(`${majlisId}:${accountId}`);
+        return !!membership && membership.membershipStatus === 'active';
+    }
+
+    async acceptMajlisMembership(majlisId, accountId, nowIso) {
+        if (!this.majalis.has(majlisId) || !this.accounts.has(accountId)) {
+            throw new StoreConflict('MAJLIS_OR_ACCOUNT_NOT_FOUND');
+        }
+        const key = `${majlisId}:${accountId}`;
+        const existing = this.majlisMemberships.get(key);
+        this.majlisMemberships.set(key, {
+            majlisId,
+            accountId,
+            memberRole: existing && existing.memberRole || 'member',
+            membershipStatus: 'active',
+            consentedAt: existing && existing.consentedAt || nowIso,
+            updatedAt: nowIso,
+        });
+        const majlis = this.majalis.get(majlisId);
+        majlis.revision = Number(majlis.revision || 0) + 1;
+        majlis.updatedAt = nowIso;
+        return true;
+    }
+
+    async getMajlisForMember(majlisId, accountId) {
+        const membership = this.majlisMemberships.get(`${majlisId}:${accountId}`);
+        const majlis = this.majalis.get(majlisId);
+        if (!majlis || !membership || membership.membershipStatus !== 'active') return null;
+        const members = [...this.majlisMemberships.values()]
+            .filter(item => item.majlisId === majlisId && item.membershipStatus === 'active')
+            .map(item => ({
+                displayName: (this.accounts.get(item.accountId) || {}).displayName || 'Former player',
+                memberRole: item.memberRole,
+            }));
+        const sessions = this.majlisSessions.filter(item => item.majlisId === majlisId)
+            .sort((left, right) => right.completedAt.localeCompare(left.completedAt));
+        const score = new Map();
+        for (const session of sessions) {
+            for (const player of session.players) {
+                const key = player.accountId || `former:${player.displayName}`;
+                const value = score.get(key) || { displayName: player.displayName, matches: 0, wins: 0 };
+                value.matches++;
+                if (player.won) value.wins++;
+                score.set(key, value);
+            }
+        }
+        const invitations = [...this.majlisInvitations.values()]
+            .filter(item => item.majlisId === majlisId && !item.canceledAt)
+            .sort((left, right) => left.scheduledFor.localeCompare(right.scheduledFor))
+            .map(item => ({
+                invitationId: item.invitationId,
+                scheduledFor: item.scheduledFor,
+                expiresAt: item.expiresAt,
+                reminderEnabled: !!(this.majlisReminders.get(`${item.invitationId}:${accountId}`) || {}).enabled,
+            }));
+        return copy({
+            majlisId: majlis.majlisId,
+            displayName: majlis.displayName,
+            bannerId: majlis.bannerId || 'pearl',
+            tableThemeId: majlis.tableThemeId || 'classic',
+            revision: Number(majlis.revision),
+            memberRole: membership.memberRole,
+            consentedAt: membership.consentedAt,
+            updatedAt: majlis.updatedAt || membership.updatedAt,
+            members,
+            sessionScore: [...score.values()].sort((left, right) => right.wins - left.wins
+                || right.matches - left.matches || left.displayName.localeCompare(right.displayName)),
+            recentSessions: sessions.slice(0, 10).map(item => ({
+                majlisSessionId: item.majlisSessionId,
+                completedAt: item.completedAt,
+                players: item.players.map(player => ({ displayName: player.displayName, won: player.won })),
+            })),
+            upcomingInvitations: invitations,
+            activeRoom: await this.findActiveMajlisRoom(majlisId).then(active => active ? ({
+                roomCode: active.room.roomCode,
+                phase: active.room.phase,
+            }) : null),
+        });
+    }
+
+    async createMajlisInvitation(invitation) {
+        if (this.majlisInvitations.has(invitation.invitationId)) throw new StoreConflict('INVITATION_EXISTS');
+        this.majlisInvitations.set(invitation.invitationId, copy(invitation));
+        return copy(invitation);
+    }
+
+    async getMajlisInvitation(invitationId) {
+        return copy(this.majlisInvitations.get(invitationId) || null);
+    }
+
+    async setMajlisReminder(reminder) {
+        const stored = { ...copy(reminder), notifiedAt: null };
+        this.majlisReminders.set(`${reminder.invitationId}:${reminder.accountId}`, stored);
+        return copy(stored);
+    }
+
+    async claimDueMajlisReminders(accountId, nowIso) {
+        const due = [];
+        for (const reminder of this.majlisReminders.values()) {
+            if (reminder.accountId !== accountId || !reminder.enabled || reminder.notifiedAt
+                || reminder.remindAt > nowIso) continue;
+            const invitation = this.majlisInvitations.get(reminder.invitationId);
+            if (!invitation || invitation.canceledAt || invitation.expiresAt <= nowIso) continue;
+            const majlis = this.majalis.get(invitation.majlisId);
+            if (!majlis) continue;
+            reminder.notifiedAt = nowIso;
+            due.push({
+                invitationId: invitation.invitationId,
+                majlisId: invitation.majlisId,
+                majlisDisplayName: majlis.displayName,
+                scheduledFor: invitation.scheduledFor,
+            });
+        }
+        return copy(due);
+    }
+
+    async recordMajlisSession(session) {
+        const existing = this.majlisSessions.find(item => item.roomId === session.roomId
+            && item.matchId === session.matchId);
+        if (existing) return copy(existing);
+        this.majlisSessions.push(copy(session));
+        const majlis = this.majalis.get(session.majlisId);
+        if (majlis) {
+            majlis.revision = Number(majlis.revision || 0) + 1;
+            majlis.updatedAt = session.completedAt;
+        }
+        return copy(session);
+    }
+
+    async createModerationReport(report) {
+        const duplicate = [...this.moderationReports.values()].find(item => item.roomId === report.roomId
+            && item.matchId === report.matchId
+            && item.reporterAccountId === report.reporterAccountId
+            && item.reportedAccountId === report.reportedAccountId);
+        if (duplicate) throw new StoreConflict('REPORT_ALREADY_SUBMITTED');
+        this.moderationReports.set(report.reportId, copy(report));
+        return copy(report);
+    }
+
+    async listModerationReports(limit = 100) {
+        return copy([...this.moderationReports.values()]
+            .filter(report => ['open', 'reviewing'].includes(report.reportStatus))
+            .sort((left, right) => left.createdAt.localeCompare(right.createdAt))
+            .slice(0, Math.max(1, Math.min(100, limit))));
+    }
+
+    async updateModerationReport(reportId, reportStatus, reviewedAt) {
+        const report = this.moderationReports.get(reportId);
+        if (!report) throw new StoreConflict('REPORT_NOT_FOUND');
+        report.reportStatus = reportStatus;
+        report.reviewedAt = reviewedAt;
+        return copy(report);
     }
 
     async createSession(session) {
@@ -110,6 +281,10 @@ class MemoryStore {
         if (this.rooms.has(room.roomId)) throw new StoreConflict('ROOM_EXISTS');
         if ([...this.rooms.values()].some(item => item.roomCode === room.roomCode && !item.closedAt)) {
             throw new StoreConflict('ROOM_CODE_EXISTS');
+        }
+        if (room.majlisId && [...this.rooms.values()].some(item => item.majlisId === room.majlisId
+            && !item.closedAt && item.phase === 'FORMING')) {
+            throw new StoreConflict('MAJLIS_ROOM_EXISTS');
         }
         this.rooms.set(room.roomId, copy(room));
         this.seats.set(room.roomId, copy(seats));
@@ -218,6 +393,19 @@ class MemoryStore {
         for (const [key, membership] of this.majlisMemberships) {
             if (membership.accountId === accountId) this.majlisMemberships.delete(key);
         }
+        for (const session of this.majlisSessions) {
+            for (const player of session.players) if (player.accountId === accountId) player.accountId = null;
+        }
+        for (const invitation of this.majlisInvitations.values()) {
+            if (invitation.createdByAccountId === accountId) invitation.createdByAccountId = null;
+        }
+        for (const [key, reminder] of this.majlisReminders) {
+            if (reminder.accountId === accountId) this.majlisReminders.delete(key);
+        }
+        for (const report of this.moderationReports.values()) {
+            if (report.reporterAccountId === accountId) report.reporterAccountId = null;
+            if (report.reportedAccountId === accountId) report.reportedAccountId = null;
+        }
         for (const seats of this.seats.values()) {
             for (const seat of seats) if (seat.accountId === accountId) seat.accountId = null;
         }
@@ -245,6 +433,15 @@ class MemoryStore {
             if (Date.parse(room.lastActivityAt) < replayCutoff) {
                 this.rooms.delete(roomId);
                 this.seats.delete(roomId);
+                for (const session of this.majlisSessions) {
+                    if (session.roomId === roomId) session.roomId = null;
+                }
+                for (const majlis of this.majalis.values()) {
+                    if (majlis.sourceRoomId === roomId) majlis.sourceRoomId = null;
+                }
+                for (const report of this.moderationReports.values()) {
+                    if (report.roomId === roomId) report.roomId = null;
+                }
                 for (const key of this.idempotency.keys()) {
                     if (key.startsWith(`${roomId}:`)) this.idempotency.delete(key);
                 }
@@ -254,6 +451,19 @@ class MemoryStore {
             const hasMembership = [...this.majlisMemberships.values()]
                 .some(membership => membership.majlisId === majlisId);
             if (!hasMembership && Date.parse(majlis.updatedAt) < replayCutoff) this.majalis.delete(majlisId);
+        }
+        for (const [invitationId, invitation] of this.majlisInvitations) {
+            if (Date.parse(invitation.expiresAt) < replayCutoff) {
+                this.majlisInvitations.delete(invitationId);
+                for (const key of this.majlisReminders.keys()) {
+                    if (key.startsWith(`${invitationId}:`)) this.majlisReminders.delete(key);
+                }
+            }
+        }
+        const reportCutoff = nowMs - 180 * 24 * 60 * 60 * 1000;
+        for (const [reportId, report] of this.moderationReports) {
+            if (['closed', 'dismissed'].includes(report.reportStatus)
+                && Date.parse(report.createdAt) < reportCutoff) this.moderationReports.delete(reportId);
         }
         for (const [key, value] of this.tombstones) {
             if (Date.parse(value.expiresAt) <= nowMs) this.tombstones.delete(key);
@@ -268,6 +478,10 @@ class MemoryStore {
             sessions: [...this.sessions.values()],
             majalis: [...this.majalis.values()],
             majlisMemberships: [...this.majlisMemberships.values()],
+            majlisSessions: this.majlisSessions,
+            majlisInvitations: [...this.majlisInvitations.values()],
+            majlisReminders: [...this.majlisReminders.values()],
+            moderationReports: [...this.moderationReports.values()],
             rooms: [...this.rooms.values()],
             seats: [...this.seats.entries()],
             idempotency: [...this.idempotency.values()],
@@ -296,6 +510,12 @@ class MemoryStore {
         this.majlisMemberships = new Map(payload.majlisMemberships.map(
             item => [`${item.majlisId}:${item.accountId}`, item],
         ));
+        this.majlisSessions = payload.majlisSessions || [];
+        this.majlisInvitations = new Map((payload.majlisInvitations || []).map(item => [item.invitationId, item]));
+        this.majlisReminders = new Map((payload.majlisReminders || []).map(
+            item => [`${item.invitationId}:${item.accountId}`, item],
+        ));
+        this.moderationReports = new Map((payload.moderationReports || []).map(item => [item.reportId, item]));
         this.rooms = new Map(payload.rooms.map(item => [item.roomId, item]));
         this.seats = new Map(payload.seats);
         this.idempotency = new Map(payload.idempotency.map(item => [`${item.roomId}:${item.requestId}`, item]));
@@ -311,6 +531,9 @@ class MemoryStore {
             sessions: this.sessions.size,
             majalis: this.majalis.size,
             majlisMemberships: this.majlisMemberships.size,
+            majlisSessions: this.majlisSessions.length,
+            majlisInvitations: this.majlisInvitations.size,
+            moderationReports: this.moderationReports.size,
             rooms: this.rooms.size,
             seats: [...this.seats.values()].reduce((sum, seats) => sum + seats.length, 0),
             actions: this.actions.length,

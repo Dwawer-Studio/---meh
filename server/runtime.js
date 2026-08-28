@@ -5,13 +5,16 @@ const net = require('node:net');
 const { URL } = require('node:url');
 const { WebSocket, WebSocketServer } = require('ws');
 const { AccountService } = require('./account-service');
+const { MajlisError, MajlisService } = require('./majlis-service');
 const { ServiceMetrics } = require('./metrics');
 const {
     MAX_MESSAGE_BYTES, ProtocolError, parseClientMessage, serverMessage,
 } = require('./protocol');
 const { TokenBucketLimiter } = require('./rate-limiter');
 const { RoomError, RoomService } = require('./room-service');
-const { ipHash, randomId } = require('./security');
+const {
+    ipHash, randomId, safeEqual,
+} = require('./security');
 
 const JSON_LIMIT = 8 * 1024;
 const HELLO_TIMEOUT_MS = 5_000;
@@ -59,9 +62,20 @@ class RealtimeRuntime {
         this.allowedOrigins = new Set(options.allowedOrigins || []);
         this.requireTls = options.requireTls === true;
         this.trustProxy = options.trustProxy === true;
+        this.internalAdminToken = options.internalAdminToken || null;
         this.metrics = options.metrics || new ServiceMetrics();
         this.accounts = options.accounts || new AccountService(this.store, { pepper: this.pepper });
-        this.rooms = options.rooms || new RoomService(this.store, { pepper: this.pepper, metrics: this.metrics });
+        const analyticsToken = (value, domain) => ipHash(`${domain}:${value}`, this.pepper);
+        this.majalis = options.majalis || new MajlisService(this.store, {
+            metrics: this.metrics, analyticsToken,
+        });
+        this.rooms = options.rooms || new RoomService(this.store, {
+            pepper: this.pepper,
+            metrics: this.metrics,
+            authorizeMajlisMembership: (majlisId, accountId) => this.majalis.assertMembership(majlisId, accountId),
+            onMatchCompleted: roomId => this.majalis.recordCompletedMatch(roomId),
+            analyticsToken,
+        });
         this.joinLimiter = new TokenBucketLimiter({ capacity: 10, refillPerSecond: 10 / 60 });
         this.accountLimiter = new TokenBucketLimiter({ capacity: 10, refillPerSecond: 10 / 60 });
         this.actionLimiter = new TokenBucketLimiter({ capacity: 8, refillPerSecond: 4 });
@@ -133,8 +147,32 @@ class RealtimeRuntime {
                 return json(response, 200, { ok: true, realtimeConnections: this.contexts.size });
             }
             if (request.method === 'GET' && requestUrl.pathname === '/internal/metrics') {
-                if (!this._isLoopback(request.socket.remoteAddress)) return json(response, 404, { error: 'NOT_FOUND' });
+                if (!this._internalAuthorized(request)) return json(response, 404, { error: 'NOT_FOUND' });
                 return json(response, 200, this.metrics.snapshot());
+            }
+            if (request.method === 'GET' && requestUrl.pathname === '/internal/moderation/reports') {
+                if (!this._internalAuthorized(request)) return json(response, 404, { error: 'NOT_FOUND' });
+                return json(response, 200, { reports: await this.store.listModerationReports(100) });
+            }
+            const moderationRoute = requestUrl.pathname
+                .match(/^\/internal\/moderation\/reports\/(report_[A-Za-z0-9_-]{8,96})$/);
+            if (request.method === 'PATCH' && moderationRoute) {
+                if (!this._internalAuthorized(request)) return json(response, 404, { error: 'NOT_FOUND' });
+                const body = await readJson(request);
+                if (!['reviewing', 'closed', 'dismissed'].includes(body.status)) {
+                    return json(response, 400, { error: 'INVALID_REPORT_STATUS' });
+                }
+                const reviewedAt = new Date().toISOString();
+                const report = await this.store.updateModerationReport(
+                    moderationRoute[1], body.status, reviewedAt,
+                );
+                await this.store.appendAudit({
+                    eventType: 'moderation.report_updated', accountId: null, roomId: report.roomId,
+                    ipHash: null, metadata: { reportId: report.reportId, status: body.status },
+                    createdAt: reviewedAt,
+                });
+                this.metrics.increment('moderation.report_updated', { status: body.status });
+                return json(response, 200, { report });
             }
             if (request.method === 'POST' && requestUrl.pathname === '/v1/guest') {
                 if (this._limitAccountRequest(request, response, 'guest')) return;
@@ -170,6 +208,49 @@ class RealtimeRuntime {
                 const auth = await this.accounts.authenticate(bearer(request));
                 if (!auth) return json(response, 401, { error: 'UNAUTHENTICATED' });
                 return json(response, 200, await this.accounts.syncState(auth.account.accountId));
+            }
+            if (request.method === 'GET' && requestUrl.pathname === '/v1/majalis') {
+                const auth = await this.accounts.authenticate(bearer(request));
+                if (!auth) return json(response, 401, { error: 'UNAUTHENTICATED' });
+                return json(response, 200, { majalis: await this.majalis.list(auth.account.accountId) });
+            }
+            if (request.method === 'GET' && requestUrl.pathname === '/v1/reminders/due') {
+                const auth = await this.accounts.authenticate(bearer(request));
+                if (!auth) return json(response, 401, { error: 'UNAUTHENTICATED' });
+                const reminders = await this.majalis.claimDueReminders(auth.account.accountId);
+                if (reminders.length) this.metrics.increment('majlis.reminders_delivered', {}, reminders.length);
+                return json(response, 200, { reminders });
+            }
+            const majlisDetailRoute = requestUrl.pathname.match(/^\/v1\/majalis\/(majlis_[A-Za-z0-9_-]{8,96})$/);
+            if (request.method === 'GET' && majlisDetailRoute) {
+                const auth = await this.accounts.authenticate(bearer(request));
+                if (!auth) return json(response, 401, { error: 'UNAUTHENTICATED' });
+                return json(response, 200, {
+                    majlis: await this.majalis.detail(auth.account.accountId, majlisDetailRoute[1]),
+                });
+            }
+            const majlisScheduleRoute = requestUrl.pathname
+                .match(/^\/v1\/majalis\/(majlis_[A-Za-z0-9_-]{8,96})\/invitations$/);
+            if (request.method === 'POST' && majlisScheduleRoute) {
+                const auth = await this.accounts.authenticate(bearer(request));
+                if (!auth) return json(response, 401, { error: 'UNAUTHENTICATED' });
+                const body = await readJson(request);
+                const invitation = await this.majalis.schedule(
+                    auth.account.accountId, majlisScheduleRoute[1], body.scheduledFor,
+                );
+                this.metrics.increment('majlis.invitation_created');
+                return json(response, 201, { invitation });
+            }
+            const reminderRoute = requestUrl.pathname
+                .match(/^\/v1\/invitations\/(invite_[A-Za-z0-9_-]{8,96})\/reminder$/);
+            if (request.method === 'PATCH' && reminderRoute) {
+                const auth = await this.accounts.authenticate(bearer(request));
+                if (!auth) return json(response, 401, { error: 'UNAUTHENTICATED' });
+                const body = await readJson(request);
+                const reminder = await this.majalis.setReminder(
+                    auth.account.accountId, reminderRoute[1], body.enabled,
+                );
+                return json(response, 200, { reminder });
             }
             if (request.method === 'DELETE' && requestUrl.pathname === '/v1/account') {
                 const auth = await this.accounts.authenticate(bearer(request));
@@ -284,12 +365,16 @@ class RealtimeRuntime {
             this.metrics.observe('realtime.action_ack_ms', Date.now() - startedAt, { type: message.type });
         } catch (error) {
             const code = error.code || 'SERVER_ERROR';
-            if (!(error instanceof ProtocolError) && !(error instanceof RoomError) && context.roomId) {
+            if (!(error instanceof ProtocolError) && !(error instanceof RoomError)
+                && !(error instanceof MajlisError) && context.roomId) {
                 this.metrics.increment('room.failure', { operation: message && message.type || 'unparsed' });
             }
             if (message && code !== 'BAD_SEQUENCE') context.lastClientSeq = message.clientSeq;
+            const responseType = error instanceof MajlisError
+                ? 'social.rejected'
+                : (error instanceof ProtocolError || error instanceof RoomError ? 'match.rejected' : 'server.error');
             const response = serverMessage(
-                error instanceof ProtocolError || error instanceof RoomError ? 'match.rejected' : 'server.error',
+                responseType,
                 { ackRequestId: message && message.requestId, payload: { code } },
             );
             if (message && code !== 'BAD_SEQUENCE') context.responseCache.set(message.requestId, response);
@@ -310,6 +395,7 @@ class RealtimeRuntime {
         if (message.type === 'room.create') {
             const created = await this.rooms.createRoom(context.account, context.connectionSessionId, {
                 mode: message.payload.mode,
+                majlisId: message.payload.majlisId,
                 clientSeq: message.clientSeq,
             });
             context.roomId = created.room.roomId;
@@ -353,6 +439,46 @@ class RealtimeRuntime {
             });
         }
         if (!context.roomId) throw new RoomError('ROOM_REQUIRED');
+        if (message.type === 'majlis.create') {
+            let majlis = await this.majalis.createFromRoom(context.account, context.roomId, message.payload);
+            await this.majalis.recordCompletedMatch(context.roomId);
+            majlis = await this.majalis.detail(context.account.accountId, majlis.majlisId);
+            await this._broadcastRoom(context.roomId, socket);
+            this.metrics.increment('majlis.created');
+            return serverMessage('majlis.created', {
+                ackRequestId: message.requestId,
+                payload: { majlis },
+            });
+        }
+        if (message.type === 'majlis.accept') {
+            const majlis = await this.majalis.acceptFromSourceRoom(
+                context.account, context.roomId, message.payload.majlisId,
+            );
+            this.metrics.increment('majlis.membership_accepted');
+            return serverMessage('majlis.accepted', {
+                ackRequestId: message.requestId,
+                payload: { majlis },
+            });
+        }
+        if (message.type === 'chat.send') {
+            const chat = await this.majalis.sendQuickChat(
+                context.account.accountId, context.roomId, message.payload.phraseId,
+            );
+            this._broadcastEvent(context.roomId, serverMessage('chat.phrase', { payload: chat }), socket);
+            this.metrics.increment('chat.phrase_sent', { phraseId: chat.phraseId });
+            return serverMessage('chat.ack', { ackRequestId: message.requestId, payload: chat });
+        }
+        if (message.type === 'report.submit') {
+            const report = await this.majalis.submitReport(
+                context.account.accountId, context.roomId,
+                message.payload.reportedSeatId, message.payload.reasonCode,
+            );
+            this.metrics.increment('moderation.report_submitted', { reasonCode: report.reasonCode });
+            return serverMessage('report.ack', {
+                ackRequestId: message.requestId,
+                payload: { reportId: report.reportId, submitted: true },
+            });
+        }
         if (message.type === 'snapshot.request') {
             const snapshot = await this.rooms.snapshot(context.roomId, context.connectionSessionId);
             context.lastServerSeq = snapshot.serverSeq;
@@ -441,6 +567,13 @@ class RealtimeRuntime {
         }
     }
 
+    _broadcastEvent(roomId, message, except = null) {
+        for (const [socket, context] of this.contexts) {
+            if (socket === except || context.roomId !== roomId || socket.readyState !== WebSocket.OPEN) continue;
+            this._send(socket, message);
+        }
+    }
+
     _send(socket, message) {
         if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify(message));
     }
@@ -475,6 +608,11 @@ class RealtimeRuntime {
 
     _isLoopback(address) {
         return ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(address);
+    }
+
+    _internalAuthorized(request) {
+        if (!this._isLoopback(request.socket.remoteAddress)) return false;
+        return !this.internalAdminToken || safeEqual(bearer(request), this.internalAdminToken);
     }
 
     _trimCache(cache) {

@@ -129,8 +129,28 @@
                              <small data-i18n="sound_desc"></small></div>
                         <div class="switch"><span class="knob"></span></div>
                     </div>
+                    <div class="setting-row toggle-row" data-setting="haptics" role="switch" tabindex="0" aria-checked="false">
+                        <div><label data-i18n="haptics_label">📳 الاهتزاز</label>
+                             <small data-i18n="haptics_desc">تنبيه اختياري للدور والعقوبات مع بديل بصري دائم</small></div>
+                        <div class="switch"><span class="knob"></span></div>
+                    </div>
                 </div>
                 <button id="settings-back-btn" class="btn primary-btn" type="button" data-i18n="done">تم</button>
+            </div>
+        </div>
+
+        <!-- ===== دخول مباشر من رابط دعوة ===== -->
+        <div id="invite-screen" class="screen">
+            <div class="instructions-panel online-panel invite-panel">
+                <div class="invite-mark" aria-hidden="true">🪑</div>
+                <h2 data-i18n="invite_title">دعوة إلى طاولة مِهْ</h2>
+                <p data-i18n="invite_context">صديقك حجز لك مقعدًا. ادخل مباشرة إلى الطاولة.</p>
+                <p id="invite-profile-summary" class="invite-profile-summary"></p>
+                <input id="invite-guest-name" class="profile-input" type="text" maxlength="24"
+                       data-i18n-attr="placeholder:invite_guest_name" placeholder="اسمك على الطاولة" autocomplete="nickname">
+                <p id="invite-status" class="online-status" role="status" aria-live="polite"></p>
+                <button id="invite-join-btn" class="btn primary-btn" type="button" data-i18n="invite_take_seat">اجلس على الطاولة</button>
+                <button id="invite-back-btn" class="btn secondary-btn" type="button" data-i18n="main_menu">القائمة الرئيسية</button>
             </div>
         </div>
 
@@ -163,6 +183,24 @@
                     <button id="copy-code-btn" class="copy-code-btn" type="button" title="copy" aria-label="نسخ كود الغرفة" data-i18n-attr="aria-label:copy_code">📋</button>
                 </div>
                 <p class="profile-hint" data-i18n="lobby_hint">شارك الكود مع أصدقائك لينضمّوا</p>
+                <div id="invite-actions" class="invite-actions hidden">
+                    <button id="share-invite-btn" class="btn primary-btn" type="button" data-i18n="invite_share">مشاركة الدعوة</button>
+                    <button id="whatsapp-invite-btn" class="btn secondary-btn" type="button" data-i18n="invite_whatsapp">واتساب</button>
+                    <button id="copy-invite-btn" class="btn secondary-btn" type="button" data-i18n="invite_copy">نسخ الرابط</button>
+                    <button id="qr-invite-btn" class="btn secondary-btn" type="button" data-i18n="invite_qr">QR</button>
+                </div>
+                <div id="invite-qr-wrap" class="invite-qr-wrap hidden">
+                    <img id="invite-qr-image" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs="
+                         alt="رمز QR لدعوة الطاولة" data-i18n-attr="alt:invite_qr_alt">
+                </div>
+                <label id="turn-time-setting" class="turn-time-setting">
+                    <span data-i18n="turn_time_label">وقت الدور</span>
+                    <select id="turn-time-select">
+                        <option value="10">10s</option>
+                        <option value="15">15s</option>
+                        <option value="20">20s</option>
+                    </select>
+                </label>
                 <div id="lobby-players" class="lobby-players"></div>
                 <button id="lobby-start-btn" class="btn primary-btn hidden" type="button" data-i18n="start_game">▶️ ابدأ اللعبة</button>
                 <p id="lobby-wait" class="online-status" data-i18n="waiting_host">بانتظار أن يبدأ المضيف...</p>
@@ -215,9 +253,16 @@
                     <div id="discard-pile" class="pile"></div>
                 </div>
                 <div id="turn-indicator" aria-live="polite" aria-atomic="true"><span data-i18n="turn">دور:</span> <span id="current-player-name">أنت</span></div>
-                <div id="turn-timer" class="hidden"><div id="turn-timer-bar"></div></div>
+                <div id="turn-timer" class="hidden" role="timer" aria-live="polite">
+                    <span id="turn-timer-label">10</span>
+                    <div id="turn-timer-bar"></div>
+                </div>
                 <div id="color-indicator" class="color-indicator"></div>
                 <div id="game-message" class="hidden" role="alert"></div>
+                <div id="context-tip" class="context-tip hidden" role="status" aria-live="polite">
+                    <span id="context-tip-text"></span>
+                    <button id="context-tip-why" type="button" data-i18n="why_happened">ليش صار كذا؟</button>
+                </div>
 
                 <!-- مودال اختيار اللون -->
                 <div id="color-picker" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="color-picker-title" aria-hidden="true" inert>
@@ -267,6 +312,17 @@
                 <button id="cancel-play-btn" class="btn secondary-btn" type="button" data-i18n="cancel">✗ إلغاء</button>
             </div>
 
+            <button id="journal-toggle-btn" class="journal-toggle-btn" type="button" data-i18n="action_journal">سجل الحركة</button>
+            <section id="action-journal" class="action-journal hidden" role="dialog" aria-modal="false"
+                     aria-labelledby="action-journal-title" aria-hidden="true" inert>
+                <div class="journal-header">
+                    <h2 id="action-journal-title" data-i18n="action_journal">سجل الحركة</h2>
+                    <button id="journal-close-btn" type="button" data-i18n-attr="aria-label:journal_close" aria-label="إغلاق سجل الحركة">✕</button>
+                </div>
+                <p id="action-reason" class="action-reason"></p>
+                <ol id="action-journal-list"></ol>
+            </section>
+
             <!-- زر وشريط الإيموجي -->
             <button id="emoji-toggle-btn" class="emoji-toggle-btn" type="button" title="emoji" aria-label="أرسل إيموجي" data-i18n-attr="aria-label:send_emoji">😊</button>
             <div id="emoji-bar" class="emoji-bar hidden"></div>
@@ -291,6 +347,9 @@
             <div class="end-content">
                 <div class="trophy">🏆</div>
                 <h1 id="winner-text">مبروك فزت!</h1>
+                <div id="session-score" class="session-score" role="group" aria-label="نتيجة الجلسة" data-i18n-attr="aria-label:session_score"></div>
+                <div id="table-ready-list" class="table-ready-list" aria-live="polite"></div>
+                <p id="rematch-status" class="online-status" role="status" aria-live="polite"></p>
                 <div id="end-stats" class="end-stats"></div>
                 <button id="restart-btn" class="btn primary-btn" type="button" data-i18n="play_again">🔄 العب مرة ثانية</button>
                 <button id="end-menu-btn" class="btn secondary-btn" type="button" data-i18n="main_menu">🏠 القائمة الرئيسية</button>
@@ -312,11 +371,17 @@
     <script src="net.js"></script>
     <script src="game/game-manifests.js"></script>
     <script src="game/core-evidence.js"></script>
+    <script src="game/table-session.js"></script>
     <script src="deck.js"></script>
+    <script src="vendor/qrcode-generator-1.4.4.js"></script>
+    <script src="product/release-config.js"></script>
     <script src="product/feature-flags.js"></script>
     <script src="product/telemetry-schema.js"></script>
     <script src="product/telemetry.js"></script>
     <script src="game/game-product.js"></script>
+    <script src="game/game-invite.js"></script>
+    <script src="game/game-table.js"></script>
+    <script src="game/game-guidance.js"></script>
     <script src="game/game-config.js"></script>
     <script src="game/game-profile.js"></script>
     <script src="game/game-online.js"></script>

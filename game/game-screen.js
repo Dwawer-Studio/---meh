@@ -57,10 +57,19 @@ class MehGameScreenModule {
         document.getElementById('instructions-btn').addEventListener('click', () => this.showScreen('instructions-screen'));
         document.getElementById('back-btn').addEventListener('click', () => this.showScreen('main-menu'));
         document.getElementById('restart-btn').addEventListener('click', () => {
+            const tablePhase = this.tableSession ? this.tableSession.phase : this.tableSnapshot && this.tableSnapshot.phase;
+            if (tablePhase === TABLE_PHASES.RESULTS) {
+                this._markLocalReady();
+                return;
+            }
             this._trackProductEvent('rematch.ready', { mode: this._productMode() });
             this.startGame();
         });
         document.getElementById('end-menu-btn').addEventListener('click', () => {
+            if (this.tableSession || this.tableSnapshot) {
+                this._leaveOnlineSession('main-menu');
+                return;
+            }
             this._productCompleteTable('results-exit');
             this.showScreen('main-menu');
         });

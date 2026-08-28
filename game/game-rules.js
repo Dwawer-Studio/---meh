@@ -160,6 +160,8 @@ class MehGameRuleModule {
         }
 
         if (this.pendingDraws > 0) {
+            this._showGuidance('first-penalty', I18n.t('first_penalty_tip'), I18n.t('reason_counter'));
+            this._haptic([80, 50, 80]);
             const hasResponse = player.hand.some(card => this.canRespondToPendingDraw(card));
             if (!hasResponse) {
                 this.actionInProgress = true;
@@ -182,6 +184,8 @@ class MehGameRuleModule {
         } else {
             Sound.play('turn');
             this.humanCanPlay = true;    // ✅ الآن فقط يُسمح للاعب بالفعل
+            this._showGuidance('first-turn', I18n.t('first_turn_tip'), I18n.t('reason_legal_action'));
+            this._haptic(60);
             this.updateUI();
             const hasPlayable = player.hand.some(c => c.isPlayable(this.topCard, this.activeColor));
             if (!hasPlayable && this.pendingDraws === 0) {
@@ -244,6 +248,11 @@ class MehGameRuleModule {
         const card = this.deck.draw();
         if (card) {
             player.hand.push(card);
+            this._recordActionJournal(
+                I18n.t('journal_drew', { name: player.name }),
+                this.pendingDraws > 0 ? I18n.t('first_penalty_tip') : I18n.t('reason_legal_action'),
+                'draw',
+            );
             Sound.play('draw');
             this.animateCardFly(player);
             this.updateUI();
@@ -380,8 +389,15 @@ class MehGameRuleModule {
             startRect = container.children[cardIndex].getBoundingClientRect();
         }
 
+        const previousTop = this.topCard;
+        const previousActiveColor = this.activeColor;
         const card = player.hand.splice(cardIndex, 1)[0];
         if (!card) return;
+        this._recordActionJournal(
+            I18n.t('journal_played', { name: player.name, card: I18n.cardName(card.name) }),
+            this._cardPlayReason(card, previousTop, previousActiveColor),
+            'play',
+        );
         this._trackProductEvent('action.committed', {
             actor: this._productActor(player),
             action: this._productAutoAction ? 'auto-play' : 'play',
@@ -429,6 +445,11 @@ class MehGameRuleModule {
     }
 
     processEffect(card, player) {
+        if (card.type !== 'normal') {
+            const description = (typeof I18n.cardDesc === 'function' && I18n.cardDesc(card.name))
+                || I18n.t('reason_legal_action');
+            this._recordActionJournal(I18n.cardName(card.name), description, 'effect');
+        }
         if (player.hand.length === 1) this.showGameMessage(I18n.t('last_card'));
         if (player.hand.length === 0) { this.showGameMessage(I18n.t('m_meh_win')); }
 
@@ -811,6 +832,7 @@ class MehGameRuleModule {
     }
 
     showChoiceModal(title, opt1Text, opt2Text, cb1, cb2) {
+        this._showGuidance('first-choice', I18n.t('first_choice_tip'), title);
         const modal = UI.choiceModal;
         modal.querySelector('h3').innerText = title;
         const btns = modal.querySelectorAll('.choice-btn');
@@ -822,7 +844,10 @@ class MehGameRuleModule {
     }
 
     endGame(winner) {
-        if (this.online && this.isHost) {
+        const persistentTable = this.online && this.isHost && this.tableSession;
+        if (persistentTable) {
+            this._completeHostTableMatch(winner);
+        } else if (this.online && this.isHost) {
             (Net.conns || []).forEach(conn => {
                 Net.sendTo(conn, { t: 'gameover', youWon: winner.connPeer === conn.peer, winnerName: winner.name });
             });
@@ -837,12 +862,16 @@ class MehGameRuleModule {
         WakeLock.disable();
         Sound.play(humanWon ? 'win' : 'lose');
         if (humanWon) this.launchConfetti();
+        this._haptic(humanWon ? [100, 60, 180] : 120);
 
         UI.winnerText.innerText = humanWon
             ? I18n.t('you_win')
             : I18n.t('bot_win', { name: winner.name });
 
-        if (this.online) { this.online = false; Net.close(); }
+        if (this.online) {
+            this.online = false;
+            if (!persistentTable) Net.close();
+        }
 
         // إحصائيات العضو
         const statsEl = document.getElementById('end-stats');
@@ -853,6 +882,11 @@ class MehGameRuleModule {
             } else {
                 statsEl.textContent = '';
             }
+        }
+        if (persistentTable) this._renderTableResults();
+        else {
+            const restart = document.getElementById('restart-btn');
+            if (restart) { restart.textContent = I18n.t('play_again'); restart.disabled = false; }
         }
         this.showScreen('end-screen');
     }

@@ -92,7 +92,7 @@ test('A11Y-01: static game controls use native keyboard semantics', () => {
 
 test('A11Y-01: settings toggles expose keyboard switch semantics', () => {
     const switches = [...html.matchAll(/<div\b[^>]*class="setting-row toggle-row"[^>]*>/g)].map(match => match[0]);
-    assert.equal(switches.length, 5);
+    assert.equal(switches.length, 6);
     for (const toggle of switches) {
         assert.match(toggle, /\brole="switch"/);
         assert.match(toggle, /\btabindex="0"/);
@@ -196,4 +196,12 @@ test('A11Y-01: keyboard focus has a visible style across primary controls', () =
     assert.match(css, /\.toggle-row:focus-visible/);
     assert.match(css, /\.btn:focus-visible/);
     assert.match(css, /outline:\s*3px solid var\(--gold\)/);
+});
+
+test('P1 guidance, journal, and timer expose non-motion accessible alternatives', () => {
+    assert.match(html, /id="context-tip"[^>]*role="status"[^>]*aria-live="polite"/);
+    assert.match(html, /id="action-journal"[^>]*role="dialog"[^>]*aria-hidden="true"[^>]*inert/);
+    assert.match(html, /id="turn-timer"[^>]*role="timer"[^>]*aria-live="polite"/);
+    assert.match(css, /@media\s*\(prefers-reduced-motion:\s*reduce\)/);
+    assert.match(css, /animation-duration:\s*\.01ms\s*!important/);
 });

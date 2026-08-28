@@ -25,6 +25,13 @@ class MehGameProductModule {
         } catch (error) { return false; }
     }
 
+    _productFeatureEnabled(name) {
+        try {
+            return typeof ProductFeatureFlags !== 'undefined'
+                && ProductFeatureFlags.isEnabled(name) === true;
+        } catch (error) { return false; }
+    }
+
     _productMode() {
         if (!this.online) return 'local';
         return this.isHost ? 'online-host' : 'online-client';

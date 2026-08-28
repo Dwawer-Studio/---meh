@@ -25,12 +25,18 @@ function createGameHarness() {
     const Net = { close() { events.netClosed++; } };
     const WakeLock = { enable() {}, disable() {} };
     const Sound = { play(name) { events.sounds.push(name); } };
+    const I18n = {
+        t(key, params = {}) { return params.name ? `${key}:${params.name}` : key; },
+        cardName(name) { return name; },
+        cardDesc() { return ''; },
+    };
 
     const { MehGame } = loadScripts(['deck.js', 'game.js'], ['MehGame'], {
         document,
         Net,
         WakeLock,
         Sound,
+        I18n,
     });
     const game = Object.create(MehGame.prototype);
     game.settings = { wakeLock: false, batterySaver: true, confirmPlay: true };

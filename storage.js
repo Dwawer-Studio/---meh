@@ -60,6 +60,7 @@ const Storage = {
             wakeLock: true,      // منع نوم الشاشة أثناء اللعب
             confirmPlay: true,   // ضغطة للمعاينة ثم تأكيد
             sound: true,
+            haptics: false,
         };
     },
     getSettings() {

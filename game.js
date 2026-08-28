@@ -36,6 +36,8 @@ class MehGame {
         this._rejectedConnections = new WeakSet();
         this._pendingAvatar = '😎';
         this._initializeProductEvidence();
+        this._initializeTableRuntime();
+        this._initializeGuidance();
 
         // الإعدادات والعضو
         this.settings = Storage.getSettings();
@@ -53,8 +55,11 @@ class MehGame {
         this.bindProfileEvents();
         this.bindEmojiEvents();
         this.bindOnlineEvents();
+        this.bindInviteEvents();
+        this.bindGuidanceEvents();
         this.renderInstructions();
         this.initProfile();
+        this._initializeInviteEntry();
         this.syncScreenAccessibility();
         this.runSplash();
 
@@ -69,6 +74,9 @@ class MehGame {
 
 const MEH_GAME_METHOD_MODULES = Object.freeze([
     MehGameProductMethods,
+    MehGameInviteMethods,
+    MehGameTableMethods,
+    MehGameGuidanceMethods,
     MehGameProfileMethods,
     MehGameOnlineMethods,
     MehGameScreenMethods,

@@ -100,7 +100,9 @@ npm run check:clean
 اجتماعي قابل للنمو، مع إبقاء قلب اللعب ثابتًا، فموثق في
 `docs/PRODUCT-TRANSFORMATION-PROGRAM.md`. وتقرير تنفيذ مرحلة تأسيس الدليل P0 في
 `docs/PHASE-P0-CORE-EVIDENCE.md`، مع نموذج التهديد في
-`docs/THREAT-MODEL-P0.md`.
+`docs/THREAT-MODEL-P0.md`. أما تنفيذ الشريحة الاجتماعية P1 وحالتها الصادقة ففي
+`docs/PHASE-P1-SOCIAL-SESSION.md`، ودليل اختبارها البشري في
+`docs/P1-VALIDATION-RUNBOOK.md`، ونموذج تهديدها في `docs/THREAT-MODEL-P1.md`.
 
 خلال التطوير تشغّل GitHub Actions بوابة الاختبارات فقط. نشر Azure محفوظ كفعل
 يدوي صريح، ولا يعمل تلقائيًا على الفروع أو طلبات الدمج إلى أن تُجهز الاستضافة.

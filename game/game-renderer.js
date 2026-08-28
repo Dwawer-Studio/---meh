@@ -237,9 +237,11 @@ class MehGameRendererModule {
         if (tt) {
             if (myTurn && !this._timerShown) {
                 tt.classList.remove('hidden', 'run'); void tt.offsetWidth; tt.classList.add('run');
+                this._startTurnCountdownVisual(this._turnDurationSeconds || 10);
                 this._timerShown = true;
             } else if (!myTurn && this._timerShown) {
                 tt.classList.add('hidden'); tt.classList.remove('run');
+                this._stopTurnCountdownVisual();
                 this._timerShown = false;
             }
         }

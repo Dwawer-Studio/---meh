@@ -16,6 +16,37 @@ function roundRate(numerator, denominator) {
     return denominator ? Math.round((numerator / denominator) * 10000) / 100 : 0;
 }
 
+function percentile(values, fraction) {
+    if (!values.length) return null;
+    const sorted = [...values].sort((a, b) => a - b);
+    const index = Math.max(0, Math.ceil(sorted.length * fraction) - 1);
+    return sorted[index];
+}
+
+function wilsonInterval(successes, total, z = 1.959963984540054) {
+    if (!total) return { lowerPercent: null, upperPercent: null };
+    const proportion = successes / total;
+    const zSquared = z * z;
+    const denominator = 1 + zSquared / total;
+    const center = (proportion + zSquared / (2 * total)) / denominator;
+    const margin = z * Math.sqrt(
+        (proportion * (1 - proportion) / total) + (zSquared / (4 * total * total)),
+    ) / denominator;
+    return {
+        lowerPercent: Math.round(Math.max(0, center - margin) * 10000) / 100,
+        upperPercent: Math.round(Math.min(1, center + margin) * 10000) / 100,
+    };
+}
+
+function rateMetric(successes, total) {
+    return {
+        successes,
+        total,
+        percent: roundRate(successes, total),
+        confidence95: wilsonInterval(successes, total),
+    };
+}
+
 function buildTelemetryReport(payload) {
     if (!payload || typeof payload !== 'object' || !Array.isArray(payload.events)) {
         throw new TypeError('Expected a telemetry export with an events array.');
@@ -36,8 +67,10 @@ function buildTelemetryReport(payload) {
         if (ids.has(event.eventId)) duplicateEventIds++;
         ids.add(event.eventId);
         eventCounts[event.name] = (eventCounts[event.name] || 0) + 1;
-        if (!sessions.has(event.appSessionId)) sessions.set(event.appSessionId, new Set());
-        sessions.get(event.appSessionId).add(event.name);
+        if (!sessions.has(event.appSessionId)) sessions.set(event.appSessionId, { names: new Set(), events: [] });
+        const session = sessions.get(event.appSessionId);
+        session.names.add(event.name);
+        session.events.push(event);
     }
 
     const funnel = {};
@@ -45,7 +78,7 @@ function buildTelemetryReport(payload) {
     let previous = eligibleSessions.size;
     for (const [key, eventName] of FUNNEL_STAGES) {
         eligibleSessions = new Set(
-            [...eligibleSessions].filter(sessionId => sessions.get(sessionId).has(eventName)),
+            [...eligibleSessions].filter(sessionId => sessions.get(sessionId).names.has(eventName)),
         );
         const reached = eligibleSessions.size;
         funnel[key] = {
@@ -59,8 +92,34 @@ function buildTelemetryReport(payload) {
     const reconnectStarted = eventCounts['reconnect.started'] || 0;
     const reconnectCompleted = eventCounts['reconnect.completed'] || 0;
     const reconnectFailed = eventCounts['reconnect.failed'] || 0;
+    const inviteDurations = [];
+    let validInviteSessions = 0;
+    for (const session of sessions.values()) {
+        const opened = session.events
+            .filter(event => event.name === 'invite.opened' && Number.isFinite(event.occurredAt))
+            .sort((a, b) => a.occurredAt - b.occurredAt)[0];
+        if (!opened) continue;
+        validInviteSessions++;
+        const seated = session.events
+            .filter(event => event.name === 'seat.ready' && Number.isFinite(event.occurredAt)
+                && event.occurredAt >= opened.occurredAt
+                && event.occurredAt - opened.occurredAt <= 600_000)
+            .sort((a, b) => a.occurredAt - b.occurredAt)[0];
+        if (seated) inviteDurations.push(seated.occurredAt - opened.occurredAt);
+    }
+    const hostMatchEvents = [...sessions.values()].flatMap(session => session.events)
+        .filter(event => (event.name === 'match.started' || event.name === 'match.completed')
+            && event.properties && event.properties.mode === 'online-host');
+    const hostSocialSessions = [...sessions.values()].filter(session => session.events.some(event =>
+        event.name === 'match.started' && event.properties && event.properties.mode === 'online-host'));
+    const firstMatchCompletedSessions = hostSocialSessions.filter(session => session.events.some(event =>
+        event.name === 'match.completed' && event.properties && event.properties.mode === 'online-host'));
+    const secondMatchSessions = firstMatchCompletedSessions.filter(session => session.events.filter(event =>
+        event.name === 'match.started' && event.properties && event.properties.mode === 'online-host').length >= 2);
+    const matchStarted = hostMatchEvents.filter(event => event.name === 'match.started').length;
+    const matchCompleted = hostMatchEvents.filter(event => event.name === 'match.completed').length;
     return {
-        reportSchemaVersion: 1,
+        reportSchemaVersion: 2,
         source: {
             exportSchemaVersion: payload.exportSchemaVersion || null,
             rulesVersion: payload.rulesVersion || null,
@@ -82,6 +141,17 @@ function buildTelemetryReport(payload) {
             failed: reconnectFailed,
             completionPercent: roundRate(reconnectCompleted, reconnectStarted),
         },
+        p1: {
+            i2s: rateMetric(inviteDurations.length, validInviteSessions),
+            ttsMilliseconds: {
+                samples: inviteDurations.length,
+                p50: percentile(inviteDurations, 0.5),
+                p90: percentile(inviteDurations, 0.9),
+            },
+            mcr: rateMetric(Math.min(matchCompleted, matchStarted), matchStarted),
+            m1ToM2: rateMetric(secondMatchSessions.length, firstMatchCompletedSessions.length),
+            unguidedSocialSessions: firstMatchCompletedSessions.length,
+        },
     };
 }
 
@@ -101,4 +171,4 @@ if (require.main === module) {
     }
 }
 
-module.exports = { buildTelemetryReport };
+module.exports = { buildTelemetryReport, percentile, wilsonInterval };

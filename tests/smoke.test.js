@@ -31,7 +31,9 @@ test('HTML has a doctype, unique ids, and expected script order', () => {
         'net.js',
         'game/game-manifests.js',
         'game/core-evidence.js',
+        'game/table-session.js',
         'deck.js',
+        'vendor/qrcode-generator-1.4.4.js',
         ...GAME_RUNTIME_SCRIPTS,
     ]);
 });

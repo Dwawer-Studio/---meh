@@ -14,16 +14,30 @@ class MehGameOnlineModule {
         g('create-room-btn').onclick = () => this.createRoom();
         g('join-room-btn').onclick = () => this.joinRoom();
         g('copy-code-btn').onclick = () => {
-            if (Net.roomCode && navigator.clipboard) navigator.clipboard.writeText(Net.roomCode).catch(() => {});
-            this.showToast(I18n.t('code_copied'));
+            if (this._productFeatureEnabled('deep_link_join')) {
+                this._copyInviteLink();
+                return;
+            }
+            this._copyText(Net.roomCode).then(copied => {
+                this.showToast(I18n.t(copied ? 'code_copied' : 'conn_error'));
+            });
         };
         g('lobby-leave-btn').onclick = () => this._leaveOnlineSession('main-menu');
         g('lobby-start-btn').onclick = () => this.startOnlineGame();
+        g('turn-time-select').onchange = (event) => {
+            const seconds = Number(event.target.value);
+            if (Net.isHost && [10, 15, 20].includes(seconds)) this._turnDurationSeconds = seconds;
+        };
     }
 
     showOnlineStatus(msg, isError) {
         const el = document.getElementById('online-status');
         if (el) { el.textContent = msg || ''; el.classList.toggle('error', !!isError); }
+    }
+
+    _showJoinStatus(msg, isError = false) {
+        if (this._activeJoinSurface === 'invite') this._setInviteStatus(msg, isError);
+        else this.showOnlineStatus(msg, isError);
     }
 
     _isRecord(value) {
@@ -49,6 +63,34 @@ class MehGameOnlineModule {
 
     _safePeerId(value) {
         return typeof value === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(value) ? value : null;
+    }
+
+    _safeSeatToken(value) {
+        return typeof value === 'string' && /^[A-Za-z0-9_-]{16,128}$/.test(value) ? value : null;
+    }
+
+    _seatTokenForRoom(code) {
+        const key = `meh_seat_token_${code}`;
+        try {
+            const stored = sessionStorage.getItem(key);
+            if (this._safeSeatToken(stored)) return stored;
+            const token = typeof crypto !== 'undefined' && crypto.randomUUID
+                ? `seat_${crypto.randomUUID().replace(/-/g, '')}`
+                : `seat_${Date.now().toString(36)}_${Math.random().toString(36).slice(2)}_${Math.random().toString(36).slice(2)}`;
+            sessionStorage.setItem(key, token);
+            return token;
+        } catch (error) {
+            return `seat_${Date.now().toString(36)}_${Math.random().toString(36).slice(2)}_${Math.random().toString(36).slice(2)}`;
+        }
+    }
+
+    _clientHello() {
+        return {
+            t: 'hello',
+            name: this.humanProfile.name,
+            avatar: this.humanProfile.avatar,
+            seatToken: this._localSeatToken,
+        };
     }
 
     _createTextElement(tagName, className, value) {
@@ -101,8 +143,10 @@ class MehGameOnlineModule {
         this._clearRemotePrompt();
         if (this._bcTimer) clearTimeout(this._bcTimer);
         if (this._disconnectTurnTimer) clearTimeout(this._disconnectTurnTimer);
+        if (this._joinTimeout) clearTimeout(this._joinTimeout);
         this._bcTimer = null;
         this._disconnectTurnTimer = null;
+        this._joinTimeout = null;
         this.awaitingRemote = false;
         this.humanCanPlay = false;
         this._colorCallback = null;
@@ -113,23 +157,41 @@ class MehGameOnlineModule {
     }
 
     _leaveOnlineSession(screenId, messageKey) {
+        if (!this.isHost && Net.hostConn && Net.hostConn.open) Net.send({ t: 'leave' });
         this._productCompleteTable(messageKey ? 'network-exit' : 'user-exit');
         this._clearOnlineRuntime();
         this.online = false;
         this.isHost = false;
         WakeLock.disable();
         Net.close();
+        this._closeTableSession();
         if (screenId) this.showScreen(screenId);
         if (messageKey) this.showToast(I18n.t(messageKey));
     }
 
-    _resumeRemotePlayer(conn) {
+    _resumeRemotePlayer(conn, seatToken) {
         const peer = conn && conn.peer;
-        const seat = this.players && this.players.find(player => player.connPeer === peer);
+        const seat = this.players && this.players.find(player =>
+            player.connPeer === peer || (seatToken && player.seatToken === seatToken));
         if (!seat) return false;
+        if (!this._seatLeaseTimers) this._seatLeaseTimers = new Map();
+        if (this._seatLeaseTimers.has(seat.id)) {
+            clearTimeout(this._seatLeaseTimers.get(seat.id));
+            this._seatLeaseTimers.delete(seat.id);
+        }
+        const resume = this.tableSession && seatToken
+            ? this.tableSession.reconnect(seatToken)
+            : { ok: true, mode: 'current-match' };
+        if (!resume || !resume.ok) return false;
         const wasDisconnected = seat.isBot || !seat.isRemote;
-        seat.isBot = false;
-        seat.isRemote = true;
+        seat.connPeer = peer;
+        seat.seatToken = seatToken || seat.seatToken;
+        const lobbyPlayer = (this.lobbyPlayers || []).find(player => player.seatToken === seatToken);
+        if (lobbyPlayer) lobbyPlayer.id = peer;
+        if (resume.mode === 'current-match') {
+            seat.isBot = false;
+            seat.isRemote = true;
+        }
 
         if (wasDisconnected && this.players[this.currentPlayerIndex] === seat
             && !this.actionInProgress && !this._remoteResolve) {
@@ -139,7 +201,7 @@ class MehGameOnlineModule {
             this.startTurnTimer();
         }
 
-        Net.sendTo(conn, { t: 'resumed' });
+        Net.sendTo(conn, { t: 'resumed', mode: resume.mode, snapshot: this._publicTableSnapshot() });
         this.showToast(I18n.t('net_player_reconnected', { name: seat.name }));
         this.updateUI();
         this._doBroadcast();
@@ -150,13 +212,24 @@ class MehGameOnlineModule {
         if (!this._isRecord(msg) || !conn || !this._safePeerId(conn.peer)) return false;
 
         if (msg.t === 'hello') {
-            if (this.online) {
-                if (this._resumeRemotePlayer(conn)) return true;
+            const seatToken = this._safeSeatToken(msg.seatToken)
+                || `legacy_${conn.peer}_seat_token`;
+            if (this.online || (this.tableSession && this.tableSession.phase === TABLE_PHASES.IN_MATCH)) {
+                if (this._resumeRemotePlayer(conn, seatToken)) return true;
                 this._rejectConnection(conn, 'started');
                 return false;
             }
-            if ((this.lobbyPlayers || []).some(p => p.id === conn.peer)) {
-                Net.sendTo(conn, { t: 'lobby', players: this.lobbyPlayers });
+            const returning = (this.lobbyPlayers || []).find(player =>
+                player.seatToken === seatToken || player.id === conn.peer);
+            if (returning) {
+                returning.id = conn.peer;
+                if (this.tableSession) this.tableSession.reconnect(seatToken);
+                Net.sendTo(conn, { t: 'lobby', players: this._publicLobbyPlayers() });
+                if (this.tableSession) {
+                    Net.sendTo(conn, { t: 'table', snapshot: this._publicTableSnapshot() });
+                }
+                this._broadcastLobby();
+                this._broadcastTable();
                 return true;
             }
             if ((this.lobbyPlayers || []).length >= MAX_ONLINE_PLAYERS) {
@@ -171,10 +244,19 @@ class MehGameOnlineModule {
                 return false;
             }
 
-            this.lobbyPlayers.push({ id: conn.peer, name, avatar, host: false });
+            const player = { id: conn.peer, name, avatar, host: false, seatToken };
+            const tableJoin = this.tableSession
+                ? this._tableAddLobbyPlayer(player)
+                : { ok: true };
+            if (!tableJoin.ok) {
+                this._rejectConnection(conn, tableJoin.reason === 'table-full' ? 'full' : 'started');
+                return false;
+            }
+            this.lobbyPlayers.push(player);
             this._productSeatReady('host', this.lobbyPlayers.length);
             this.showToast(I18n.t('net_player_joined', { name }));
             this._broadcastLobby();
+            this._broadcastTable();
             this.renderLobby();
             return true;
         }
@@ -185,6 +267,11 @@ class MehGameOnlineModule {
         }
         if (msg.t === 'choice') {
             this.resolveRemotePrompt(msg, conn);
+            return true;
+        }
+        if (msg.t === 'ready') return this._handleRemoteReady(conn, msg);
+        if (msg.t === 'leave') {
+            this._handleExplicitLeave(conn.peer);
             return true;
         }
         return false;
@@ -198,12 +285,19 @@ class MehGameOnlineModule {
             this.lobbyPlayers = players;
             this._productSeatReady('guest', players.length);
             this.renderLobby();
+        } else if (msg.t === 'table') {
+            return this._applyTableSnapshot(msg.snapshot);
         } else if (msg.t === 'gamestart') {
+            if ([10, 15, 20].includes(msg.turnSeconds)) this._turnDurationSeconds = msg.turnSeconds;
             this.beginClientGame();
         } else if (msg.t === 'state') {
             return this.applyState(msg);
         } else if (msg.t === 'prompt') {
             return this.showRemotePrompt(msg);
+        } else if (msg.t === 'matchresult') {
+            const winnerName = this._safePlayerName(msg.winnerName);
+            if (typeof msg.youWon !== 'boolean' || !winnerName) return false;
+            return this._completeClientTableMatch({ ...msg, winnerName });
         } else if (msg.t === 'gameover') {
             const winnerName = this._safePlayerName(msg.winnerName);
             if (typeof msg.youWon !== 'boolean' || !winnerName) return false;
@@ -212,6 +306,11 @@ class MehGameOnlineModule {
             const message = this._safeText(msg.text, 160);
             if (!message) return false;
             this.showToast(message);
+        } else if (msg.t === 'journal') {
+            const text = this._safeText(msg.text, 160);
+            const reason = this._safeText(msg.reason, 240);
+            if (!text || !reason || !['play', 'draw', 'effect', 'system'].includes(msg.kind)) return false;
+            this._recordActionJournal(text, reason, msg.kind, false);
         } else if (msg.t === 'rejected') {
             if (this._joinRejected) return true;
             const key = msg.reason === 'full' ? 'room_full'
@@ -220,11 +319,13 @@ class MehGameOnlineModule {
             this._joinRejected = true;
             this._trackProductEvent('room.join_failed', { stage: 'lobby', reason: msg.reason || 'rejected' });
             this.online = false;
-            this.showScreen('online-screen');
-            this.showOnlineStatus(I18n.t(key), true);
+            this.showScreen(this._activeJoinSurface === 'invite' ? 'invite-screen' : 'online-screen');
+            this._showJoinStatus(I18n.t(key), true);
             Net.close();
         } else if (msg.t === 'resumed') {
-            this.online = true;
+            if (msg.snapshot) this._applyTableSnapshot(msg.snapshot);
+            this.online = msg.mode !== 'next-match';
+            if (msg.mode !== 'next-match') this.showScreen('game-screen');
             this._trackProductEvent('reconnect.completed', { kind: 'seat' });
             this.showToast(I18n.t('connection_restored'));
         } else {
@@ -245,15 +346,8 @@ class MehGameOnlineModule {
         const hostAvatar = this._safeAvatar(this.humanProfile.avatar) || '😎';
         this.lobbyPlayers = [{ id: 'host', name: hostName, avatar: hostAvatar, host: true }];
 
-        Net.onPlayerJoin = (conn) => {
-            if (this.online) {
-                if (!(this.players || []).some(player => player.connPeer === conn.peer)) {
-                    this._rejectConnection(conn, 'started');
-                }
-                return;
-            }
-            if (this.lobbyPlayers.length >= MAX_ONLINE_PLAYERS) this._rejectConnection(conn, 'full');
-        };
+        // القبول الفعلي ينتظر رسالة hello كي يمكن تمييز عودة مقعد محجوز من دخيل جديد.
+        Net.onPlayerJoin = () => {};
         Net.onData = (msg, conn) => this.handleHostMessage(msg, conn);
         Net.onPlayerLeave = (conn) => this._handleHostPlayerLeave(conn);
         Net.onReconnecting = (details) => {
@@ -268,18 +362,61 @@ class MehGameOnlineModule {
         Net.onError = (error) => this._handleOnlineNetworkError(error);
 
         Net.host((code) => {
+            this._createHostTable(code);
             this._trackProductEvent('invite.created', { method: 'code' });
             this._productSeatReady('host', 1);
             document.getElementById('lobby-room-code').textContent = code;
             document.getElementById('lobby-start-btn').classList.remove('hidden');
             document.getElementById('lobby-wait').classList.add('hidden');
+            document.getElementById('turn-time-setting').classList.remove('hidden');
+            this._setLobbyInvite(code);
             this.showScreen('lobby-screen');
             this.renderLobby();
         });
     }
 
     _broadcastLobby() {
-        Net.broadcast({ t: 'lobby', players: this.lobbyPlayers });
+        if (typeof Net.broadcast === 'function') {
+            Net.broadcast({ t: 'lobby', players: this._publicLobbyPlayers() });
+        }
+    }
+
+    _publicLobbyPlayers() {
+        return (this.lobbyPlayers || []).map(player => ({
+            id: player.id,
+            name: player.name,
+            avatar: player.avatar,
+            host: player.host,
+        }));
+    }
+
+    _removeLobbyPlayer(peer) {
+        const left = (this.lobbyPlayers || []).find(player => player.id === peer);
+        if (!left || left.host) return false;
+        this.lobbyPlayers = this.lobbyPlayers.filter(player => player !== left);
+        if (this.tableSession) this.tableSession.removeHuman(left.seatToken || left.id);
+        this._broadcastLobby();
+        this._broadcastTable();
+        this.renderLobby();
+        return true;
+    }
+
+    _handleExplicitLeave(peer) {
+        const player = (this.lobbyPlayers || []).find(item => item.id === peer);
+        if (!player || player.host) return false;
+        this.lobbyPlayers = this.lobbyPlayers.filter(item => item !== player);
+        if (this.tableSession) this.tableSession.abandon(player.seatToken || player.id);
+        const seat = (this.players || []).find(item => item.connPeer === peer);
+        if (seat) {
+            seat.isBot = true;
+            seat.isRemote = false;
+            seat.seatToken = null;
+            if (this.currentPlayer === seat && !this.actionInProgress) this.playBotTurn();
+        }
+        this._broadcastLobby();
+        this._broadcastTable();
+        this.renderLobby();
+        return true;
     }
 
     _handleHostPlayerLeave(conn) {
@@ -287,61 +424,70 @@ class MehGameOnlineModule {
         if (this.online) {
             const seat = this.players && this.players.find(player => player.connPeer === peer);
             if (!seat) return;
-            seat.isBot = true;
-            seat.isRemote = false;
+            if (this.tableSession && seat.seatToken) this.tableSession.disconnect(seat.seatToken);
             this.showToast(I18n.t('net_player_left', { name: seat.name }));
 
             if (this._remoteResolve && this._remotePromptPeer === peer) {
                 const resolve = this._remoteResolve;
                 const fallback = this._autoPromptValue(this._remoteKind);
                 this._clearRemotePrompt();
+                seat.isBot = true;
+                seat.isRemote = false;
                 resolve(fallback);
-            } else if (this.players[this.currentPlayerIndex] === seat && this.awaitingRemote) {
-                this.clearTurnTimer();
-                this.awaitingRemote = false;
-                if (this._disconnectTurnTimer) clearTimeout(this._disconnectTurnTimer);
-                this._disconnectTurnTimer = setTimeout(() => {
-                    this._disconnectTurnTimer = null;
-                    if (this.online && this.isHost && this.currentPlayer === seat
-                        && seat.isBot && !this.actionInProgress) this.playBotTurn();
-                }, 600);
             }
+            if (!this._seatLeaseTimers) this._seatLeaseTimers = new Map();
+            if (this._seatLeaseTimers.has(seat.id)) clearTimeout(this._seatLeaseTimers.get(seat.id));
+            const leaseTimer = setTimeout(() => {
+                this._seatLeaseTimers.delete(seat.id);
+                if (!this.tableSession) return;
+                this.tableSession.expireLeases();
+                seat.isBot = true;
+                seat.isRemote = false;
+                if (this.players[this.currentPlayerIndex] === seat && !this.actionInProgress) this.playBotTurn();
+                this._broadcastTable();
+            }, this.tableSession ? this.tableSession.reconnectWindowMs : 15_000);
+            this._seatLeaseTimers.set(seat.id, leaseTimer);
             this.updateUI();
             return;
         }
 
-        const left = (this.lobbyPlayers || []).find(player => player.id === peer);
-        this.lobbyPlayers = (this.lobbyPlayers || []).filter(player => player.id !== peer);
-        if (left) this.showToast(I18n.t('net_player_left', { name: left.name }));
-        this._broadcastLobby();
-        this.renderLobby();
+        this._removeLobbyPlayer(peer);
     }
 
     // ----- العميل -----
-    joinRoom() {
-        this._trackProductEvent('room.join_started', { role: 'guest', method: 'code' });
+    joinRoom(options = {}) {
+        const method = options.method === 'link' ? 'link' : 'code';
+        this._activeJoinSurface = options.surface === 'invite' ? 'invite' : 'online';
+        this._trackProductEvent('room.join_started', { role: 'guest', method });
         if (!Net.available()) {
             this._trackProductEvent('room.join_failed', { stage: 'availability', reason: 'peer-unavailable' });
-            this.showOnlineStatus(I18n.t('no_peerjs'), true); return;
+            this._showJoinStatus(I18n.t('no_peerjs'), true); return;
         }
         const code = (document.getElementById('room-code-input').value || '').trim().toUpperCase();
         if (!/^[A-HJ-NP-Z2-9]{5}$/.test(code)) {
             this._trackProductEvent('room.join_failed', { stage: 'validation', reason: 'invalid-code-format' });
-            this.showOnlineStatus(I18n.t('conn_error'), true); return;
+            this._showJoinStatus(I18n.t('conn_error'), true); return;
         }
         this._joinRejected = false;
-        this.showOnlineStatus(I18n.t('connecting'));
+        this._localSeatToken = this._seatTokenForRoom(code);
+        this._showJoinStatus(I18n.t('connecting'));
+        if (this._joinTimeout) clearTimeout(this._joinTimeout);
+        this._joinTimeout = setTimeout(() => {
+            this._joinTimeout = null;
+            if (Net.hostConn && Net.hostConn.open) return;
+            this._handleOnlineNetworkError({ type: 'reconnect-failed' });
+        }, 8000);
 
         Net.onData = (msg) => this.handleClientMessage(msg);
         Net.onPlayerLeave = () => this._handleClientPlayerLeave();
         Net.onReconnecting = (details) => {
             this._trackProductEvent('reconnect.started', { kind: details && details.kind || 'unknown' });
             if (this.online) this.showToast(I18n.t('reconnecting'));
-            else this.showOnlineStatus(I18n.t('reconnecting'));
+            else this._showJoinStatus(I18n.t('reconnecting'));
         };
         Net.onReconnect = () => {
             this._trackProductEvent('reconnect.completed', { kind: 'data' });
-            Net.send({ t: 'hello', name: this.humanProfile.name, avatar: this.humanProfile.avatar });
+            Net.send(this._clientHello());
         };
         Net.onSignalReconnect = () => {
             this._trackProductEvent('reconnect.completed', { kind: 'signal' });
@@ -350,10 +496,13 @@ class MehGameOnlineModule {
         Net.onError = (error) => this._handleOnlineNetworkError(error);
 
         Net.join(code, () => {
-            Net.send({ t: 'hello', name: this.humanProfile.name, avatar: this.humanProfile.avatar });
+            if (this._joinTimeout) clearTimeout(this._joinTimeout);
+            this._joinTimeout = null;
+            Net.send(this._clientHello());
             document.getElementById('lobby-room-code').textContent = code;
             document.getElementById('lobby-start-btn').classList.add('hidden');
             document.getElementById('lobby-wait').classList.remove('hidden');
+            document.getElementById('turn-time-setting').classList.add('hidden');
             this.showScreen('lobby-screen');
         });
     }
@@ -363,17 +512,26 @@ class MehGameOnlineModule {
         this.humanCanPlay = false;
         this.hideConfirmBar();
         if (this.online) this.showToast(I18n.t('reconnecting'));
-        else this.showOnlineStatus(I18n.t('reconnecting'), true);
+        else this._showJoinStatus(I18n.t('reconnecting'), true);
     }
 
     _handleOnlineNetworkError(error) {
         if (error && error.type === 'reconnect-failed') {
             this._trackProductEvent('reconnect.failed', { kind: 'unknown' });
+            if (!this.online && this._activeJoinSurface === 'invite') {
+                Net.close();
+                this.showScreen('invite-screen');
+                this._setInviteStatus(I18n.t('invite_unavailable'), true);
+                return;
+            }
             this._leaveOnlineSession('main-menu', 'reconnect_failed');
             return;
         }
         if (this.online) this.showToast(I18n.t('conn_error'));
-        else this.showOnlineStatus(I18n.t('conn_error'), true);
+        else this._showJoinStatus(
+            this._activeJoinSurface === 'invite' ? I18n.t('invite_unavailable') : I18n.t('conn_error'),
+            true,
+        );
     }
 
     renderLobby() {
@@ -700,6 +858,7 @@ class MehGameOnlineModule {
                 seats.push({
                     id: 'seat-' + i, name: h.name, avatar: h.avatar,
                     isBot: false, isRemote: i !== 0, connPeer: i === 0 ? null : h.id,
+                    seatToken: h.seatToken || null,
                     containerId: cfg.containerId, countId: cfg.countId, hand: [],
                 });
             } else {
@@ -716,13 +875,14 @@ class MehGameOnlineModule {
     // ----- المضيف يبدأ اللعبة -----
     startOnlineGame() {
         if (!Net.isHost || this.online) return;
+        if (!this._beginTableMatch()) return;
         this._clearOnlineRuntime();
         const acceptedPeers = new Set((this.lobbyPlayers || []).slice(1).map(player => player.id));
         (Net.conns || []).slice().forEach(conn => {
             if (!acceptedPeers.has(conn.peer)) this._rejectConnection(conn, 'started');
         });
         this.online = true; this.isHost = true; this.myIndex = 0;
-        Net.broadcast({ t: 'gamestart' });
+        Net.broadcast({ t: 'gamestart', turnSeconds: this._turnDurationSeconds });
 
         this.showScreen('game-screen');
         if (this.settings.wakeLock) WakeLock.enable();
@@ -865,10 +1025,13 @@ class MehGameOnlineModule {
         this.clearTurnTimer();
         if (!this.online || !this.isHost) return;
         document.body.classList.add('turn-ticking');
-        this.turnTimer = setTimeout(() => this.autoPlayCurrent(), 10000);
+        const seconds = [10, 15, 20].includes(this._turnDurationSeconds) ? this._turnDurationSeconds : 10;
+        this._startTurnCountdownVisual(seconds);
+        this.turnTimer = setTimeout(() => this.autoPlayCurrent(), seconds * 1000);
     }
     clearTurnTimer() {
         if (this.turnTimer) { clearTimeout(this.turnTimer); this.turnTimer = null; }
+        this._stopTurnCountdownVisual();
         document.body.classList.remove('turn-ticking');
     }
     autoPlayCurrent() {
@@ -914,8 +1077,9 @@ class MehGameOnlineModule {
         if (msg.youWon) this.launchConfetti();
         UI.winnerText.innerText = msg.youWon ? I18n.t('you_win') : I18n.t('bot_win', { name: msg.winnerName });
         const st = document.getElementById('end-stats'); if (st) st.replaceChildren();
+        if (msg.keepTable) this._renderTableResults();
         this.showScreen('end-screen');
-        Net.close();
+        if (!msg.keepTable) Net.close();
     }
 }
 

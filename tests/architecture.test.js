@@ -8,6 +8,9 @@ const { GAME_RUNTIME_SCRIPTS, ROOT, loadScripts } = require('./helpers/load-scri
 
 const METHOD_MODULES = [
     'MehGameProductMethods',
+    'MehGameInviteMethods',
+    'MehGameTableMethods',
+    'MehGameGuidanceMethods',
     'MehGameProfileMethods',
     'MehGameOnlineMethods',
     'MehGameScreenMethods',
@@ -52,6 +55,9 @@ test('method modules are immutable, disjoint, and preserve prototype accessors',
 
     const expectedOwners = {
         _trackProductEvent: 'MehGameProductMethods',
+        _buildInviteUrl: 'MehGameInviteMethods',
+        _beginTableMatch: 'MehGameTableMethods',
+        _recordActionJournal: 'MehGameGuidanceMethods',
         applySettings: 'MehGameProfileMethods',
         bindOnlineEvents: 'MehGameOnlineMethods',
         handleHostMessage: 'MehGameOnlineMethods',

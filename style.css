@@ -424,6 +424,40 @@ body.battery-saver .card { box-shadow: 0 3px 8px rgba(0,0,0,0.5) !important; }
 .end-content { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 14px; }
 .trophy { font-size: 7rem; animation: bounce 1.5s infinite; }
 #winner-text { font-size: 2.8rem; margin: 20px 0 30px; color: var(--gold); text-shadow: 0 0 30px rgba(251,191,36,.7); }
+.session-score { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; width: min(440px, 90vw); margin: 0 auto 12px; }
+.session-score-seat, .ready-seat { padding: 8px 10px; border-radius: 10px; background: rgba(255,255,255,.1); font-weight: 800; }
+.table-ready-list { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-bottom: 8px; }
+.session-score:empty, .table-ready-list:empty { display: none; }
+.ready-seat.is-ready { color: #86efac; border: 1px solid rgba(134,239,172,.45); }
+.context-tip {
+  position: fixed; z-index: 850; left: 50%; transform: translateX(-50%); bottom: 132px;
+  width: min(520px, calc(100vw - 28px)); display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; padding: 12px 14px; border: 1px solid rgba(251,191,36,.5); border-radius: 14px;
+  color: #fff; background: rgba(15,23,42,.94); box-shadow: 0 12px 30px rgba(0,0,0,.35);
+}
+.context-tip button, .journal-toggle-btn, .journal-header button {
+  border: 0; border-radius: 9px; padding: 7px 10px; color: #111827; background: var(--gold); font-weight: 900; cursor: pointer;
+}
+.journal-toggle-btn { position: fixed; z-index: 700; inset-inline-start: 10px; bottom: 10px; }
+.action-journal {
+  position: fixed; z-index: 900; inset-block: 12px; inset-inline-start: 12px; width: min(360px, calc(100vw - 24px));
+  overflow: auto; padding: 16px; border: 1px solid rgba(255,255,255,.2); border-radius: 18px;
+  color: #fff; background: rgba(15,23,42,.97); box-shadow: 0 20px 50px rgba(0,0,0,.45);
+}
+.journal-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.journal-header h2 { margin: 0; }
+.action-reason { padding: 10px; border-radius: 10px; background: rgba(251,191,36,.12); color: #fde68a; }
+.action-journal ol { display: grid; gap: 7px; padding-inline-start: 24px; }
+.journal-entry { padding: 7px; border-bottom: 1px solid rgba(255,255,255,.1); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}
 
 /* ===== TOASTS ===== */
 #toast-container {
@@ -698,10 +732,24 @@ body.battery-saver .card { box-shadow: 0 3px 8px rgba(0,0,0,0.5) !important; }
 .lobby-player .lp-name { font-weight: 800; flex: 1; text-align: start; }
 .lobby-player .lp-host { color: var(--gold); font-size: .8rem; font-weight: 700; }
 
+.invite-panel { gap: 12px; }
+.invite-mark { font-size: 3rem; filter: drop-shadow(0 8px 18px rgba(0,0,0,.25)); }
+.invite-profile-summary { margin: 0; font-weight: 800; color: var(--gold); }
+.invite-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.invite-actions .btn { width: 100%; min-width: 0; padding-inline: 10px; }
+.invite-qr-wrap {
+  width: min(240px, 70vw); margin: 4px auto; padding: 12px; border-radius: 16px;
+  background: #fff; box-shadow: 0 12px 30px rgba(0,0,0,.25);
+}
+.invite-qr-wrap img { display: block; width: 100%; height: auto; image-rendering: pixelated; }
+.copy-fallback { position: fixed; inset-inline-start: -10000px; top: 0; }
+.turn-time-setting { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-weight: 800; }
+.turn-time-setting select { min-width: 88px; padding: 7px; border: 1px solid rgba(255,255,255,.25); border-radius: 8px; color: #fff; background: #1e293b; }
+
 /* ===== TURN TIMER (online) ===== */
 #turn-timer {
   width: 200px; height: 7px; margin-top: 8px;
-  background: rgba(0,0,0,0.45); border-radius: 5px; overflow: hidden;
+  background: rgba(0,0,0,0.45); border-radius: 5px; overflow: visible;
   position: relative; z-index: 2;
   box-shadow: inset 0 0 4px rgba(0,0,0,0.5);
 }
@@ -710,7 +758,8 @@ body.battery-saver .card { box-shadow: 0 3px 8px rgba(0,0,0,0.5) !important; }
   background: linear-gradient(90deg, #22c55e 0%, #fbbf24 60%, #ef4444 100%);
   transform-origin: right;
 }
-#turn-timer.run #turn-timer-bar { animation: turnCountdown 10s linear forwards; }
+#turn-timer-label { position: absolute; inset-inline-end: -28px; top: -7px; min-width: 22px; color: #fff; font-size: .72rem; font-weight: 900; }
+#turn-timer.run #turn-timer-bar { animation: turnCountdown var(--turn-duration, 10s) linear forwards; }
 @keyframes turnCountdown { from { width: 100%; } to { width: 0%; } }
 
 /* نبضة ورقة المرمى عند العميل (تغذية بصرية بدل حركة الرمي) */

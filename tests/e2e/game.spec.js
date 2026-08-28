@@ -87,6 +87,21 @@ test.afterEach(() => {
     expect(browserDiagnostics, 'the browser completed the scenario without runtime or resource errors').toEqual([]);
 });
 
+test('a malformed invite opens a recoverable contextual error instead of the main menu', async ({ page }) => {
+    await page.route('https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js', route => route.fulfill({
+        body: peerScript,
+        contentType: 'text/javascript',
+        status: 200,
+    }));
+    await page.goto('/?join=ABCDE&v=2');
+    await page.locator('#splash').waitFor({ state: 'detached' });
+    await expect(page.locator('#invite-screen')).toHaveClass(/\bactive\b/);
+    await expect(page.locator('#invite-status')).toContainText('تالف');
+    await expect(page.locator('#invite-join-btn')).toBeDisabled();
+    await page.locator('#invite-back-btn').click();
+    await expect(page.locator('#main-menu')).toHaveClass(/\bactive\b/);
+});
+
 test('a desktop player can start, inspect a playable card, draw, and return after winning', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 720 });
     await openApp(page);

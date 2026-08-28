@@ -25,6 +25,9 @@ prototypes/
 # ===== أدوات Node المحلية =====
 node_modules/
 coverage/
+playwright-report/
+test-results/
+debug.log
 .env
 .env.*
 !.env.example

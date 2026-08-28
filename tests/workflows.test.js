@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const YAML = require('yaml');
 const { ROOT } = require('./helpers/load-script');
 
 const ciPath = path.join(ROOT, '.github', 'workflows', 'ci.yml');
@@ -14,13 +15,18 @@ const packageLock = require(path.join(ROOT, 'package-lock.json'));
 test('CI runs repository checks without coupling them to deployment', () => {
     assert.ok(fs.existsSync(ciPath), 'the test-only CI workflow must exist');
     const workflow = fs.readFileSync(ciPath, 'utf8');
+    const parsedWorkflow = YAML.parse(workflow);
 
+    assert.equal(parsedWorkflow.name, 'CI');
+    assert.ok(parsedWorkflow.on.pull_request === null);
+    assert.ok(parsedWorkflow.on.push);
     assert.match(workflow, /^name: CI$/m);
     assert.match(workflow, /^permissions:\s*\n\s+contents: read$/m);
     assert.match(workflow, /^\s{2}pull_request:$/m);
     assert.match(workflow, /^\s{2}push:$/m);
     assert.match(workflow, /hardening\/\*\*/);
     assert.match(workflow, /npm ci/);
+    assert.match(workflow, /playwright install --with-deps chromium/);
     assert.match(workflow, /npm run check/);
     assert.doesNotMatch(workflow, /static-web-apps-deploy/i);
     assert.match(workflow, /actions\/checkout@11d5960a326750d5838078e36cf38b85af677262/);
@@ -32,7 +38,9 @@ test('CI runs repository checks without coupling them to deployment', () => {
 
 test('Azure deployment is retained as an explicit manual action only', () => {
     const workflow = fs.readFileSync(deployPath, 'utf8');
+    const parsedWorkflow = YAML.parse(workflow);
 
+    assert.ok(parsedWorkflow.on.workflow_dispatch);
     assert.match(workflow, /^\s{2}workflow_dispatch:$/m);
     assert.doesNotMatch(workflow, /^\s{2}(?:push|pull_request):$/m);
     assert.match(workflow, /Azure\/static-web-apps-deploy@1a947af9992250f3bc2e68ad0754c0b0c11566c9/);

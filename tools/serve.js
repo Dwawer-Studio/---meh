@@ -23,32 +23,38 @@ function resolveRequestPath(requestUrl) {
     return target;
 }
 
-const server = http.createServer((request, response) => {
-    let target;
-    try {
-        target = resolveRequestPath(request.url || '/');
-    } catch (error) {
-        response.writeHead(400).end('Bad request');
-        return;
-    }
-    if (!target) {
-        response.writeHead(403).end('Forbidden');
-        return;
-    }
-
-    fs.stat(target, (error, stats) => {
-        if (error || !stats.isFile()) {
-            response.writeHead(404).end('Not found');
+function createServer() {
+    return http.createServer((request, response) => {
+        let target;
+        try {
+            target = resolveRequestPath(request.url || '/');
+        } catch (error) {
+            response.writeHead(400).end('Bad request');
             return;
         }
-        response.writeHead(200, {
-            'Cache-Control': 'no-store',
-            'Content-Type': TYPES[path.extname(target).toLowerCase()] || 'application/octet-stream',
-        });
-        fs.createReadStream(target).pipe(response);
-    });
-});
+        if (!target) {
+            response.writeHead(403).end('Forbidden');
+            return;
+        }
 
-server.listen(PORT, '127.0.0.1', () => {
-    console.log(`Meh development server: http://127.0.0.1:${PORT}`);
-});
+        fs.stat(target, (error, stats) => {
+            if (error || !stats.isFile()) {
+                response.writeHead(404).end('Not found');
+                return;
+            }
+            response.writeHead(200, {
+                'Cache-Control': 'no-store',
+                'Content-Type': TYPES[path.extname(target).toLowerCase()] || 'application/octet-stream',
+            });
+            fs.createReadStream(target).pipe(response);
+        });
+    });
+}
+
+if (require.main === module) {
+    createServer().listen(PORT, '127.0.0.1', () => {
+        console.log(`Meh development server: http://127.0.0.1:${PORT}`);
+    });
+}
+
+module.exports = { createServer };

@@ -65,13 +65,14 @@ cd ---meh
 
 ```bash
 npm ci
+npm run test:e2e:install
 npm run check
 ```
 
 يمكن تشغيل الأجزاء منفردة عبر `npm run validate` و`npm test` و`npm run test:security`
 و`npm run test:reliability` و`npm run test:rules` و`npm run test:quality`
 و`npm run test:responsive` و`npm run test:architecture` و`npm run test:smoke`
-و`npm run test:workflows` و`npm run check:assets`. ولإعادة
+و`npm run test:workflows` و`npm run test:e2e` و`npm run check:assets`. ولإعادة
 الاختبار من لقطة مؤقتة بلا `node_modules` مسبق:
 
 ```bash
@@ -86,7 +87,8 @@ npm run check:clean
 `docs/PHASE-5-QUALITY.md`، وتقرير تجربة الهاتف والتخطيط المتجاوب في
 `docs/PHASE-6-RESPONSIVE.md`، وتقرير تفكيك بنية محرك اللعبة في
 `docs/PHASE-7-ARCHITECTURE.md`، وتقرير التشغيل المحلي وفصل النشر في
-`docs/PHASE-8-LOCAL-CI.md`.
+`docs/PHASE-8-LOCAL-CI.md`، وتقرير اختبارات المتصفح الفعلية في
+`docs/PHASE-9-BROWSER-E2E.md`.
 
 خلال التطوير تشغّل GitHub Actions بوابة الاختبارات فقط. نشر Azure محفوظ كفعل
 يدوي صريح، ولا يعمل تلقائيًا على الفروع أو طلبات الدمج إلى أن تُجهز الاستضافة.

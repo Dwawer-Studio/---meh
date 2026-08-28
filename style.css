@@ -1064,6 +1064,7 @@ html[dir="ltr"] .btn { letter-spacing: .5px; }
 
   .instructions-panel { width: 94%; max-height: 94dvh; padding: 12px 18px; border-radius: 16px; }
   .instructions-panel h2 { margin-bottom: 8px; font-size: 1.3rem; }
+  .profile-panel { overflow-y: auto; }
 
   #game-screen {
     position: fixed;

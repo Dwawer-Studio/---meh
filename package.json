@@ -20,14 +20,19 @@
     "test:responsive": "node --test tests/responsive.test.js",
     "test:architecture": "node --test tests/architecture.test.js",
     "test:workflows": "node --test tests/workflows.test.js",
+    "test:e2e": "playwright test",
+    "test:e2e:install": "playwright install chromium",
     "test:smoke": "node --test tests/smoke.test.js tests/storage.test.js tests/game-flow.test.js"
   },
   "engines": {
     "node": "^22.22.0 || >=24.8.0"
   },
   "devDependencies": {
+    "@playwright/test": "1.62.1",
     "html-validate": "^11.10.0",
+    "peerjs": "1.5.4",
     "stylelint": "^17.14.1",
-    "stylelint-config-recommended": "^18.0.0"
+    "stylelint-config-recommended": "^18.0.0",
+    "yaml": "2.9.0"
   }
 }

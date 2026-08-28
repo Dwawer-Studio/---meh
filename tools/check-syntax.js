@@ -5,7 +5,13 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
 const ROOT = path.resolve(__dirname, '..');
-const SKIPPED_DIRECTORIES = new Set(['.git', 'node_modules', 'coverage']);
+const SKIPPED_DIRECTORIES = new Set([
+    '.git',
+    'node_modules',
+    'coverage',
+    'playwright-report',
+    'test-results',
+]);
 
 function collectJavaScriptFiles(directory) {
     const files = [];

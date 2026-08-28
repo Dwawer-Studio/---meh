@@ -14,6 +14,7 @@
 
 - 🃏 **لعب فوري في المتصفّح** — بدون تثبيت، فقط افتح ولعب
 - 🤖 **3 خصوم أذكياء** (أحمد، نورة، خالد) بذكاء اصطناعي
+- 🌐 **لعب جماعي أونلاين** — أنشئ غرفة وشارك كودها مع أصدقائك، مع استعادة الاتصال المؤقت
 - 👤 **نظام أعضاء** — احفظ اسمك وصورتك وإحصائياتك (فوز/خسارة)
 - 🌐 **لغتان** — عربي / English مع دعم كامل للاتجاهين (RTL/LTR)
 - 🔊 **مؤثرات صوتية** مولّدة برمجياً (بلا ملفات صوت)
@@ -27,7 +28,7 @@
 
 1. اضغط **العب**
 2. في دورك، ارمِ بطاقة تطابق **اللون** أو **الشخصية** المعروضة
-3. إن لم تملك بطاقة مناسبة، اسحب من الكومة
+3. يمكنك السحب من الكومة بدل الرمي حتى لو كانت لديك بطاقة مناسبة
 4. أول من يتخلّص من كل بطاقاته **يفوز!**
 
 ### 🌟 بطاقات مميزة
@@ -44,18 +45,21 @@
 
 ## 🛠️ التقنيات
 
-- **HTML / CSS / JavaScript** صرف — بلا أطر أو مكتبات خارجية
+- **HTML / CSS / JavaScript** بلا إطار عمل، مع **PeerJS** لاتصال اللعب الجماعي
 - **Web Audio API** للأصوات
 - **localStorage** لحفظ الأعضاء والإعدادات
 
 ## 🚀 التشغيل محلياً
 
-فقط افتح `index.html` في المتصفّح — لا يحتاج خادماً.
+يمكن فتح `index.html` مباشرة. ولتشغيل محلي ثابت مطابق لبوابة المتصفح استخدم
+خادم التطوير الصغير المرفق:
 
 ```bash
 git clone https://github.com/Dwawer-Studio/---meh.git
 cd ---meh
-# افتح index.html بالمتصفّح
+npm ci
+npm run serve
+# افتح http://127.0.0.1:4173
 ```
 
 ## 🧪 الفحص للمطورين
@@ -72,7 +76,8 @@ npm run check
 يمكن تشغيل الأجزاء منفردة عبر `npm run validate` و`npm test` و`npm run test:security`
 و`npm run test:reliability` و`npm run test:rules` و`npm run test:quality`
 و`npm run test:responsive` و`npm run test:architecture` و`npm run test:smoke`
-و`npm run test:workflows` و`npm run test:e2e` و`npm run check:assets`. ولإعادة
+و`npm run test:workflows` و`npm run test:final` و`npm run test:e2e`
+و`npm run check:assets`. ولإعادة
 الاختبار من لقطة مؤقتة بلا `node_modules` مسبق:
 
 ```bash
@@ -88,7 +93,10 @@ npm run check:clean
 `docs/PHASE-6-RESPONSIVE.md`، وتقرير تفكيك بنية محرك اللعبة في
 `docs/PHASE-7-ARCHITECTURE.md`، وتقرير التشغيل المحلي وفصل النشر في
 `docs/PHASE-8-LOCAL-CI.md`، وتقرير اختبارات المتصفح الفعلية في
-`docs/PHASE-9-BROWSER-E2E.md`.
+`docs/PHASE-9-BROWSER-E2E.md`، وتقرير اختبار العميلين في
+`docs/PHASE-10-ONLINE-E2E.md`، والمراجعة الختامية ومصفوفة الجاهزية في
+`docs/PHASE-11-FINAL-AUDIT.md`، ومرجع قواعد اللعب المعتمدة في
+`docs/RULES-DECISIONS.md`.
 
 خلال التطوير تشغّل GitHub Actions بوابة الاختبارات فقط. نشر Azure محفوظ كفعل
 يدوي صريح، ولا يعمل تلقائيًا على الفروع أو طلبات الدمج إلى أن تُجهز الاستضافة.

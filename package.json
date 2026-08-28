@@ -20,6 +20,7 @@
     "test:responsive": "node --test tests/responsive.test.js",
     "test:architecture": "node --test tests/architecture.test.js",
     "test:workflows": "node --test tests/workflows.test.js",
+    "test:final": "node --test tests/final-audit.test.js",
     "test:e2e": "playwright test",
     "test:e2e:install": "playwright install chromium",
     "test:smoke": "node --test tests/smoke.test.js tests/storage.test.js tests/game-flow.test.js"

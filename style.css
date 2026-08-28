@@ -540,6 +540,14 @@ body.battery-saver .card { box-shadow: 0 3px 8px rgba(0,0,0,0.5) !important; }
   z-index: 9998;
   box-shadow: 0 25px 60px rgba(0,0,0,0.85);
 }
+.dev-close-btn {
+  position: absolute; top: 8px; inset-inline-end: 8px;
+  width: 34px; height: 34px; padding: 0;
+  border: 1px solid rgba(255,255,255,0.2); border-radius: 50%;
+  background: rgba(0,0,0,0.35); color: #fff;
+  cursor: pointer; font-size: 1.5rem; line-height: 1;
+}
+.dev-close-btn:hover { background: rgba(255,255,255,0.16); }
 .dev-panel h3 { color: var(--gold); font-size: 1.1rem; margin-bottom: 12px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px; }
 .dev-buttons { display: flex; flex-direction: column; gap: 8px; }
 .dev-btn {
@@ -755,7 +763,8 @@ body.battery-saver .card { box-shadow: 0 3px 8px rgba(0,0,0,0.5) !important; }
 .copy-code-btn:focus-visible,
 .emoji-toggle-btn:focus-visible,
 .emoji-btn:focus-visible,
-.dev-toggle-btn:focus-visible {
+.dev-toggle-btn:focus-visible,
+.dev-close-btn:focus-visible {
   outline: 3px solid var(--gold);
   outline-offset: 3px;
 }

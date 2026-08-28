@@ -102,6 +102,7 @@ const I18n = {
             send_emoji: 'أرسل إيموجي',
             copy_code: 'نسخ كود الغرفة',
             developer_panel: 'لوحة المطور',
+            close_developer_panel: 'إغلاق لوحة المطور',
             // أونلاين
             online_play: 'أونلاين',
             online_title: '🌐 اللعب أونلاين',
@@ -235,6 +236,7 @@ const I18n = {
             send_emoji: 'Send emoji',
             copy_code: 'Copy room code',
             developer_panel: 'Developer panel',
+            close_developer_panel: 'Close developer panel',
             online_play: 'Online',
             online_title: '🌐 Play Online',
             online_hint: 'Play with friends using a room code',

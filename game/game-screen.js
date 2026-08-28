@@ -15,8 +15,10 @@ class MehGameScreenModule {
 
     bindDevEvents() {
         const toggleBtn = document.getElementById('dev-toggle-btn');
+        const closeBtn = document.getElementById('dev-close-btn');
         const panel = document.getElementById('dev-panel');
         if (toggleBtn) toggleBtn.onclick = () => panel.classList.toggle('hidden');
+        if (closeBtn) closeBtn.onclick = () => panel.classList.add('hidden');
         // اختصار سرّي للمطوّر فقط (الزر مخفي عن اللاعبين)
         document.addEventListener('keydown', (e) => {
             if (e.ctrlKey && e.shiftKey && (e.key === 'D' || e.key === 'd')) {

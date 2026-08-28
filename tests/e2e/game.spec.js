@@ -185,5 +185,11 @@ for (const viewport of [
             expect(box.right, `${box.selector} is not clipped on the right`).toBeLessThanOrEqual(layout.viewport.width + 1);
             expect(box.bottom, `${box.selector} is not clipped at the bottom`).toBeLessThanOrEqual(layout.viewport.height + 1);
         }
+
+        await page.keyboard.press('Control+Shift+D');
+        await expect(page.locator('#dev-panel')).not.toHaveClass(/\bhidden\b/);
+        await expect(page.locator('#dev-close-btn')).toBeVisible();
+        await page.locator('#dev-close-btn').click();
+        await expect(page.locator('#dev-panel')).toHaveClass(/\bhidden\b/);
     });
 }

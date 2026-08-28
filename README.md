@@ -96,7 +96,9 @@ npm run check:clean
 `docs/PHASE-9-BROWSER-E2E.md`، وتقرير اختبار العميلين في
 `docs/PHASE-10-ONLINE-E2E.md`، والمراجعة الختامية ومصفوفة الجاهزية في
 `docs/PHASE-11-FINAL-AUDIT.md`، ومرجع قواعد اللعب المعتمدة في
-`docs/RULES-DECISIONS.md`.
+`docs/RULES-DECISIONS.md`. أما برنامج التحول من لعبة مكتملة الأساس إلى منتج
+اجتماعي قابل للنمو، مع إبقاء قلب اللعب ثابتًا، فموثق في
+`docs/PRODUCT-TRANSFORMATION-PROGRAM.md`.
 
 خلال التطوير تشغّل GitHub Actions بوابة الاختبارات فقط. نشر Azure محفوظ كفعل
 يدوي صريح، ولا يعمل تلقائيًا على الفروع أو طلبات الدمج إلى أن تُجهز الاستضافة.

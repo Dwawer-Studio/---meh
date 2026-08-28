@@ -133,6 +133,8 @@ npm run check:clean
 `docs/P4-TAMASHI-OPERATIONS.md`، والطرح والرجوع في
 `docs/P4-CATALOG-ROLLOUT-ROLLBACK.md`، ونموذج التهديد في
 `docs/THREAT-MODEL-P4.md`.
+أما برنامج إعادة بناء UI/UX من هوية Dwawer، مع قفل قلب اللعبة وآرت البطاقات،
+فموثق في `docs/UIUX-STUDIO-IDENTITY-TRANSFORMATION.md`.
 والاختبارات البشرية والميدانية المؤجلة بقرار مالك المنتج مجمعة في
 `docs/DEFERRED-VALIDATION-REGISTER.md`.
 

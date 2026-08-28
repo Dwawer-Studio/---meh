@@ -17,6 +17,7 @@ const GAME_RUNTIME_SCRIPTS = Object.freeze([
     'game/game-guidance.js',
     'game/game-config.js',
     'game/game-profile.js',
+    'game/game-catalog.js',
     'game/game-majlis.js',
     'game/game-authoritative.js',
     'game/game-online.js',

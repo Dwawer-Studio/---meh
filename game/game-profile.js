@@ -15,6 +15,7 @@ class MehGameProfileModule {
         document.body.classList.toggle('battery-saver', !!this.settings.batterySaver);
         Sound.setEnabled(this.settings.sound !== false);
         this.renderInstructions();
+        this._refreshCatalogLocalization();
         this.updateMenuChip();
     }
 
@@ -30,6 +31,7 @@ class MehGameProfileModule {
                 this._syncAuthoritativeSettings();
                 I18n.setLang(this.settings.lang);
                 this.renderInstructions();
+                this._refreshCatalogLocalization();
                 this.updateMenuChip();
                 this.refreshSettingsUI();
             };

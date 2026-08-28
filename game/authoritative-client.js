@@ -43,6 +43,12 @@ class AuthoritativeGameClient {
         return this._request('session.hello', {
             accessToken,
             clientVersion: '0.1.0',
+            catalogCapability: typeof MEH_CORE_MANIFEST !== 'undefined'
+                && typeof MEH_CATALOG_MANIFEST !== 'undefined' ? {
+                    rulesVersion: MEH_CORE_MANIFEST.rulesVersion,
+                    catalogVersion: MEH_CATALOG_MANIFEST.catalogVersion,
+                    definitionIds: MEH_CATALOG_MANIFEST.definitions.map(item => item.definitionId),
+                } : undefined,
         });
     }
 
@@ -92,6 +98,14 @@ class AuthoritativeGameClient {
 
     reportSeat(reportedSeatId, reasonCode) {
         return this._request('report.submit', { reportedSeatId, reasonCode });
+    }
+
+    contributeRecipe(definitionId, replacesDefinitionId) {
+        return this._request('recipe.contribute', { definitionId, replacesDefinitionId });
+    }
+
+    clearRecipeContribution() {
+        return this._request('recipe.contribute', { definitionId: null });
     }
 
     async leave() {
@@ -152,6 +166,12 @@ class AuthoritativeGameClient {
                     await this._request('session.hello', {
                         accessToken: this.accessToken,
                         clientVersion: '0.1.0',
+                        catalogCapability: typeof MEH_CORE_MANIFEST !== 'undefined'
+                            && typeof MEH_CATALOG_MANIFEST !== 'undefined' ? {
+                                rulesVersion: MEH_CORE_MANIFEST.rulesVersion,
+                                catalogVersion: MEH_CATALOG_MANIFEST.catalogVersion,
+                                definitionIds: MEH_CATALOG_MANIFEST.definitions.map(item => item.definitionId),
+                            } : undefined,
                     });
                     await this.resumeSeat(this.roomCode, this.recoveryToken);
                     this.onConnectionState('recovered');
@@ -345,6 +365,22 @@ class AuthoritativeAccountClient {
 
     static claimDueMajlisReminders(baseUrl, accessToken) {
         return this._json(baseUrl, '/v1/reminders/due', accessToken).then(body => body.reminders);
+    }
+
+    static getCatalog(baseUrl, accessToken) {
+        return this._json(baseUrl, '/v1/catalog', accessToken);
+    }
+
+    static unlockCard(baseUrl, accessToken, definitionId, idempotencyKey) {
+        return this._json(baseUrl, '/v1/catalog/unlocks', accessToken, {
+            method: 'POST', body: JSON.stringify({ definitionId, idempotencyKey }),
+        });
+    }
+
+    static verifyTamashiPurchase(baseUrl, accessToken, input) {
+        return this._json(baseUrl, '/v1/economy/purchases/verify', accessToken, {
+            method: 'POST', body: JSON.stringify(input),
+        });
     }
 }
 

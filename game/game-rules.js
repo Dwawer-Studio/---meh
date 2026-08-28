@@ -83,10 +83,26 @@ class MehGameRuleModule {
     get currentPlayer() { return this.players[this.currentPlayerIndex]; }
 
     drawInitialCard() {
-        let initial = this.deck.draw();
-        while (initial && initial.type !== 'normal') {
-            this.deck.cards.unshift(initial);
-            initial = this.deck.draw();
+        let initial = null;
+        const attempts = this.deck.cards.length;
+        for (let attempt = 0; attempt < attempts; attempt++) {
+            const candidate = this.deck.draw();
+            if (candidate.type === 'normal') {
+                initial = candidate;
+                break;
+            }
+            this.deck.cards.unshift(candidate);
+        }
+        if (!initial) {
+            const owner = (this.players || []).find(player => player.hand.some(
+                card => card.type === 'normal',
+            ));
+            const index = owner && owner.hand.findIndex(card => card.type === 'normal');
+            if (owner && index >= 0) {
+                initial = owner.hand.splice(index, 1)[0];
+                const replacement = this.deck.draw();
+                if (replacement) owner.hand.push(replacement);
+            }
         }
         return initial;
     }

@@ -196,6 +196,37 @@ const PRODUCT_EVENT_SCHEMAS = Object.freeze({
             ] }),
         }),
     }),
+    'catalog.viewed': Object.freeze({
+        required: ['cardCount', 'unlockedCount'],
+        fields: Object.freeze({
+            cardCount: Object.freeze({ type: 'integer', min: 0, max: 256 }),
+            unlockedCount: Object.freeze({ type: 'integer', min: 0, max: 256 }),
+        }),
+    }),
+    'catalog.unlock': Object.freeze({
+        required: ['result', 'definitionId'],
+        fields: Object.freeze({
+            result: Object.freeze({ type: 'enum', values: ['started', 'completed', 'failed'] }),
+            definitionId: Object.freeze({ type: 'token', maxLength: 48 }),
+            reason: Object.freeze({ type: 'token', maxLength: 48, optional: true }),
+        }),
+    }),
+    'economy.balance_viewed': Object.freeze({
+        required: ['balanceBand'],
+        fields: Object.freeze({
+            balanceBand: Object.freeze({ type: 'enum', values: [
+                'zero', '1-499', '500-999', '1000-1999', '2000-4999', '5000-plus',
+            ] }),
+        }),
+    }),
+    'recipe.contribution_changed': Object.freeze({
+        required: ['action', 'contributionCount'],
+        fields: Object.freeze({
+            action: Object.freeze({ type: 'enum', values: ['set', 'clear'] }),
+            contributionCount: Object.freeze({ type: 'integer', min: 0, max: 4 }),
+            definitionId: Object.freeze({ type: 'token', maxLength: 48, optional: true }),
+        }),
+    }),
     'experiment.exposed': Object.freeze({
         required: ['experimentId', 'variant'],
         fields: Object.freeze({

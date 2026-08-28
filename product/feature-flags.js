@@ -13,6 +13,11 @@ const PRODUCT_FEATURE_FLAG_DEFINITIONS = Object.freeze({
     majlis_schedule: Object.freeze({ defaultValue: false, scope: 'social-return' }),
     safe_quick_chat: Object.freeze({ defaultValue: false, scope: 'social-safety' }),
     catalog_expansion: Object.freeze({ defaultValue: false, scope: 'catalog-selection' }),
+    card_catalog: Object.freeze({ defaultValue: false, scope: 'catalog-discovery' }),
+    tamashi_wallet: Object.freeze({ defaultValue: false, scope: 'economy' }),
+    card_lab: Object.freeze({ defaultValue: false, scope: 'catalog-trial' }),
+    friendly_recipes: Object.freeze({ defaultValue: false, scope: 'shared-deck-recipe' }),
+    verified_iap: Object.freeze({ defaultValue: false, scope: 'economy-purchase' }),
 });
 
 class ProductFeatureFlagService {

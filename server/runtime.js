@@ -4,6 +4,7 @@ const http = require('node:http');
 const net = require('node:net');
 const { URL } = require('node:url');
 const { WebSocket, WebSocketServer } = require('ws');
+const { CatalogError, CatalogRegistry } = require('../catalog/catalog-registry');
 const { AccountService } = require('./account-service');
 const { MajlisError, MajlisService } = require('./majlis-service');
 const { ServiceMetrics } = require('./metrics');
@@ -12,6 +13,8 @@ const {
 } = require('./protocol');
 const { TokenBucketLimiter } = require('./rate-limiter');
 const { RoomError, RoomService } = require('./room-service');
+const { StoreConflict } = require('./stores/memory-store');
+const { TamashiError, TamashiService } = require('./tamashi-service');
 const {
     ipHash, randomId, safeEqual,
 } = require('./security');
@@ -20,6 +23,10 @@ const JSON_LIMIT = 8 * 1024;
 const HELLO_TIMEOUT_MS = 5_000;
 const HEARTBEAT_MS = 10_000;
 const TURN_DURATION_MS = 10_000;
+const ACCOUNT_HTTP_ERRORS = new Set([
+    'INVALID_DISPLAY_NAME', 'INVALID_UPGRADE', 'INVALID_CREDENTIALS',
+    'INVALID_SETTINGS', 'ACCOUNT_NOT_FOUND',
+]);
 
 function json(response, status, body) {
     const data = Buffer.from(JSON.stringify(body));
@@ -55,6 +62,17 @@ function bearer(request) {
     return match ? match[1] : null;
 }
 
+function publicHttpError(error) {
+    const domainError = error instanceof TamashiError || error instanceof MajlisError
+        || error instanceof RoomError || error instanceof CatalogError || error instanceof StoreConflict;
+    const safeParserError = error && ['BAD_JSON', 'BODY_TOO_LARGE'].includes(error.message);
+    const safeAccountError = error instanceof TypeError && ACCOUNT_HTTP_ERRORS.has(error.message);
+    if (domainError || safeParserError || safeAccountError) {
+        return { status: error.status || 400, code: error.code || error.message };
+    }
+    return { status: 500, code: 'SERVER_ERROR' };
+}
+
 class RealtimeRuntime {
     constructor(options) {
         this.store = options.store;
@@ -64,21 +82,73 @@ class RealtimeRuntime {
         this.trustProxy = options.trustProxy === true;
         this.internalAdminToken = options.internalAdminToken || null;
         this.metrics = options.metrics || new ServiceMetrics();
+        const p4FeatureOverrides = options.p4Features || {};
+        const p4FeatureNames = new Set([
+            'cardCatalog', 'tamashiWallet', 'friendlyRecipes', 'verifiedIap',
+        ]);
+        if (!p4FeatureOverrides || typeof p4FeatureOverrides !== 'object'
+            || Array.isArray(p4FeatureOverrides)
+            || Object.entries(p4FeatureOverrides).some(
+                ([name, value]) => !p4FeatureNames.has(name) || typeof value !== 'boolean',
+            )) throw new TypeError('P4_FEATURE_CONFIGURATION_INVALID');
+        const p4Features = {
+            cardCatalog: false,
+            tamashiWallet: false,
+            friendlyRecipes: false,
+            verifiedIap: false,
+            ...p4FeatureOverrides,
+        };
+        if ((p4Features.cardCatalog && !p4Features.tamashiWallet)
+            || (p4Features.friendlyRecipes && (!p4Features.cardCatalog || !p4Features.tamashiWallet))
+            || (p4Features.verifiedIap && !p4Features.tamashiWallet)) {
+            throw new TypeError('P4_FEATURE_DEPENDENCY_MISMATCH');
+        }
+        this.p4Features = Object.freeze(p4Features);
+        if (options.catalogRegistry) {
+            this.catalogRegistry = options.catalogRegistry;
+        } else {
+            this.catalogRegistry = new CatalogRegistry({
+                expansionEnabled: options.catalogExpansionEnabled === true,
+                publicKey: options.catalogPublicKey || null,
+            });
+            if (options.catalogEnvelope) {
+                const version = this.catalogRegistry.registerSigned(options.catalogEnvelope);
+                if (options.catalogExpansionEnabled === true) this.catalogRegistry.activate(version);
+            }
+            this.catalogRegistry.setEnabledContentFlags(options.enabledContentFlags || []);
+            this.catalogRegistry.setFreeRotationDefinitionIds(options.freeRotationDefinitionIds || []);
+        }
         this.accounts = options.accounts || new AccountService(this.store, { pepper: this.pepper });
         const analyticsToken = (value, domain) => ipHash(`${domain}:${value}`, this.pepper);
         this.majalis = options.majalis || new MajlisService(this.store, {
             metrics: this.metrics, analyticsToken,
         });
+        this.tamashi = options.tamashi || new TamashiService(this.store, {
+            catalogRegistry: this.catalogRegistry,
+            metrics: this.metrics,
+            hashSecret: this.pepper,
+            receiptVerifier: options.receiptVerifier || null,
+            purchaseEnabled: this.p4Features.verifiedIap === true,
+        });
         this.rooms = options.rooms || new RoomService(this.store, {
             pepper: this.pepper,
             metrics: this.metrics,
+            catalogRegistry: this.catalogRegistry,
+            friendlyRecipesEnabled: this.p4Features.friendlyRecipes === true,
             authorizeMajlisMembership: (majlisId, accountId) => this.majalis.assertMembership(majlisId, accountId),
-            onMatchCompleted: roomId => this.majalis.recordCompletedMatch(roomId),
+            onMatchCompleted: async roomId => {
+                const [majlis, tamashi] = await Promise.all([
+                    this.majalis.recordCompletedMatch(roomId),
+                    this.p4Features.tamashiWallet ? this.tamashi.rewardCompletedMatch(roomId) : null,
+                ]);
+                return { majlis, tamashi };
+            },
             analyticsToken,
         });
         this.joinLimiter = new TokenBucketLimiter({ capacity: 10, refillPerSecond: 10 / 60 });
         this.accountLimiter = new TokenBucketLimiter({ capacity: 10, refillPerSecond: 10 / 60 });
         this.actionLimiter = new TokenBucketLimiter({ capacity: 8, refillPerSecond: 4 });
+        this.economyLimiter = new TokenBucketLimiter({ capacity: 6, refillPerSecond: 1 / 10 });
         this.contexts = new Map();
         this.turnTimers = new Map();
         this.server = http.createServer((request, response) => this._http(request, response));
@@ -92,9 +162,11 @@ class RealtimeRuntime {
         this.wss.on('connection', (socket, request) => this._connected(socket, request));
         this.heartbeat = null;
         this.maintenance = null;
+        this.economyMaintenance = null;
     }
 
     async listen(port = 8787, host = '127.0.0.1') {
+        if (this.p4Features.tamashiWallet) await this.tamashi.reconcileEconomy();
         await new Promise((resolve, reject) => {
             this.server.once('error', reject);
             this.server.listen(port, host, () => {
@@ -108,12 +180,17 @@ class RealtimeRuntime {
             this.metrics.increment('maintenance.prune_error');
         }), 60 * 60 * 1000);
         if (this.maintenance.unref) this.maintenance.unref();
+        if (this.p4Features.tamashiWallet) {
+            this.economyMaintenance = setInterval(() => this.tamashi.reconcileEconomy(), 5 * 60 * 1000);
+            if (this.economyMaintenance.unref) this.economyMaintenance.unref();
+        }
         return this.server.address();
     }
 
     async close() {
         if (this.heartbeat) clearInterval(this.heartbeat);
         if (this.maintenance) clearInterval(this.maintenance);
+        if (this.economyMaintenance) clearInterval(this.economyMaintenance);
         for (const timer of this.turnTimers.values()) clearTimeout(timer.handle);
         for (const socket of this.wss.clients) socket.close(1001, 'server shutdown');
         await new Promise(resolve => this.wss.close(resolve));
@@ -144,7 +221,11 @@ class RealtimeRuntime {
                 return json(response, 200, { ok: true });
             }
             if (request.method === 'GET' && requestUrl.pathname === '/health/ready') {
-                return json(response, 200, { ok: true, realtimeConnections: this.contexts.size });
+                return json(response, 200, {
+                    ok: true,
+                    realtimeConnections: this.contexts.size,
+                    economyHealthy: !this.p4Features.tamashiWallet || !this.tamashi.economyFrozen,
+                });
             }
             if (request.method === 'GET' && requestUrl.pathname === '/internal/metrics') {
                 if (!this._internalAuthorized(request)) return json(response, 404, { error: 'NOT_FOUND' });
@@ -153,6 +234,29 @@ class RealtimeRuntime {
             if (request.method === 'GET' && requestUrl.pathname === '/internal/moderation/reports') {
                 if (!this._internalAuthorized(request)) return json(response, 404, { error: 'NOT_FOUND' });
                 return json(response, 200, { reports: await this.store.listModerationReports(100) });
+            }
+            if (request.method === 'POST' && requestUrl.pathname === '/internal/tamashi/catch-up') {
+                if (!this._internalAuthorized(request)) return json(response, 404, { error: 'NOT_FOUND' });
+                if (!this.p4Features.tamashiWallet) return json(response, 404, { error: 'NOT_FOUND' });
+                const body = await readJson(request);
+                const result = await this.tamashi.applyCatchUp(body.accountId, body.campaign);
+                await this.store.appendAudit({
+                    eventType: 'tamashi.catch_up_applied', accountId: body.accountId, roomId: null,
+                    ipHash: null, metadata: { campaignId: body.campaign && body.campaign.campaignId },
+                    createdAt: new Date().toISOString(),
+                });
+                return json(response, 200, result);
+            }
+            if (request.method === 'POST' && requestUrl.pathname === '/internal/tamashi/reconcile') {
+                if (!this._internalAuthorized(request)) return json(response, 404, { error: 'NOT_FOUND' });
+                if (!this.p4Features.tamashiWallet) return json(response, 404, { error: 'NOT_FOUND' });
+                const report = await this.tamashi.reconcileEconomy();
+                await this.store.appendAudit({
+                    eventType: 'tamashi.reconciliation_run', accountId: null, roomId: null,
+                    ipHash: null, metadata: { ok: report.ok, issueCount: report.issueCount },
+                    createdAt: report.checkedAt,
+                });
+                return json(response, report.ok ? 200 : 503, report);
             }
             const moderationRoute = requestUrl.pathname
                 .match(/^\/internal\/moderation\/reports\/(report_[A-Za-z0-9_-]{8,96})$/);
@@ -209,6 +313,38 @@ class RealtimeRuntime {
                 if (!auth) return json(response, 401, { error: 'UNAUTHENTICATED' });
                 return json(response, 200, await this.accounts.syncState(auth.account.accountId));
             }
+            if (request.method === 'GET' && requestUrl.pathname === '/v1/catalog') {
+                if (!this.p4Features.cardCatalog || !this.p4Features.tamashiWallet) {
+                    return json(response, 404, { error: 'NOT_FOUND' });
+                }
+                const auth = await this.accounts.authenticate(bearer(request));
+                if (!auth) return json(response, 401, { error: 'UNAUTHENTICATED' });
+                return json(response, 200, await this.tamashi.catalogState(auth.account.accountId));
+            }
+            if (request.method === 'POST' && requestUrl.pathname === '/v1/catalog/unlocks') {
+                if (!this.p4Features.cardCatalog || !this.p4Features.tamashiWallet) {
+                    return json(response, 404, { error: 'NOT_FOUND' });
+                }
+                const auth = await this.accounts.authenticate(bearer(request));
+                if (!auth) return json(response, 401, { error: 'UNAUTHENTICATED' });
+                if (this._limitEconomyRequest(auth.account.accountId, response, 'unlock')) return;
+                const body = await readJson(request);
+                const result = await this.tamashi.unlockCard(
+                    auth.account.accountId, body.definitionId, body.idempotencyKey,
+                );
+                return json(response, 200, result);
+            }
+            if (request.method === 'POST' && requestUrl.pathname === '/v1/economy/purchases/verify') {
+                if (!this.p4Features.tamashiWallet || !this.p4Features.verifiedIap) {
+                    return json(response, 404, { error: 'NOT_FOUND' });
+                }
+                const auth = await this.accounts.authenticate(bearer(request));
+                if (!auth) return json(response, 401, { error: 'UNAUTHENTICATED' });
+                if (this._limitEconomyRequest(auth.account.accountId, response, 'iap')) return;
+                const body = await readJson(request);
+                const result = await this.tamashi.verifyPurchase(auth.account.accountId, body);
+                return json(response, 200, result);
+            }
             if (request.method === 'GET' && requestUrl.pathname === '/v1/majalis') {
                 const auth = await this.accounts.authenticate(bearer(request));
                 if (!auth) return json(response, 401, { error: 'UNAUTHENTICATED' });
@@ -264,9 +400,19 @@ class RealtimeRuntime {
             }
             return json(response, 404, { error: 'NOT_FOUND' });
         } catch (error) {
-            this.metrics.increment('http.error', { code: error.message || 'UNKNOWN' });
-            return json(response, error.status || 400, { error: error.message || 'BAD_REQUEST' });
+            const exposed = publicHttpError(error);
+            this.metrics.increment('http.error', { code: exposed.code });
+            return json(response, exposed.status, { error: exposed.code });
         }
+    }
+
+    _limitEconomyRequest(accountId, response, scope) {
+        const limited = this.economyLimiter.consume(`${scope}:${accountId}`);
+        if (limited.allowed) return false;
+        response.setHeader('retry-after', String(Math.max(1, Math.ceil(limited.retryAfterMs / 1000))));
+        this.metrics.increment('http.rate_limited', { scope: `economy-${scope}` });
+        json(response, 429, { error: 'RATE_LIMITED' });
+        return true;
     }
 
     _limitAccountRequest(request, response, scope) {
@@ -304,6 +450,7 @@ class RealtimeRuntime {
             responseCache: new Map(),
             alive: true,
             ipHash: ipHash(this._clientAddress(request), this.pepper),
+            catalogCapability: null,
         };
         this.contexts.set(socket, context);
         const helloTimer = setTimeout(() => {
@@ -348,6 +495,22 @@ class RealtimeRuntime {
                 const auth = await this.accounts.authenticate(message.payload.accessToken);
                 if (!auth) throw new ProtocolError('UNAUTHENTICATED');
                 context.account = auth.account;
+                const capability = message.payload.catalogCapability;
+                if (capability !== undefined) {
+                    if (!capability || typeof capability !== 'object' || Array.isArray(capability)
+                        || typeof capability.rulesVersion !== 'string'
+                        || typeof capability.catalogVersion !== 'string'
+                        || !Array.isArray(capability.definitionIds) || capability.definitionIds.length > 256
+                        || capability.definitionIds.some(id => typeof id !== 'string'
+                            || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(id))) {
+                        throw new ProtocolError('BAD_CATALOG_CAPABILITY');
+                    }
+                    context.catalogCapability = {
+                        rulesVersion: capability.rulesVersion,
+                        catalogVersion: capability.catalogVersion,
+                        definitionIds: [...new Set(capability.definitionIds)],
+                    };
+                }
                 response = serverMessage('session.welcome', {
                     ackRequestId: message.requestId,
                     payload: { connectionSessionId: context.connectionSessionId, account: auth.account },
@@ -366,13 +529,14 @@ class RealtimeRuntime {
         } catch (error) {
             const code = error.code || 'SERVER_ERROR';
             if (!(error instanceof ProtocolError) && !(error instanceof RoomError)
-                && !(error instanceof MajlisError) && context.roomId) {
+                && !(error instanceof CatalogError) && !(error instanceof MajlisError) && context.roomId) {
                 this.metrics.increment('room.failure', { operation: message && message.type || 'unparsed' });
             }
             if (message && code !== 'BAD_SEQUENCE') context.lastClientSeq = message.clientSeq;
             const responseType = error instanceof MajlisError
                 ? 'social.rejected'
-                : (error instanceof ProtocolError || error instanceof RoomError ? 'match.rejected' : 'server.error');
+                : (error instanceof ProtocolError || error instanceof RoomError || error instanceof CatalogError
+                    ? 'match.rejected' : 'server.error');
             const response = serverMessage(
                 responseType,
                 { ackRequestId: message && message.requestId, payload: { code } },
@@ -397,6 +561,7 @@ class RealtimeRuntime {
                 mode: message.payload.mode,
                 majlisId: message.payload.majlisId,
                 clientSeq: message.clientSeq,
+                catalogCapability: context.catalogCapability,
             });
             context.roomId = created.room.roomId;
             context.seatId = created.seatId;
@@ -413,7 +578,7 @@ class RealtimeRuntime {
         }
         if (message.type === 'room.join') {
             const joined = await this.rooms.joinRoom(message.payload.roomCode, context.account,
-                context.connectionSessionId, message.clientSeq);
+                context.connectionSessionId, message.clientSeq, context.catalogCapability);
             context.roomId = joined.room.roomId;
             context.seatId = joined.seatId;
             const snapshot = await this.rooms.snapshot(context.roomId, context.connectionSessionId);
@@ -427,7 +592,7 @@ class RealtimeRuntime {
         }
         if (message.type === 'seat.resume') {
             const resumed = await this.rooms.resume(message.payload.roomCode, message.payload.recoveryToken,
-                context.account, context.connectionSessionId, message.clientSeq);
+                context.account, context.connectionSessionId, message.clientSeq, context.catalogCapability);
             context.roomId = resumed.roomId;
             context.seatId = resumed.seatId;
             this._scheduleFromView(context.roomId, resumed.snapshot);
@@ -439,6 +604,25 @@ class RealtimeRuntime {
             });
         }
         if (!context.roomId) throw new RoomError('ROOM_REQUIRED');
+        if (message.type === 'recipe.contribute') {
+            const definitionId = message.payload.definitionId;
+            if (definitionId) {
+                for (const other of this.contexts.values()) {
+                    if (other.roomId !== context.roomId) continue;
+                    const capability = other.catalogCapability;
+                    if (!capability || capability.catalogVersion !== this.catalogRegistry.current().catalogVersion
+                        || !capability.definitionIds.includes(definitionId)) {
+                        throw new ProtocolError('TABLE_CATALOG_UPDATE_REQUIRED');
+                    }
+                }
+            }
+            const views = await this.rooms.setRecipeContribution(
+                context.roomId, context.connectionSessionId, message.payload,
+            );
+            this._sendViews(views, socket);
+            const own = views[context.connectionSessionId];
+            return { ...own, ackRequestId: message.requestId };
+        }
         if (message.type === 'majlis.create') {
             let majlis = await this.majalis.createFromRoom(context.account, context.roomId, message.payload);
             await this.majalis.recordCompletedMatch(context.roomId);

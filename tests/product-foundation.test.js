@@ -83,6 +83,23 @@ test('P0 telemetry accepts only schema fields and rejects prohibited personal da
     assert.equal(client.export().events.length, 2);
 });
 
+test('P4 economy telemetry records bounded product facts without identity or receipt data', () => {
+    const client = createClient({ consent: 'granted' });
+    assert.equal(client.track('catalog.viewed', { cardCount: 22, unlockedCount: 22 }), true);
+    assert.equal(client.track('economy.balance_viewed', { balanceBand: '1-499' }), true);
+    assert.equal(client.track('economy.balance_viewed', { balance: 140 }), false);
+    assert.equal(client.track('catalog.unlock', {
+        result: 'completed', definitionId: 'future-card',
+    }), true);
+    assert.equal(client.track('recipe.contribution_changed', {
+        action: 'set', contributionCount: 1, definitionId: 'future-card',
+    }), true);
+    assert.equal(client.track('catalog.unlock', {
+        result: 'completed', definitionId: 'future-card', receipt: 'secret',
+    }), false);
+    assert.equal(client.export().events.length, 4);
+});
+
 test('P0 telemetry persists offline events and reloads each event id once', () => {
     const storage = createMemoryStorage();
     const first = createClient({ storage, consent: 'granted' });

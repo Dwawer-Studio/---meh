@@ -111,6 +111,7 @@ class MehGameAuthoritativeModule {
         }));
         this._syncAuthoritativeTable(room, seats, viewerSeatId);
         this._syncMajlisFromSnapshot(room, seats);
+        this._syncFriendlyRecipeFromSnapshot(room, seats);
 
         if (room.phase === 'FORMING') {
             document.getElementById('lobby-room-code').textContent = room.roomCode;

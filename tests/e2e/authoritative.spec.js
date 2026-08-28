@@ -33,6 +33,9 @@ test.beforeAll(async () => {
         store: new MemoryStore(),
         pepper: 'browser-e2e-pepper-at-least-32-characters',
         allowedOrigins: [origin],
+        p4Features: {
+            cardCatalog: true, tamashiWallet: true, friendlyRecipes: true, verifiedIap: false,
+        },
     });
     await runtime.listen(servicePort, '127.0.0.1');
 });
@@ -208,5 +211,73 @@ test('browser creates a consent-bound Majlis from results and regroups it from t
         const regroupedMajlisId = await page.evaluate(() =>
             game._authoritativeSnapshot.payload.room.majlisId);
         expect(regroupedMajlisId).toMatch(/^majlis_/);
+        expect(diagnostics).toEqual([]);
+    });
+
+test('card catalog renders all classic cards, rerenders language, and fits a phone',
+    { timeout: 30_000 }, async ({ page }) => {
+        const diagnostics = [];
+        page.on('pageerror', error => diagnostics.push(`pageerror: ${error.message}`));
+        page.on('console', message => {
+            if (message.type() === 'error') diagnostics.push(`console: ${message.text()}`);
+        });
+        await page.route('https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js', route => route.fulfill({
+            body: peerScript, contentType: 'text/javascript', status: 200,
+        }));
+        await page.addInitScript(({ realtimeUrl, httpUrl }) => {
+            window.MEH_SERVICE_URL = realtimeUrl;
+            window.MEH_SERVICE_HTTP_URL = httpUrl;
+            window.MEH_FEATURE_FLAGS = {
+                card_catalog: true,
+                tamashi_wallet: true,
+                card_lab: true,
+                friendly_recipes: true,
+            };
+            localStorage.clear();
+            sessionStorage.clear();
+            localStorage.setItem('meh_settings', JSON.stringify({
+                lang: 'ar', colorblind: false, batterySaver: true,
+                wakeLock: false, confirmPlay: true, sound: false, haptics: false,
+            }));
+        }, {
+            realtimeUrl: `ws://127.0.0.1:${servicePort}/v1/realtime`,
+            httpUrl: `http://127.0.0.1:${servicePort}`,
+        });
+
+        await page.goto('/');
+        await page.locator('#splash').waitFor({ state: 'detached' });
+        await page.locator('#show-create-profile').click();
+        await page.locator('#profile-name-input').fill('مختبر الكتالوج');
+        await page.locator('#avatar-picker .avatar-option').first().click();
+        await page.locator('#save-profile-btn').click();
+        await expect(page.locator('#catalog-btn')).toBeVisible();
+        await page.locator('#catalog-btn').click();
+        await expect(page.locator('#catalog-screen')).toHaveClass(/\bactive\b/);
+        await expect(page.locator('#catalog-list .catalog-card')).toHaveCount(22);
+        await expect(page.locator('#tamashi-balance strong')).toHaveText(/^[0٠]$/);
+        await expect(page.locator('#catalog-list .catalog-buy')).toHaveCount(0);
+        expect(await page.locator('#catalog-list img').evaluateAll(images =>
+            images.every(image => image.complete && image.naturalWidth > 0))).toBe(true);
+        await expect(page.locator('#catalog-list .catalog-card').first()).toContainText('متاحة');
+
+        await page.locator('#catalog-back-btn').click();
+        await page.locator('#menu-settings-btn').click();
+        await page.locator('.lang-btn[data-lang="en"]').click();
+        await page.locator('#settings-back-btn').click();
+        await page.locator('#catalog-btn').click();
+        await expect(page.locator('#catalog-list .catalog-card').first()).toContainText('Hush Hush');
+        await expect(page.locator('#catalog-list .catalog-card').first()).toContainText('Available');
+        expect(await page.locator('html').getAttribute('dir')).toBe('ltr');
+
+        await page.setViewportSize({ width: 360, height: 800 });
+        const mobile = await page.evaluate(() => ({
+            viewport: innerWidth,
+            scrollWidth: document.documentElement.scrollWidth,
+            refreshHeight: document.getElementById('catalog-refresh-btn').getBoundingClientRect().height,
+            backHeight: document.getElementById('catalog-back-btn').getBoundingClientRect().height,
+        }));
+        expect(mobile.scrollWidth).toBeLessThanOrEqual(mobile.viewport);
+        expect(mobile.refreshHeight).toBeGreaterThanOrEqual(44);
+        expect(mobile.backHeight).toBeGreaterThanOrEqual(44);
         expect(diagnostics).toEqual([]);
     });

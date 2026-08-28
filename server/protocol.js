@@ -7,7 +7,7 @@ const MAX_MESSAGE_BYTES = 16 * 1024;
 const CLIENT_TYPES = new Set([
     'session.hello', 'room.create', 'room.join', 'seat.resume', 'seat.ready',
     'match.action', 'snapshot.request', 'seat.leave', 'majlis.create', 'majlis.accept',
-    'chat.send', 'report.submit',
+    'chat.send', 'report.submit', 'recipe.contribute',
 ]);
 
 class ProtocolError extends Error {

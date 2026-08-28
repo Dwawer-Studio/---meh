@@ -8,6 +8,7 @@
   --gold: #fbbf24;
   --gold-2: #f59e0b;
   --text: #ffffff;
+  --text-muted: rgb(255 255 255 / 72%);
   /* طاولة كازينو دافئة وعميقة بدل الأشعة الحادة */
   --table-bg: radial-gradient(ellipse 120% 100% at 50% 34%, #7e2420 0%, #641b19 36%, #471312 66%, #260b0a 100%);
   --glow-orange: rgba(249, 115, 22, 0.6);
@@ -393,6 +394,178 @@ html[dir="ltr"] .quick-chat-feed {
 html[dir="ltr"] .game-subtitle { letter-spacing: 3px; }
 .menu-buttons { display: flex; flex-direction: column; gap: 16px; align-items: center; }
 
+.catalog-panel {
+  width: min(960px, 94vw);
+}
+
+.catalog-heading {
+  display: flex;
+  gap: 18px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.catalog-heading h2 {
+  margin-bottom: 6px;
+  text-align: start;
+}
+
+.catalog-heading p,
+.catalog-note {
+  color: var(--text-muted);
+  line-height: 1.55;
+}
+
+.tamashi-balance {
+  display: grid;
+  min-width: 116px;
+  padding: 12px 16px;
+  border: 1px solid rgb(255 215 0 / 35%);
+  border-radius: 16px;
+  background: rgb(0 0 0 / 24%);
+  text-align: center;
+}
+
+.tamashi-balance span {
+  color: var(--gold);
+  font-size: 1.35rem;
+}
+
+.tamashi-balance strong {
+  font-size: 1.4rem;
+}
+
+.tamashi-balance small {
+  color: var(--text-muted);
+}
+
+.catalog-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+  max-height: min(54vh, 560px);
+  margin: 12px 0;
+  padding: 4px;
+  overflow-y: auto;
+}
+
+.catalog-card {
+  display: grid;
+  grid-template-columns: 78px 1fr;
+  gap: 12px;
+  align-items: start;
+  padding: 12px;
+  border: 1px solid rgb(255 255 255 / 12%);
+  border-radius: 16px;
+  background: rgb(0 0 0 / 20%);
+}
+
+.catalog-card.unlocked {
+  border-color: rgb(255 215 0 / 28%);
+}
+
+.catalog-card > img {
+  width: 78px;
+  aspect-ratio: 2 / 3;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.catalog-card-body {
+  min-width: 0;
+}
+
+.catalog-card-body p {
+  margin: 7px 0;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.catalog-card-heading {
+  display: flex;
+  gap: 8px;
+  align-items: start;
+  justify-content: space-between;
+}
+
+.catalog-badge {
+  flex: none;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 9%);
+  color: var(--gold);
+  font-size: 0.72rem;
+}
+
+.catalog-card details {
+  margin-block: 8px;
+}
+
+.catalog-card summary {
+  color: var(--gold);
+  cursor: pointer;
+}
+
+.catalog-buy {
+  width: 100%;
+  min-width: 0;
+  margin-top: 8px;
+  padding: 8px 10px;
+  font-size: 0.85rem;
+}
+
+.friendly-recipe {
+  margin: 12px 0;
+  padding: 12px;
+  border: 1px solid rgb(255 215 0 / 25%);
+  border-radius: 14px;
+  background: rgb(0 0 0 / 18%);
+}
+
+.friendly-recipe h3 {
+  color: var(--gold);
+}
+
+.friendly-recipe > p,
+.friendly-recipe-summary small {
+  color: var(--text-muted);
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+.friendly-recipe-summary {
+  display: grid;
+  gap: 5px;
+  margin-block: 8px;
+}
+
+.friendly-recipe-summary span {
+  font-size: 0.84rem;
+}
+
+.friendly-recipe-controls {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.friendly-recipe-controls label {
+  display: grid;
+  gap: 4px;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.friendly-recipe-controls select {
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid rgb(255 255 255 / 16%);
+  border-radius: 9px;
+  background: #201a2c;
+  color: var(--text);
+}
+
 /* ===== BUTTONS ===== */
 .btn {
   padding: 16px 48px; font-size: 1.3rem; font-weight: 900;
@@ -416,6 +589,12 @@ html[dir="ltr"] .game-subtitle { letter-spacing: 3px; }
   backdrop-filter: blur(10px);
 }
 .secondary-btn:hover { background: rgba(255,255,255,0.2); transform: translateY(-3px); }
+
+.friendly-recipe-controls .btn,
+.friendly-recipe-controls .compact-action {
+  width: 100%;
+  min-width: 0;
+}
 
 /* ===== INSTRUCTIONS ===== */
 .instructions-panel {
@@ -1349,6 +1528,28 @@ html[dir="ltr"] .btn { letter-spacing: .5px; }
 
 /* ===== RESPONSIVE — PORTRAIT PHONES ===== */
 @media (max-width: 600px) {
+  .catalog-heading {
+    align-items: stretch;
+  }
+
+  .catalog-heading > div:first-child {
+    min-width: 0;
+  }
+
+  .tamashi-balance {
+    min-width: 94px;
+    padding: 9px;
+  }
+
+  .catalog-list {
+    grid-template-columns: 1fr;
+    max-height: 50vh;
+  }
+
+  .friendly-recipe-controls {
+    grid-template-columns: 1fr;
+  }
+
   body, #app { height: 100dvh; }
   .screen { position: fixed; }
 

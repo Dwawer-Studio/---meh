@@ -51,6 +51,9 @@
                     <button id="online-btn" class="btn primary-btn" type="button">
                         <span>🌐</span> <span data-i18n="online_play">أونلاين</span>
                     </button>
+                    <button id="catalog-btn" class="btn secondary-btn hidden" type="button">
+                        <span>🃏</span> <span data-i18n="card_catalog">كتالوج البطاقات</span>
+                    </button>
                     <button id="instructions-btn" class="btn secondary-btn" type="button">
                         <span>📖</span> <span data-i18n="instructions">التعليمات</span>
                     </button>
@@ -154,6 +157,28 @@
             </div>
         </div>
 
+        <!-- ===== كتالوج البطاقات وتاماشي ===== -->
+        <div id="catalog-screen" class="screen">
+            <div class="instructions-panel catalog-panel">
+                <div class="catalog-heading">
+                    <div>
+                        <h2 data-i18n="card_catalog_title">كتالوج البطاقات</h2>
+                        <p data-i18n="catalog_fairness">كل بطاقة قابلة للكسب باللعب، وتدخل الرزمة المشتركة بلا أفضلية فردية.</p>
+                    </div>
+                    <div id="tamashi-balance" class="tamashi-balance" aria-live="polite">
+                        <span aria-hidden="true">魂</span>
+                        <strong>—</strong>
+                        <small data-i18n="tamashi">تاماشي</small>
+                    </div>
+                </div>
+                <p id="catalog-calibration-note" class="catalog-note" data-i18n="catalog_calibration_note">أسعار البطاقات الجديدة لا تُفتح للإطلاق قبل معايرة جلسات اللعب الفعلية.</p>
+                <div id="catalog-status" class="online-status" role="status" aria-live="polite"></div>
+                <div id="catalog-list" class="catalog-list"></div>
+                <button id="catalog-refresh-btn" class="btn secondary-btn" type="button" data-i18n="refresh_catalog">تحديث الكتالوج</button>
+                <button id="catalog-back-btn" class="btn primary-btn" type="button" data-i18n="main_menu">القائمة الرئيسية</button>
+            </div>
+        </div>
+
         <!-- ===== شاشة الأونلاين (إنشاء/دخول غرفة) ===== -->
         <div id="online-screen" class="screen">
             <div class="instructions-panel online-panel">
@@ -212,6 +237,21 @@
                     </select>
                 </label>
                 <div id="lobby-players" class="lobby-players"></div>
+                <section id="friendly-recipe" class="friendly-recipe hidden" aria-labelledby="friendly-recipe-title">
+                    <h3 id="friendly-recipe-title" data-i18n="friendly_recipe">وصفة الرزمة المشتركة</h3>
+                    <p data-i18n="friendly_recipe_note">كل مساهمة تستبدل بطاقة مماثلة، ثم تصبح البطاقة الجديدة متاحة للجميع في الرزمة.</p>
+                    <div id="friendly-recipe-summary" class="friendly-recipe-summary" aria-live="polite"></div>
+                    <div id="friendly-recipe-controls" class="friendly-recipe-controls hidden">
+                        <label><span data-i18n="contribute_card">بطاقتك</span>
+                            <select id="friendly-card-select"></select>
+                        </label>
+                        <label><span data-i18n="replace_card">تستبدل</span>
+                            <select id="friendly-replacement-select"></select>
+                        </label>
+                        <button id="friendly-recipe-apply" class="btn secondary-btn" type="button" data-i18n="apply_contribution">اعتمد المساهمة</button>
+                        <button id="friendly-recipe-clear" class="compact-action" type="button" data-i18n="clear_contribution">أزل مساهمتي</button>
+                    </div>
+                </section>
                 <button id="lobby-start-btn" class="btn primary-btn hidden" type="button" data-i18n="start_game">▶️ ابدأ اللعبة</button>
                 <p id="lobby-wait" class="online-status" data-i18n="waiting_host">بانتظار أن يبدأ المضيف...</p>
                 <button id="lobby-leave-btn" class="btn secondary-btn" type="button" data-i18n="leave">🚪 خروج</button>
@@ -445,6 +485,7 @@
     <script src="game/game-guidance.js"></script>
     <script src="game/game-config.js"></script>
     <script src="game/game-profile.js"></script>
+    <script src="game/game-catalog.js"></script>
     <script src="game/game-majlis.js"></script>
     <script src="game/game-authoritative.js"></script>
     <script src="game/game-online.js"></script>

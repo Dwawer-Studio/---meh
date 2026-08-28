@@ -7,6 +7,8 @@ const BACKUP_TABLES = [
     'accounts', 'account_sessions', 'majalis', 'majlis_memberships', 'majlis_invitations',
     'majlis_reminders', 'rooms', 'seats', 'request_idempotency', 'match_actions',
     'majlis_sessions', 'majlis_session_players', 'moderation_reports', 'audit_log',
+    'tamashi_wallets', 'card_unlocks', 'verified_iap_receipts', 'match_reward_settlements',
+    'tamashi_reward_cohorts', 'tamashi_reward_accounts', 'tamashi_ledger_entries',
     'deletion_tombstones',
 ];
 
@@ -398,11 +400,15 @@ class PostgresStore {
             await client.query(
                 `INSERT INTO rooms (room_id, room_code, mode, phase, rules_version, catalog_version,
                     deck_recipe_id, match_id, match_state, state_version, server_seq, created_at,
-                    last_activity_at, majlis_id)
-                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10,$11,$12,$13,$14)`,
+                    last_activity_at, majlis_id, base_recipe_id, recipe_contributions,
+                    recipe_snapshot, recipe_locked_at, match_participants)
+                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10,$11,$12,$13,$14,$15,$16::jsonb,$17::jsonb,$18,$19::jsonb)`,
                 [room.roomId, room.roomCode, room.mode, room.phase, room.rulesVersion, room.catalogVersion,
                     room.deckRecipeId, room.matchId || null, JSON.stringify(room.matchState || null), room.stateVersion,
-                    room.serverSeq, room.createdAt, room.lastActivityAt, room.majlisId || null],
+                    room.serverSeq, room.createdAt, room.lastActivityAt, room.majlisId || null,
+                    room.baseRecipeId || room.deckRecipeId, JSON.stringify(room.recipeContributions || []),
+                    JSON.stringify(room.recipeSnapshot || null), room.recipeLockedAt || null,
+                    JSON.stringify(room.matchParticipants || [])],
             );
             for (const seat of seats) await this._insertSeat(client, room.roomId, seat);
             await client.query('COMMIT');
@@ -456,6 +462,9 @@ class PostgresStore {
             rulesVersion: row.rules_version, catalogVersion: row.catalog_version,
             deckRecipeId: row.deck_recipe_id, matchId: row.match_id, matchState: row.match_state,
             majlisId: row.majlis_id,
+            baseRecipeId: row.base_recipe_id || row.deck_recipe_id,
+            recipeContributions: row.recipe_contributions || [], recipeSnapshot: row.recipe_snapshot || null,
+            recipeLockedAt: row.recipe_locked_at || null, matchParticipants: row.match_participants || [],
             stateVersion: Number(row.state_version), serverSeq: Number(row.server_seq),
             createdAt: row.created_at, lastActivityAt: row.last_activity_at, closedAt: row.closed_at,
         };
@@ -476,9 +485,15 @@ class PostgresStore {
             await client.query('BEGIN');
             await client.query(
                 `UPDATE rooms SET phase=$2, match_id=$3, match_state=$4::jsonb, state_version=$5,
-                    server_seq=$6, last_activity_at=$7, closed_at=$8 WHERE room_id=$1`,
+                    server_seq=$6, last_activity_at=$7, closed_at=$8, catalog_version=$9,
+                    deck_recipe_id=$10, base_recipe_id=$11, recipe_contributions=$12::jsonb,
+                    recipe_snapshot=$13::jsonb, recipe_locked_at=$14, match_participants=$15::jsonb
+                 WHERE room_id=$1`,
                 [room.roomId, room.phase, room.matchId || null, JSON.stringify(room.matchState || null),
-                    room.stateVersion, room.serverSeq, room.lastActivityAt, room.closedAt || null],
+                    room.stateVersion, room.serverSeq, room.lastActivityAt, room.closedAt || null,
+                    room.catalogVersion, room.deckRecipeId, room.baseRecipeId || room.deckRecipeId,
+                    JSON.stringify(room.recipeContributions || []), JSON.stringify(room.recipeSnapshot || null),
+                    room.recipeLockedAt || null, JSON.stringify(room.matchParticipants || [])],
             );
             await client.query('DELETE FROM seats WHERE room_id = $1', [room.roomId]);
             for (const seat of seats) await this._insertSeat(client, room.roomId, seat);
@@ -583,6 +598,393 @@ class PostgresStore {
             );
             await client.query('COMMIT');
             return { serverSeq };
+        } catch (error) {
+            await client.query('ROLLBACK');
+            throw error;
+        } finally {
+            client.release();
+        }
+    }
+
+    _wallet(row) {
+        return {
+            accountId: row.account_id,
+            balance: Number(row.balance),
+            lifetimeGameplay: Number(row.lifetime_gameplay),
+            lifetimePurchased: Number(row.lifetime_purchased),
+            lifetimeSpent: Number(row.lifetime_spent),
+            revision: Number(row.revision),
+            updatedAt: row.updated_at,
+        };
+    }
+
+    async getEconomyState(accountId) {
+        const [walletResult, unlockResult, ledgerResult] = await Promise.all([
+            this.pool.query(
+                `SELECT a.account_id, COALESCE(w.balance, 0)::bigint AS balance,
+                        COALESCE(w.lifetime_gameplay, 0)::bigint AS lifetime_gameplay,
+                        COALESCE(w.lifetime_purchased, 0)::bigint AS lifetime_purchased,
+                        COALESCE(w.lifetime_spent, 0)::bigint AS lifetime_spent,
+                        COALESCE(w.revision, 0)::bigint AS revision, w.updated_at
+                 FROM accounts a LEFT JOIN tamashi_wallets w ON w.account_id=a.account_id
+                 WHERE a.account_id=$1`,
+                [accountId],
+            ),
+            this.pool.query(
+                `SELECT account_id AS "accountId", definition_id AS "definitionId",
+                    acquired_with AS "acquiredWith", tamashi_price AS "tamashiPrice",
+                    unlocked_at AS "unlockedAt"
+                 FROM card_unlocks WHERE account_id=$1 ORDER BY unlocked_at DESC`, [accountId]),
+            this.pool.query(
+                `SELECT ledger_id AS "ledgerId", direction, amount, source_type AS "sourceType",
+                    definition_id AS "definitionId", created_at AS "createdAt"
+                 FROM tamashi_ledger_entries WHERE account_id=$1
+                 ORDER BY created_at DESC LIMIT 50`, [accountId]),
+        ]);
+        if (!walletResult.rows.length) throw new StoreConflict('ACCOUNT_NOT_FOUND');
+        return {
+            wallet: this._wallet(walletResult.rows[0]),
+            unlocks: unlockResult.rows.map(item => ({ ...item, tamashiPrice: Number(item.tamashiPrice) })),
+            ledger: ledgerResult.rows.map(item => ({ ...item, amount: Number(item.amount) })),
+        };
+    }
+
+    async hasCardUnlock(accountId, definitionId, catalogManifest) {
+        const definition = catalogManifest.definitions.find(item => item.definitionId === definitionId);
+        if (!definition) return false;
+        if (definition.availableByDefault === true) return true;
+        const result = await this.pool.query(
+            'SELECT 1 FROM card_unlocks WHERE account_id=$1 AND definition_id=$2',
+            [accountId, definitionId],
+        );
+        return result.rows.length > 0;
+    }
+
+    async getMatchRewardContext(roomId) {
+        const current = await this.getRoom(roomId);
+        if (!current) return null;
+        const [result, timedOut] = await Promise.all([
+            this.pool.query(
+            `SELECT account_id, count(*)::int AS action_count FROM match_actions
+             WHERE room_id=$1 AND match_id=$2 AND account_id IS NOT NULL GROUP BY account_id`,
+            [roomId, current.room.matchId],
+            ),
+            this.pool.query(
+                `SELECT DISTINCT action->>'actorId' AS seat_id FROM match_actions
+                 WHERE room_id=$1 AND match_id=$2 AND account_id IS NULL
+                    AND action->>'automatic'='true' AND action->>'actorId' IS NOT NULL`,
+                [roomId, current.room.matchId],
+            ),
+        ]);
+        return {
+            ...current,
+            actionCounts: Object.fromEntries(result.rows.map(item => [item.account_id, Number(item.action_count)])),
+            timedOutSeatIds: timedOut.rows.map(item => item.seat_id),
+        };
+    }
+
+    async settleGameplayRewards(input) {
+        const client = await this.pool.connect();
+        try {
+            await client.query('BEGIN');
+            const lockedRoom = await client.query(
+                'SELECT room_id FROM rooms WHERE room_id=$1 FOR UPDATE', [input.roomId]);
+            if (!lockedRoom.rows.length) throw new StoreConflict('ROOM_NOT_FOUND');
+            const existing = await client.query(
+                'SELECT * FROM match_reward_settlements WHERE match_id=$1 FOR UPDATE', [input.matchId]);
+            if (existing.rows.length) {
+                await client.query('COMMIT');
+                return {
+                    matchId: input.matchId,
+                    roomId: existing.rows[0].room_id,
+                    participantHash: existing.rows[0].participant_hash,
+                    status: existing.rows[0].reward_status,
+                    settledAt: existing.rows[0].settled_at,
+                    duplicate: true,
+                    grants: [],
+                };
+            }
+            let status = 'granted';
+            const grants = [];
+            if (!input.rewards.length) {
+                status = 'no_eligible_players';
+            } else {
+                const cohort = await client.query(
+                    `INSERT INTO tamashi_reward_cohorts (participant_hash, window_started_at, match_count)
+                     VALUES ($1,$2,1)
+                     ON CONFLICT (participant_hash) DO UPDATE SET
+                        window_started_at=CASE WHEN tamashi_reward_cohorts.window_started_at < $3
+                            THEN EXCLUDED.window_started_at ELSE tamashi_reward_cohorts.window_started_at END,
+                        match_count=CASE WHEN tamashi_reward_cohorts.window_started_at < $3
+                            THEN 1 ELSE tamashi_reward_cohorts.match_count + 1 END
+                     WHERE tamashi_reward_cohorts.window_started_at < $3
+                        OR tamashi_reward_cohorts.match_count < $4
+                     RETURNING match_count`,
+                    [input.participantHash, input.nowIso, input.cohortWindowStartedBefore, input.cohortCap],
+                );
+                if (!cohort.rows.length) {
+                    status = 'suppressed_group_cap';
+                } else {
+                    for (const reward of input.rewards) {
+                        const accountBucket = await client.query(
+                            `INSERT INTO tamashi_reward_accounts (account_id, bucket_date, match_count)
+                             VALUES ($1,$2,1)
+                             ON CONFLICT (account_id, bucket_date) DO UPDATE
+                                SET match_count=tamashi_reward_accounts.match_count + 1
+                             WHERE tamashi_reward_accounts.match_count < $3
+                             RETURNING match_count`,
+                            [reward.accountId, input.accountBucketDate, input.accountCap],
+                        );
+                        if (!accountBucket.rows.length) continue;
+                        await client.query(
+                            `INSERT INTO tamashi_wallets (account_id)
+                             SELECT account_id FROM accounts WHERE account_id=$1
+                             ON CONFLICT (account_id) DO NOTHING`, [reward.accountId]);
+                        const wallet = await client.query(
+                            `UPDATE tamashi_wallets SET balance=balance+$2,
+                                lifetime_gameplay=lifetime_gameplay+$2, revision=revision+1, updated_at=$3
+                             WHERE account_id=$1 RETURNING *`,
+                            [reward.accountId, reward.amount, input.nowIso],
+                        );
+                        if (!wallet.rows.length) throw new StoreConflict('ACCOUNT_NOT_FOUND');
+                        const balance = Number(wallet.rows[0].balance);
+                        const ledgerId = `ledger_${crypto.createHash('sha256')
+                            .update(`${input.matchId}:${reward.accountId}`).digest('hex').slice(0, 24)}`;
+                        await client.query(
+                            `INSERT INTO tamashi_ledger_entries (ledger_id, account_id, direction, amount,
+                                source_type, idempotency_key, balance_after, room_id, match_id,
+                                participant_hash, metadata, wallet_revision, created_at)
+                             VALUES ($1,$2,'credit',$3,'verified_gameplay',$4,$5,$6,$7,$8,$9::jsonb,$10,$11)`,
+                            [ledgerId, reward.accountId, reward.amount,
+                                `match_${input.matchId}_${reward.accountId}`, balance, input.roomId,
+                                input.matchId, input.participantHash, JSON.stringify({
+                                    healthyParticipation: reward.healthyParticipation,
+                                    won: reward.won,
+                                    actionCount: reward.actionCount,
+                                }), wallet.rows[0].revision, input.nowIso],
+                        );
+                        grants.push({ accountId: reward.accountId, amount: reward.amount, balance });
+                    }
+                    if (!grants.length) status = 'suppressed_account_cap';
+                }
+            }
+            await client.query(
+                `INSERT INTO match_reward_settlements
+                    (match_id, room_id, participant_hash, reward_status, settled_at)
+                 VALUES ($1,$2,$3,$4,$5)`,
+                [input.matchId, input.roomId, input.participantHash, status, input.nowIso],
+            );
+            await client.query('COMMIT');
+            return {
+                matchId: input.matchId, roomId: input.roomId, participantHash: input.participantHash,
+                status, settledAt: input.nowIso, duplicate: false, grants,
+            };
+        } catch (error) {
+            await client.query('ROLLBACK');
+            if (error.code === '23505') throw new StoreConflict('ECONOMY_CONFLICT');
+            throw error;
+        } finally {
+            client.release();
+        }
+    }
+
+    async purchaseCardUnlock(input) {
+        const client = await this.pool.connect();
+        try {
+            await client.query('BEGIN');
+            await client.query(
+                `INSERT INTO tamashi_wallets (account_id)
+                 SELECT account_id FROM accounts WHERE account_id=$1
+                 ON CONFLICT (account_id) DO NOTHING`, [input.accountId]);
+            const walletResult = await client.query(
+                'SELECT * FROM tamashi_wallets WHERE account_id=$1 FOR UPDATE', [input.accountId]);
+            if (!walletResult.rows.length) throw new StoreConflict('ACCOUNT_NOT_FOUND');
+            const unlocked = await client.query(
+                'SELECT * FROM card_unlocks WHERE account_id=$1 AND definition_id=$2',
+                [input.accountId, input.definitionId],
+            );
+            if (unlocked.rows.length) {
+                await client.query('COMMIT');
+                return { duplicate: true, wallet: this._wallet(walletResult.rows[0]) };
+            }
+            const idempotent = await client.query(
+                'SELECT 1 FROM tamashi_ledger_entries WHERE account_id=$1 AND idempotency_key=$2',
+                [input.accountId, input.idempotencyKey]);
+            if (idempotent.rows.length) throw new StoreConflict('IDEMPOTENCY_CONFLICT');
+            if (Number(walletResult.rows[0].balance) < input.price) throw new StoreConflict('INSUFFICIENT_TAMASHI');
+            const wallet = await client.query(
+                `UPDATE tamashi_wallets SET balance=balance-$2, lifetime_spent=lifetime_spent+$2,
+                    revision=revision+1, updated_at=$3 WHERE account_id=$1 RETURNING *`,
+                [input.accountId, input.price, input.nowIso]);
+            await client.query(
+                `INSERT INTO card_unlocks
+                    (account_id, definition_id, acquired_with, tamashi_price, unlocked_at)
+                 VALUES ($1,$2,'tamashi',$3,$4)`,
+                [input.accountId, input.definitionId, input.price, input.nowIso]);
+            await client.query(
+                `INSERT INTO tamashi_ledger_entries (ledger_id, account_id, direction, amount,
+                    source_type, idempotency_key, balance_after, definition_id, wallet_revision, created_at)
+                 VALUES ($1,$2,'debit',$3,'card_unlock',$4,$5,$6,$7,$8)`,
+                [input.ledgerId, input.accountId, input.price, input.idempotencyKey,
+                    wallet.rows[0].balance, input.definitionId, wallet.rows[0].revision, input.nowIso]);
+            await client.query('COMMIT');
+            return {
+                duplicate: false,
+                unlocked: {
+                    accountId: input.accountId, definitionId: input.definitionId,
+                    acquiredWith: 'tamashi', tamashiPrice: input.price, unlockedAt: input.nowIso,
+                },
+                wallet: this._wallet(wallet.rows[0]),
+            };
+        } catch (error) {
+            await client.query('ROLLBACK');
+            throw error;
+        } finally {
+            client.release();
+        }
+    }
+
+    async creditVerifiedPurchase(input) {
+        const client = await this.pool.connect();
+        try {
+            await client.query('BEGIN');
+            await client.query(
+                `INSERT INTO tamashi_wallets (account_id)
+                 SELECT account_id FROM accounts WHERE account_id=$1
+                 ON CONFLICT (account_id) DO NOTHING`, [input.accountId]);
+            const existingWallet = await client.query(
+                'SELECT * FROM tamashi_wallets WHERE account_id=$1 FOR UPDATE', [input.accountId]);
+            if (!existingWallet.rows.length) throw new StoreConflict('ACCOUNT_NOT_FOUND');
+            const receipt = await client.query(
+                `SELECT * FROM verified_iap_receipts
+                 WHERE provider=$1 AND provider_transaction_id=$2`,
+                [input.provider, input.providerTransactionId]);
+            if (receipt.rows.length) {
+                if (receipt.rows[0].account_id !== input.accountId
+                    || receipt.rows[0].product_sku !== input.productSku) {
+                    throw new StoreConflict('PURCHASE_ALREADY_CLAIMED');
+                }
+                await client.query('COMMIT');
+                return { duplicate: true, wallet: this._wallet(existingWallet.rows[0]) };
+            }
+            const idempotent = await client.query(
+                'SELECT 1 FROM tamashi_ledger_entries WHERE account_id=$1 AND idempotency_key=$2',
+                [input.accountId, input.idempotencyKey]);
+            if (idempotent.rows.length) throw new StoreConflict('IDEMPOTENCY_CONFLICT');
+            await client.query(
+                `INSERT INTO verified_iap_receipts (provider, provider_transaction_id, account_id,
+                    product_sku, tamashi_amount, receipt_hash, verified_at)
+                 VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+                [input.provider, input.providerTransactionId, input.accountId, input.productSku,
+                    input.amount, input.receiptHash, input.nowIso]);
+            const wallet = await client.query(
+                `UPDATE tamashi_wallets SET balance=balance+$2, lifetime_purchased=lifetime_purchased+$2,
+                    revision=revision+1, updated_at=$3 WHERE account_id=$1 RETURNING *`,
+                [input.accountId, input.amount, input.nowIso]);
+            await client.query(
+                `INSERT INTO tamashi_ledger_entries (ledger_id, account_id, direction, amount,
+                    source_type, idempotency_key, balance_after, provider, provider_transaction_id,
+                    wallet_revision, created_at)
+                 VALUES ($1,$2,'credit',$3,'verified_in_app_purchase',$4,$5,$6,$7,$8,$9)`,
+                [input.ledgerId, input.accountId, input.amount, input.idempotencyKey,
+                    wallet.rows[0].balance, input.provider, input.providerTransactionId,
+                    wallet.rows[0].revision, input.nowIso]);
+            await client.query('COMMIT');
+            return { duplicate: false, wallet: this._wallet(wallet.rows[0]) };
+        } catch (error) {
+            await client.query('ROLLBACK');
+            if (error.code === '23505') throw new StoreConflict('PURCHASE_ALREADY_CLAIMED');
+            throw error;
+        } finally {
+            client.release();
+        }
+    }
+
+    async creditCatchUp(input) {
+        const client = await this.pool.connect();
+        try {
+            await client.query('BEGIN');
+            await client.query(
+                `INSERT INTO tamashi_wallets (account_id)
+                 SELECT account_id FROM accounts WHERE account_id=$1
+                 ON CONFLICT (account_id) DO NOTHING`, [input.accountId]);
+            const current = await client.query(
+                'SELECT * FROM tamashi_wallets WHERE account_id=$1 FOR UPDATE', [input.accountId]);
+            if (!current.rows.length) throw new StoreConflict('ACCOUNT_NOT_FOUND');
+            const existing = await client.query(
+                `SELECT 1 FROM tamashi_ledger_entries
+                 WHERE account_id=$1 AND idempotency_key=$2`,
+                [input.accountId, input.idempotencyKey]);
+            if (existing.rows.length) {
+                await client.query('COMMIT');
+                return { duplicate: true, wallet: this._wallet(current.rows[0]) };
+            }
+            const wallet = await client.query(
+                `UPDATE tamashi_wallets SET balance=balance+$2, revision=revision+1, updated_at=$3
+                 WHERE account_id=$1 RETURNING *`, [input.accountId, input.amount, input.nowIso]);
+            await client.query(
+                `INSERT INTO tamashi_ledger_entries (ledger_id, account_id, direction, amount,
+                    source_type, idempotency_key, balance_after, wallet_revision, created_at)
+                 VALUES ($1,$2,'credit',$3,'catch_up_adjustment',$4,$5,$6,$7)`,
+                [input.ledgerId, input.accountId, input.amount, input.idempotencyKey,
+                    wallet.rows[0].balance, wallet.rows[0].revision, input.nowIso]);
+            await client.query('COMMIT');
+            return { duplicate: false, wallet: this._wallet(wallet.rows[0]) };
+        } catch (error) {
+            await client.query('ROLLBACK');
+            throw error;
+        } finally {
+            client.release();
+        }
+    }
+
+    async getEconomyReconciliationSnapshot() {
+        const client = await this.pool.connect();
+        try {
+            await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
+            const wallets = await client.query(
+            `SELECT account_id AS "accountId", balance, lifetime_gameplay AS "lifetimeGameplay",
+                    lifetime_purchased AS "lifetimePurchased", lifetime_spent AS "lifetimeSpent",
+                    revision, updated_at AS "updatedAt"
+             FROM tamashi_wallets ORDER BY account_id`,
+            );
+            const ledger = await client.query(
+            `SELECT ledger_id AS "ledgerId", account_id AS "accountId", direction, amount,
+                    source_type AS "sourceType", idempotency_key AS "idempotencyKey",
+                    balance_after AS "balanceAfter", room_id AS "roomId", match_id AS "matchId",
+                    definition_id AS "definitionId", provider,
+                    provider_transaction_id AS "providerTransactionId",
+                    participant_hash AS "participantHash", metadata,
+                    wallet_revision AS "walletRevision", created_at AS "createdAt"
+             FROM tamashi_ledger_entries ORDER BY ledger_id`,
+            );
+            const unlocks = await client.query(
+            `SELECT account_id AS "accountId", definition_id AS "definitionId",
+                    acquired_with AS "acquiredWith", tamashi_price AS "tamashiPrice",
+                    unlocked_at AS "unlockedAt"
+             FROM card_unlocks ORDER BY account_id, definition_id`,
+            );
+            const receipts = await client.query(
+            `SELECT provider, provider_transaction_id AS "providerTransactionId",
+                    account_id AS "accountId", product_sku AS "productSku",
+                    tamashi_amount AS "tamashiAmount", receipt_hash AS "receiptHash",
+                    verified_at AS "verifiedAt"
+             FROM verified_iap_receipts ORDER BY provider, provider_transaction_id`,
+            );
+            const settlements = await client.query(
+            `SELECT match_id AS "matchId", room_id AS "roomId",
+                    participant_hash AS "participantHash", reward_status AS status,
+                    settled_at AS "settledAt"
+             FROM match_reward_settlements ORDER BY match_id`,
+            );
+            await client.query('COMMIT');
+            return {
+                wallets: wallets.rows,
+                ledger: ledger.rows,
+                unlocks: unlocks.rows,
+                receipts: receipts.rows,
+                settlements: settlements.rows,
+            };
         } catch (error) {
             await client.query('ROLLBACK');
             throw error;

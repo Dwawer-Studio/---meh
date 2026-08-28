@@ -13,6 +13,12 @@ if (!window.MEH_SERVICE_URL && localServiceRequested
         majlis_session_score: true,
         majlis_schedule: true,
         safe_quick_chat: true,
+        card_catalog: true,
+        tamashi_wallet: true,
+        card_lab: true,
+        friendly_recipes: true,
+        verified_iap: false,
+        catalog_expansion: false,
         ...(window.MEH_FEATURE_FLAGS || {}),
     };
 }

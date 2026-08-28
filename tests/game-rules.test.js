@@ -159,6 +159,22 @@ test('RULE-01: the opening card is a normal card and the rejected candidates sta
     assert.deepEqual(game.deck.cards.map(card => card.id).sort(), ['power', 'wild']);
 });
 
+test('RULE-01: opening selection recovers when every normal card was dealt', () => {
+    const game = Object.create(MehGame.prototype);
+    const normal = { id: 'normal', type: 'normal' };
+    game.players = [{ hand: [normal] }, { hand: [] }, { hand: [] }, { hand: [] }];
+    game.deck = {
+        cards: [{ id: 'power', type: 'skip' }, { id: 'wild', type: 'wild' }],
+        draw() { return this.cards.length ? this.cards.pop() : null; },
+    };
+
+    const initial = game.drawInitialCard();
+
+    assert.equal(initial.id, 'normal');
+    assert.equal(game.players[0].hand.length, 1);
+    assert.equal(game.deck.cards.length, 1);
+});
+
 test('RULE-02: every actor uses the same explicit response set for a pending draw', () => {
     const game = Object.create(MehGame.prototype);
     const allowed = ['draw2', 'draw4Wild', 'meh', 'counterAttack', 'phantom'];

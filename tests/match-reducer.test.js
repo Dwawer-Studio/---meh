@@ -43,6 +43,15 @@ test('shared reducer creates the locked 60-card recipe deterministically', () =>
     MatchReducer.assertCardConservation(first);
 });
 
+test('shared reducer recovers when every normal opening card was dealt', () => {
+    const first = create(80_736);
+    const second = create(80_736);
+    assert.equal(first.discard[0].type, 'normal');
+    assert.ok(first.players.every(player => player.hand.length === 7));
+    assert.equal(MatchReducer.fingerprint(first), MatchReducer.fingerprint(second));
+    MatchReducer.assertCardConservation(first);
+});
+
 test('rejected actions do not mutate or advance authoritative state', () => {
     const state = create(9, false);
     const before = JSON.stringify(state);

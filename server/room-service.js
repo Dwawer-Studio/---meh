@@ -1,6 +1,7 @@
 'use strict';
 
 const crypto = require('node:crypto');
+const { CatalogError, CatalogRegistry, compileFriendlyRecipe } = require('../catalog/catalog-registry');
 const { MatchReducer } = require('../shared/match-reducer');
 const { MEH_CORE_MANIFEST, MEH_CATALOG_MANIFEST } = require('../game/game-manifests');
 const { planBotAction } = require('./bot-policy');
@@ -26,6 +27,12 @@ class RoomService {
         this.reducer = options.reducer || MatchReducer;
         this.coreManifest = options.coreManifest || MEH_CORE_MANIFEST;
         this.catalogManifest = options.catalogManifest || MEH_CATALOG_MANIFEST;
+        this.catalogRegistry = options.catalogRegistry || new CatalogRegistry({
+            coreManifest: this.coreManifest,
+            catalogManifest: this.catalogManifest,
+        });
+        this.catalogManifest = this.catalogRegistry.current();
+        this.friendlyRecipesEnabled = options.friendlyRecipesEnabled === true;
         this.pepper = options.pepper || '';
         this.now = options.now || Date.now;
         this.metrics = options.metrics || null;
@@ -54,17 +61,24 @@ class RoomService {
             }
             const active = await this.store.findActiveMajlisRoom(majlisId);
             if (active && active.room.phase === 'FORMING') {
-                return this.joinRoom(active.room.roomCode, account, connectionSessionId, options.clientSeq || 0);
+                return this.joinRoom(
+                    active.room.roomCode, account, connectionSessionId, options.clientSeq || 0,
+                    options.catalogCapability,
+                );
             }
             if (active) throw new RoomError('MAJLIS_SESSION_ACTIVE');
         }
         const nowIso = new Date(this.now()).toISOString();
         for (let attempt = 0; attempt < 8; attempt++) {
+            const catalogManifest = this.catalogRegistry.current();
             const room = {
                 roomId: randomId('room'), roomCode: this._roomCode(), mode,
                 phase: 'FORMING', rulesVersion: this.coreManifest.rulesVersion,
-                catalogVersion: this.catalogManifest.catalogVersion,
-                deckRecipeId: this.catalogManifest.activeRecipeId, matchId: null,
+                catalogVersion: catalogManifest.catalogVersion,
+                deckRecipeId: catalogManifest.activeRecipeId, matchId: null,
+                baseRecipeId: catalogManifest.activeRecipeId,
+                recipeContributions: [], recipeSnapshot: null, recipeLockedAt: null,
+                matchParticipants: [],
                 majlisId,
                 matchState: null, stateVersion: 0, serverSeq: 0,
                 createdAt: nowIso, lastActivityAt: nowIso, closedAt: null,
@@ -73,6 +87,7 @@ class RoomService {
             const seats = [issued.seat];
             for (let index = 1; index < 4; index++) seats.push(this._botSeat(index));
             try {
+                this._assertClientCapability(room, options.catalogCapability);
                 await this.store.createRoom(room, seats);
                 if (mode === 'quick') await this.startMatch(room.roomId, connectionSessionId);
                 const created = await this.store.getRoom(room.roomId);
@@ -90,6 +105,7 @@ class RoomService {
                     if (active && active.room.phase === 'FORMING') {
                         return this.joinRoom(
                             active.room.roomCode, account, connectionSessionId, options.clientSeq || 0,
+                            options.catalogCapability,
                         );
                     }
                     throw new RoomError('MAJLIS_SESSION_ACTIVE');
@@ -100,7 +116,7 @@ class RoomService {
         throw new RoomError('ROOM_CODE_EXHAUSTED');
     }
 
-    async joinRoom(roomCode, account, connectionSessionId, clientSeq = 0) {
+    async joinRoom(roomCode, account, connectionSessionId, clientSeq = 0, catalogCapability = null) {
         const normalized = typeof roomCode === 'string' ? roomCode.trim().toUpperCase() : '';
         if (!/^[A-HJ-NP-Z2-9]{5}$/.test(normalized)) throw new RoomError('BAD_ROOM_CODE');
         const found = await this.store.findRoomByCode(normalized);
@@ -108,6 +124,7 @@ class RoomService {
         return this.serial.run(found.room.roomId, async () => {
             const current = await this.store.getRoom(found.room.roomId);
             if (!current || current.room.phase !== 'FORMING') throw new RoomError('ROOM_STARTED');
+            this._assertClientCapability(current.room, catalogCapability);
             if (current.room.majlisId) {
                 let authorized = false;
                 try {
@@ -135,6 +152,65 @@ class RoomService {
                 seatId: issued.seat.seatId,
                 recoveryToken: issued.recoveryToken,
             };
+        });
+    }
+
+    async setRecipeContribution(roomId, connectionSessionId, input = {}) {
+        if (!this.friendlyRecipesEnabled) throw new RoomError('FRIENDLY_RECIPES_DISABLED');
+        return this.serial.run(roomId, async () => {
+            const current = await this.store.getRoom(roomId);
+            if (!current || current.room.phase !== 'FORMING' || current.room.mode !== 'private') {
+                throw new RoomError('FRIENDLY_RECIPE_UNAVAILABLE');
+            }
+            const seat = current.seats.find(item => item.connectionSessionId === connectionSessionId
+                && item.status === 'CONNECTED' && !item.isBot);
+            if (!seat || !seat.accountId) throw new RoomError('SEAT_NOT_CONNECTED');
+            const existing = Array.isArray(current.room.recipeContributions)
+                ? current.room.recipeContributions.filter(item => item.seatId !== seat.seatId)
+                : [];
+            if (input.definitionId !== null && input.definitionId !== undefined) {
+                if (typeof input.definitionId !== 'string' || typeof input.replacesDefinitionId !== 'string') {
+                    throw new RoomError('BAD_RECIPE_CONTRIBUTION');
+                }
+                if (!this.catalogRegistry.isDefinitionEnabled(input.definitionId)) {
+                    throw new RoomError('CARD_CONTENT_DISABLED');
+                }
+                const unlocked = await this.store.hasCardUnlock(
+                    seat.accountId, input.definitionId, this.catalogRegistry.current(),
+                );
+                if (!unlocked && !this.catalogRegistry.isInFreeRotation(input.definitionId)) {
+                    throw new RoomError('CARD_NOT_UNLOCKED');
+                }
+                existing.push({
+                    seatId: seat.seatId,
+                    definitionId: input.definitionId,
+                    replacesDefinitionId: input.replacesDefinitionId,
+                });
+            }
+            let recipe;
+            try {
+                recipe = compileFriendlyRecipe(
+                    this.catalogRegistry.current(), current.room.baseRecipeId, existing,
+                );
+            } catch (error) {
+                if (error instanceof CatalogError) throw new RoomError(error.code);
+                throw error;
+            }
+            current.room.recipeContributions = existing;
+            current.room.recipeSnapshot = recipe.recipeId === current.room.baseRecipeId ? null : recipe;
+            current.room.deckRecipeId = recipe.recipeId;
+            current.room.recipeLockedAt = null;
+            current.seats.forEach(item => { if (!item.isBot) item.ready = false; });
+            current.room.serverSeq++;
+            current.room.lastActivityAt = new Date(this.now()).toISOString();
+            await this.store.updateRoomAndSeats(current.room, current.seats);
+            this._metric('catalog.recipe_contribution', { action: input.definitionId ? 'set' : 'clear' });
+            await this._audit('catalog.recipe_contribution', seat.accountId, roomId, {
+                definitionId: input.definitionId || null,
+                replacesDefinitionId: input.replacesDefinitionId || null,
+                recipeId: recipe.recipeId,
+            });
+            return this._views(current.room, current.seats);
         });
     }
 
@@ -286,6 +362,17 @@ class RoomService {
             if (index < 0) return false;
             const old = current.seats[index];
             current.seats[index] = { ...this._botSeat(old.seatIndex), seatId: old.seatId };
+            if (current.room.phase === 'FORMING' && Array.isArray(current.room.recipeContributions)) {
+                current.room.recipeContributions = current.room.recipeContributions
+                    .filter(item => item.seatId !== old.seatId);
+                const recipe = compileFriendlyRecipe(
+                    this.catalogRegistry.current(), current.room.baseRecipeId,
+                    current.room.recipeContributions,
+                );
+                current.room.recipeSnapshot = recipe.recipeId === current.room.baseRecipeId ? null : recipe;
+                current.room.deckRecipeId = recipe.recipeId;
+                current.seats.forEach(item => { if (!item.isBot) item.ready = false; });
+            }
             current.room.serverSeq++;
             current.room.lastActivityAt = new Date(this.now()).toISOString();
             await this.store.updateRoomAndSeats(current.room, current.seats);
@@ -296,11 +383,12 @@ class RoomService {
         });
     }
 
-    async resume(roomCode, recoveryToken, account, connectionSessionId, clientSeq) {
+    async resume(roomCode, recoveryToken, account, connectionSessionId, clientSeq, catalogCapability = null) {
         const found = await this.store.findRoomByCode(String(roomCode || '').toUpperCase());
         if (!found) throw new RoomError('ROOM_NOT_FOUND');
         return this.serial.run(found.room.roomId, async () => {
             const current = await this.store.getRoom(found.room.roomId);
+            this._assertClientCapability(current.room, catalogCapability);
             const suppliedHash = hashSecret(recoveryToken, this.pepper);
             const seat = current.seats.find(item => item.accountId === account.accountId
                 && item.leaseTokenHash && safeEqual(item.leaseTokenHash, suppliedHash));
@@ -383,11 +471,11 @@ class RoomService {
     }
 
     async _recordCompleted(current) {
-        if (!current.room.majlisId || !current.room.matchId || !current.room.matchState) return null;
+        if (!current.room.matchId || !current.room.matchState) return null;
         try {
             return await this.onMatchCompleted(current.room.roomId);
         } catch (error) {
-            this._metric('majlis.session_record_error', { code: error.code || 'UNKNOWN' });
+            this._metric('match.completion_side_effect_error', { code: error.code || 'UNKNOWN' });
             return null;
         }
     }
@@ -399,17 +487,27 @@ class RoomService {
         }
         const seed = crypto.randomBytes(4).readUInt32BE(0);
         const matchId = randomId('match');
+        if ((current.room.recipeContributions || []).some(
+            item => !this.catalogRegistry.isDefinitionEnabled(item.definitionId),
+        )) throw new RoomError('CARD_CONTENT_DISABLED');
         current.seats.forEach(seat => { seat.ready = false; });
+        const catalogManifest = this.catalogRegistry.manifestForRoom(current.room);
         const matchState = this.reducer.createMatch({
             seed, matchId,
             coreManifest: this.coreManifest,
-            catalogManifest: this.catalogManifest,
+            catalogManifest,
             deckRecipeId: current.room.deckRecipeId,
             players: current.seats.map(seat => ({ id: seat.seatId, isBot: seat.isBot })),
         });
         current.room.phase = 'IN_MATCH';
         current.room.matchId = matchId;
         current.room.matchState = matchState;
+        current.room.recipeLockedAt = new Date(this.now()).toISOString();
+        current.room.matchParticipants = current.seats.map(seat => ({
+            seatId: seat.seatId,
+            accountId: seat.accountId || null,
+            isBot: seat.isBot === true,
+        }));
         current.room.stateVersion = matchState.stateVersion;
         current.room.serverSeq++;
         current.room.lastActivityAt = new Date(this.now()).toISOString();
@@ -465,6 +563,16 @@ class RoomService {
             roomId: room.roomId, roomCode: room.roomCode, mode: room.mode, phase: room.phase,
             rulesVersion: room.rulesVersion, catalogVersion: room.catalogVersion,
             deckRecipeId: room.deckRecipeId, matchId: room.matchId, majlisId: room.majlisId || null,
+            recipe: {
+                baseRecipeId: room.baseRecipeId || room.deckRecipeId,
+                recipeId: room.deckRecipeId,
+                locked: !!room.recipeLockedAt,
+                contributions: (room.recipeContributions || []).map(item => ({
+                    seatId: item.seatId,
+                    definitionId: item.definitionId,
+                    replacesDefinitionId: item.replacesDefinitionId,
+                })),
+            },
         };
         const analyticsGroupToken = room.majlisId && this.analyticsToken(room.majlisId, 'majlis');
         const analyticsMatchToken = room.matchId && this.analyticsToken(room.matchId, 'match');
@@ -485,6 +593,15 @@ class RoomService {
         let code = '';
         for (let index = 0; index < 5; index++) code += ROOM_CODE_ALPHABET[bytes[index] % ROOM_CODE_ALPHABET.length];
         return code;
+    }
+
+    _assertClientCapability(room, capability) {
+        try {
+            this.catalogRegistry.assertClientCapability(room, capability);
+        } catch (error) {
+            if (error instanceof CatalogError) throw new RoomError(error.code);
+            throw error;
+        }
     }
 
     _metric(name, labels = {}, amount = 1) {

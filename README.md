@@ -94,7 +94,9 @@ npm run check
 و`npm run check:assets`. بوابات P2 المنفصلة هي `npm run test:p2`،
 و`npm run test:p2:replay`، و`npm run test:p2:load`،
 و`npm run test:p2:network-load`، و`npm run test:p2:recovery`. وبوابتا P3 هما
-`npm run test:p3` و`npm run test:p3:load`. ولإعادة
+`npm run test:p3` و`npm run test:p3:load`. وبوابات P4 هي
+`npm run test:p4`، و`npm run test:p4:simulation` لمحاكاة 100 ألف مباراة،
+و`npm run test:p4:economy` لمعايرة نموذج تاماشي. ولإعادة
 الاختبار من لقطة مؤقتة بلا `node_modules` مسبق:
 
 ```bash
@@ -125,7 +127,12 @@ npm run check:clean
 `docs/THREAT-MODEL-P2.md`. وتنفيذ المجلس العائد P3 موثق في
 `docs/PHASE-P3-RETURNING-MAJLIS.md`، وخطة تجاربه في `docs/P3-EXPERIMENT-PLAN.md`،
 وتشغيل البلاغات في `docs/P3-MODERATION-RUNBOOK.md`، ونموذج تهديده في
-`docs/THREAT-MODEL-P3.md`.
+`docs/THREAT-MODEL-P3.md`. وتنفيذ كتالوج البطاقات وتاماشي P4 موثق في
+`docs/PHASE-P4-CARD-CATALOG.md`، وعقد تأليف البطاقة في
+`docs/P4-CARD-AUTHORING-CONTRACT.md`، وتشغيل الاقتصاد في
+`docs/P4-TAMASHI-OPERATIONS.md`، والطرح والرجوع في
+`docs/P4-CATALOG-ROLLOUT-ROLLBACK.md`، ونموذج التهديد في
+`docs/THREAT-MODEL-P4.md`.
 والاختبارات البشرية والميدانية المؤجلة بقرار مالك المنتج مجمعة في
 `docs/DEFERRED-VALIDATION-REGISTER.md`.
 

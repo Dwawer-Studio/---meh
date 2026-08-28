@@ -23,9 +23,19 @@ const P3_RELEASE_DEFAULTS = Object.freeze({
     safe_quick_chat: false,
 });
 
+const P4_RELEASE_DEFAULTS = Object.freeze({
+    card_catalog: false,
+    tamashi_wallet: false,
+    card_lab: false,
+    friendly_recipes: false,
+    verified_iap: false,
+    catalog_expansion: false,
+});
+
 window.MEH_FEATURE_FLAGS = Object.freeze({
     ...P1_RELEASE_DEFAULTS,
     ...P2_RELEASE_DEFAULTS,
     ...P3_RELEASE_DEFAULTS,
+    ...P4_RELEASE_DEFAULTS,
     ...(window.MEH_FEATURE_FLAGS || {}),
 });

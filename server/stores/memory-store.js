@@ -30,6 +30,13 @@ class MemoryStore {
         this.actions = [];
         this.audit = [];
         this.tombstones = new Map();
+        this.tamashiWallets = new Map();
+        this.tamashiLedger = [];
+        this.cardUnlocks = new Map();
+        this.verifiedIapReceipts = new Map();
+        this.matchRewardSettlements = new Map();
+        this.rewardCohorts = new Map();
+        this.rewardAccounts = new Map();
     }
 
     async createAccount(account) {
@@ -380,6 +387,204 @@ class MemoryStore {
         return { serverSeq: room.serverSeq };
     }
 
+    _wallet(accountId, nowIso = new Date().toISOString()) {
+        let wallet = this.tamashiWallets.get(accountId);
+        if (!wallet) {
+            wallet = {
+                accountId, balance: 0, lifetimeGameplay: 0, lifetimePurchased: 0,
+                lifetimeSpent: 0, revision: 0, updatedAt: nowIso,
+            };
+            this.tamashiWallets.set(accountId, wallet);
+        }
+        return wallet;
+    }
+
+    _ledgerByIdempotency(accountId, idempotencyKey) {
+        return this.tamashiLedger.find(item => item.accountId === accountId
+            && item.idempotencyKey === idempotencyKey) || null;
+    }
+
+    _creditWallet(input) {
+        const wallet = this._wallet(input.accountId, input.nowIso);
+        wallet.balance += input.amount;
+        wallet.revision++;
+        wallet.updatedAt = input.nowIso;
+        if (input.sourceType === 'verified_gameplay') wallet.lifetimeGameplay += input.amount;
+        if (input.sourceType === 'verified_in_app_purchase') wallet.lifetimePurchased += input.amount;
+        this.tamashiLedger.push({
+            ledgerId: input.ledgerId, accountId: input.accountId, direction: 'credit', amount: input.amount,
+            sourceType: input.sourceType, idempotencyKey: input.idempotencyKey,
+            balanceAfter: wallet.balance, roomId: input.roomId || null, matchId: input.matchId || null,
+            definitionId: input.definitionId || null,
+            provider: input.provider || null,
+            providerTransactionId: input.providerTransactionId || null,
+            participantHash: input.participantHash || null, metadata: copy(input.metadata || {}),
+            walletRevision: wallet.revision,
+            createdAt: input.nowIso,
+        });
+        return wallet;
+    }
+
+    async getEconomyState(accountId) {
+        if (!this.accounts.has(accountId)) throw new StoreConflict('ACCOUNT_NOT_FOUND');
+        const storedWallet = this.tamashiWallets.get(accountId);
+        const wallet = copy(storedWallet || {
+            accountId, balance: 0, lifetimeGameplay: 0, lifetimePurchased: 0,
+            lifetimeSpent: 0, revision: 0, updatedAt: null,
+        });
+        const unlocks = [...this.cardUnlocks.values()].filter(item => item.accountId === accountId)
+            .sort((left, right) => right.unlockedAt.localeCompare(left.unlockedAt));
+        const ledger = this.tamashiLedger.filter(item => item.accountId === accountId)
+            .sort((left, right) => right.createdAt.localeCompare(left.createdAt)).slice(0, 50);
+        return { wallet, unlocks: copy(unlocks), ledger: copy(ledger) };
+    }
+
+    async hasCardUnlock(accountId, definitionId, catalogManifest) {
+        const definition = catalogManifest.definitions.find(item => item.definitionId === definitionId);
+        return !!definition && (definition.availableByDefault === true
+            || this.cardUnlocks.has(`${accountId}:${definitionId}`));
+    }
+
+    async getMatchRewardContext(roomId) {
+        const current = await this.getRoom(roomId);
+        if (!current) return null;
+        const actionCounts = {};
+        const timedOutSeatIds = new Set();
+        for (const action of this.actions) {
+            if (action.roomId !== roomId || action.matchId !== current.room.matchId) continue;
+            if (action.accountId) {
+                actionCounts[action.accountId] = Number(actionCounts[action.accountId] || 0) + 1;
+            } else if (action.action && action.action.automatic === true
+                && typeof action.action.actorId === 'string') {
+                timedOutSeatIds.add(action.action.actorId);
+            }
+        }
+        return { ...current, actionCounts, timedOutSeatIds: [...timedOutSeatIds] };
+    }
+
+    async settleGameplayRewards(input) {
+        const existing = this.matchRewardSettlements.get(input.matchId);
+        if (existing) return copy({ ...existing, duplicate: true, grants: [] });
+        let cohort = this.rewardCohorts.get(input.participantHash);
+        if (!cohort || cohort.windowStartedAt < input.cohortWindowStartedBefore) {
+            cohort = { participantHash: input.participantHash, windowStartedAt: input.nowIso, matchCount: 0 };
+        }
+        let status = 'granted';
+        const grants = [];
+        if (!input.rewards.length) {
+            status = 'no_eligible_players';
+        } else if (cohort.matchCount >= input.cohortCap) {
+            status = 'suppressed_group_cap';
+        } else {
+            cohort.matchCount++;
+            this.rewardCohorts.set(input.participantHash, cohort);
+            for (const reward of input.rewards) {
+                const bucketKey = `${reward.accountId}:${input.accountBucketDate}`;
+                const count = Number(this.rewardAccounts.get(bucketKey) || 0);
+                if (count >= input.accountCap) continue;
+                this.rewardAccounts.set(bucketKey, count + 1);
+                const wallet = this._creditWallet({
+                    accountId: reward.accountId,
+                    amount: reward.amount,
+                    sourceType: 'verified_gameplay',
+                    idempotencyKey: `match_${input.matchId}_${reward.accountId}`,
+                    ledgerId: randomLedgerId(input.matchId, reward.accountId),
+                    roomId: input.roomId,
+                    matchId: input.matchId,
+                    participantHash: input.participantHash,
+                    metadata: {
+                        healthyParticipation: reward.healthyParticipation,
+                        won: reward.won,
+                        actionCount: reward.actionCount,
+                    },
+                    nowIso: input.nowIso,
+                });
+                grants.push({ accountId: reward.accountId, amount: reward.amount, balance: wallet.balance });
+            }
+            if (!grants.length) status = 'suppressed_account_cap';
+        }
+        const settlement = {
+            matchId: input.matchId, roomId: input.roomId, participantHash: input.participantHash,
+            status, settledAt: input.nowIso,
+        };
+        this.matchRewardSettlements.set(input.matchId, settlement);
+        return copy({ ...settlement, duplicate: false, grants });
+    }
+
+    async purchaseCardUnlock(input) {
+        if (!this.accounts.has(input.accountId)) throw new StoreConflict('ACCOUNT_NOT_FOUND');
+        const unlockKey = `${input.accountId}:${input.definitionId}`;
+        const wallet = this._wallet(input.accountId, input.nowIso);
+        if (this.cardUnlocks.has(unlockKey)) {
+            return { duplicate: true, unlocked: copy(this.cardUnlocks.get(unlockKey)), wallet: copy(wallet) };
+        }
+        const previous = this._ledgerByIdempotency(input.accountId, input.idempotencyKey);
+        if (previous) throw new StoreConflict('IDEMPOTENCY_CONFLICT');
+        if (wallet.balance < input.price) throw new StoreConflict('INSUFFICIENT_TAMASHI');
+        wallet.balance -= input.price;
+        wallet.lifetimeSpent += input.price;
+        wallet.revision++;
+        wallet.updatedAt = input.nowIso;
+        const unlocked = {
+            accountId: input.accountId, definitionId: input.definitionId, acquiredWith: 'tamashi',
+            tamashiPrice: input.price, unlockedAt: input.nowIso,
+        };
+        this.cardUnlocks.set(unlockKey, unlocked);
+        this.tamashiLedger.push({
+            ledgerId: input.ledgerId, accountId: input.accountId, direction: 'debit', amount: input.price,
+            sourceType: 'card_unlock', idempotencyKey: input.idempotencyKey,
+            balanceAfter: wallet.balance, roomId: null, matchId: null,
+            definitionId: input.definitionId, providerTransactionId: null, participantHash: null,
+            provider: null, metadata: {}, walletRevision: wallet.revision, createdAt: input.nowIso,
+        });
+        return { duplicate: false, unlocked: copy(unlocked), wallet: copy(wallet) };
+    }
+
+    async creditVerifiedPurchase(input) {
+        if (!this.accounts.has(input.accountId)) throw new StoreConflict('ACCOUNT_NOT_FOUND');
+        const receiptKey = `${input.provider}:${input.providerTransactionId}`;
+        const receipt = this.verifiedIapReceipts.get(receiptKey);
+        if (receipt) {
+            if (receipt.accountId !== input.accountId || receipt.productSku !== input.productSku) {
+                throw new StoreConflict('PURCHASE_ALREADY_CLAIMED');
+            }
+            return { duplicate: true, wallet: copy(this._wallet(input.accountId, input.nowIso)) };
+        }
+        if (this._ledgerByIdempotency(input.accountId, input.idempotencyKey)) {
+            throw new StoreConflict('IDEMPOTENCY_CONFLICT');
+        }
+        this.verifiedIapReceipts.set(receiptKey, {
+            provider: input.provider, providerTransactionId: input.providerTransactionId,
+            accountId: input.accountId, productSku: input.productSku, tamashiAmount: input.amount,
+            receiptHash: input.receiptHash, verifiedAt: input.nowIso,
+        });
+        const wallet = this._creditWallet({
+            ...input,
+            sourceType: 'verified_in_app_purchase',
+            provider: input.provider,
+            providerTransactionId: input.providerTransactionId,
+        });
+        return { duplicate: false, wallet: copy(wallet) };
+    }
+
+    async creditCatchUp(input) {
+        if (!this.accounts.has(input.accountId)) throw new StoreConflict('ACCOUNT_NOT_FOUND');
+        const existing = this._ledgerByIdempotency(input.accountId, input.idempotencyKey);
+        if (existing) return { duplicate: true, wallet: copy(this._wallet(input.accountId, input.nowIso)) };
+        const wallet = this._creditWallet({ ...input, sourceType: 'catch_up_adjustment' });
+        return { duplicate: false, wallet: copy(wallet) };
+    }
+
+    async getEconomyReconciliationSnapshot() {
+        return copy({
+            wallets: [...this.tamashiWallets.values()],
+            ledger: this.tamashiLedger,
+            unlocks: [...this.cardUnlocks.values()],
+            receipts: [...this.verifiedIapReceipts.values()],
+            settlements: [...this.matchRewardSettlements.values()],
+        });
+    }
+
     async appendAudit(entry) {
         this.audit.push({ auditId: this.audit.length + 1, ...copy(entry) });
     }
@@ -411,6 +616,13 @@ class MemoryStore {
         }
         for (const action of this.actions) if (action.accountId === accountId) action.accountId = null;
         for (const event of this.audit) if (event.accountId === accountId) event.accountId = null;
+        this.tamashiWallets.delete(accountId);
+        for (const key of [...this.cardUnlocks.keys()]) if (key.startsWith(`${accountId}:`)) this.cardUnlocks.delete(key);
+        for (const key of [...this.rewardAccounts.keys()]) if (key.startsWith(`${accountId}:`)) this.rewardAccounts.delete(key);
+        for (const entry of this.tamashiLedger) if (entry.accountId === accountId) entry.accountId = null;
+        for (const receipt of this.verifiedIapReceipts.values()) {
+            if (receipt.accountId === accountId) receipt.accountId = null;
+        }
         this.tombstones.set(tombstone.subjectHash, copy(tombstone));
         this.audit.push({ auditId: this.audit.length + 1, eventType: 'account.deleted', createdAt: nowIso });
         return true;
@@ -488,6 +700,13 @@ class MemoryStore {
             actions: this.actions,
             audit: this.audit,
             tombstones: [...this.tombstones.values()],
+            tamashiWallets: [...this.tamashiWallets.values()],
+            tamashiLedger: this.tamashiLedger,
+            cardUnlocks: [...this.cardUnlocks.values()],
+            verifiedIapReceipts: [...this.verifiedIapReceipts.values()],
+            matchRewardSettlements: [...this.matchRewardSettlements.values()],
+            rewardCohorts: [...this.rewardCohorts.values()],
+            rewardAccounts: [...this.rewardAccounts.entries()],
         };
         const serialized = JSON.stringify(payload);
         return {
@@ -522,6 +741,17 @@ class MemoryStore {
         this.actions = payload.actions;
         this.audit = payload.audit;
         this.tombstones = new Map(payload.tombstones.map(item => [item.subjectHash, item]));
+        this.tamashiWallets = new Map((payload.tamashiWallets || []).map(item => [item.accountId, item]));
+        this.tamashiLedger = payload.tamashiLedger || [];
+        this.cardUnlocks = new Map((payload.cardUnlocks || [])
+            .map(item => [`${item.accountId}:${item.definitionId}`, item]));
+        this.verifiedIapReceipts = new Map((payload.verifiedIapReceipts || [])
+            .map(item => [`${item.provider}:${item.providerTransactionId}`, item]));
+        this.matchRewardSettlements = new Map((payload.matchRewardSettlements || [])
+            .map(item => [item.matchId, item]));
+        this.rewardCohorts = new Map((payload.rewardCohorts || [])
+            .map(item => [item.participantHash, item]));
+        this.rewardAccounts = new Map(payload.rewardAccounts || []);
         return true;
     }
 
@@ -538,8 +768,17 @@ class MemoryStore {
             seats: [...this.seats.values()].reduce((sum, seats) => sum + seats.length, 0),
             actions: this.actions.length,
             tombstones: this.tombstones.size,
+            tamashiWallets: this.tamashiWallets.size,
+            tamashiLedger: this.tamashiLedger.length,
+            cardUnlocks: this.cardUnlocks.size,
+            verifiedIapReceipts: this.verifiedIapReceipts.size,
+            matchRewardSettlements: this.matchRewardSettlements.size,
         };
     }
 }
 
 module.exports = { MemoryStore, StoreConflict };
+
+function randomLedgerId(matchId, accountId) {
+    return `ledger_${crypto.createHash('sha256').update(`${matchId}:${accountId}`).digest('hex').slice(0, 24)}`;
+}

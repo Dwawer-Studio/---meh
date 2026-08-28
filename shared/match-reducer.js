@@ -176,10 +176,29 @@ const MatchReducer = (() => {
         for (let round = 0; round < core.initialHandSize; round++) {
             for (const player of state.players) player.hand.push(state.deck.pop());
         }
-        let opening = state.deck.pop();
-        while (opening && opening.type !== core.openingCardType) {
-            state.deck.unshift(opening);
-            opening = state.deck.pop();
+        let opening = null;
+        const openingAttempts = state.deck.length;
+        for (let attempt = 0; attempt < openingAttempts; attempt++) {
+            const candidate = state.deck.pop();
+            if (candidate.type === core.openingCardType) {
+                opening = candidate;
+                break;
+            }
+            state.deck.unshift(candidate);
+        }
+        // A valid recipe contains an opening card, but a rare shuffle can deal
+        // every one of them into player hands. Swap one back into the deck so
+        // the locked "normal opening" rule cannot spin forever.
+        if (!opening) {
+            const owner = state.players.find(player => player.hand.some(
+                card => card.type === core.openingCardType,
+            ));
+            const index = owner && owner.hand.findIndex(card => card.type === core.openingCardType);
+            if (owner && index >= 0) {
+                opening = owner.hand.splice(index, 1)[0];
+                const replacement = state.deck.pop();
+                if (replacement) owner.hand.push(replacement);
+            }
         }
         if (!opening) throw new ReducerError('NO_OPENING_CARD');
         state.discard.push(opening);

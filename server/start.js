@@ -1,6 +1,8 @@
 'use strict';
 
+const fs = require('node:fs');
 const { Pool } = require('pg');
+const { MAX_CATALOG_BYTES } = require('../catalog/catalog-registry');
 const { runMigrations } = require('./migration-runner');
 const { RealtimeRuntime } = require('./runtime');
 const { MemoryStore } = require('./stores/memory-store');
@@ -30,6 +32,19 @@ async function main() {
     }
     const allowedOrigins = String(process.env.MEH_ALLOWED_ORIGINS || 'http://127.0.0.1:4173')
         .split(',').map(value => value.trim()).filter(Boolean);
+    const catalogExpansionEnabled = process.env.MEH_CATALOG_EXPANSION === 'true';
+    const catalogEnvelopePath = process.env.MEH_CATALOG_ENVELOPE_PATH || null;
+    const catalogPublicKey = process.env.MEH_CATALOG_PUBLIC_KEY
+        ? process.env.MEH_CATALOG_PUBLIC_KEY.replace(/\\n/g, '\n') : null;
+    if ((catalogExpansionEnabled || catalogEnvelopePath || catalogPublicKey)
+        && (!catalogEnvelopePath || !catalogPublicKey)) {
+        throw new Error('Catalog loading requires both MEH_CATALOG_ENVELOPE_PATH and MEH_CATALOG_PUBLIC_KEY');
+    }
+    if (catalogEnvelopePath && fs.statSync(catalogEnvelopePath).size > MAX_CATALOG_BYTES) {
+        throw new Error('MEH_CATALOG_ENVELOPE_PATH exceeds the catalog size limit');
+    }
+    const catalogEnvelope = catalogEnvelopePath
+        ? JSON.parse(fs.readFileSync(catalogEnvelopePath, 'utf8')) : null;
     const runtime = new RealtimeRuntime({
         store,
         pepper,
@@ -37,6 +52,20 @@ async function main() {
         requireTls: production,
         trustProxy: process.env.MEH_TRUST_PROXY === 'true',
         internalAdminToken,
+        catalogExpansionEnabled,
+        catalogPublicKey,
+        catalogEnvelope,
+        freeRotationDefinitionIds: String(process.env.MEH_FREE_ROTATION_IDS || '')
+            .split(',').map(value => value.trim()).filter(Boolean),
+        enabledContentFlags: String(process.env.MEH_CARD_CONTENT_FLAGS || '')
+            .split(',').map(value => value.trim()).filter(Boolean),
+        p4Features: {
+            cardCatalog: production ? process.env.MEH_CARD_CATALOG === 'true' : true,
+            tamashiWallet: production ? process.env.MEH_TAMASHI_WALLET === 'true' : true,
+            friendlyRecipes: production ? process.env.MEH_FRIENDLY_RECIPES === 'true' : true,
+            // A real store receipt adapter must be injected before this can be enabled.
+            verifiedIap: false,
+        },
     });
     const port = Number(process.env.PORT || 8787);
     const host = process.env.HOST || '127.0.0.1';

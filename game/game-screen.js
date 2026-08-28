@@ -56,8 +56,14 @@ class MehGameScreenModule {
         document.getElementById('play-btn').addEventListener('click', () => this.startGame());
         document.getElementById('instructions-btn').addEventListener('click', () => this.showScreen('instructions-screen'));
         document.getElementById('back-btn').addEventListener('click', () => this.showScreen('main-menu'));
-        document.getElementById('restart-btn').addEventListener('click', () => this.startGame());
-        document.getElementById('end-menu-btn').addEventListener('click', () => this.showScreen('main-menu'));
+        document.getElementById('restart-btn').addEventListener('click', () => {
+            this._trackProductEvent('rematch.ready', { mode: this._productMode() });
+            this.startGame();
+        });
+        document.getElementById('end-menu-btn').addEventListener('click', () => {
+            this._productCompleteTable('results-exit');
+            this.showScreen('main-menu');
+        });
     }
 
     showScreen(id) {
@@ -71,6 +77,7 @@ class MehGameScreenModule {
             screen.setAttribute('aria-hidden', String(!isActive));
         });
         this.focusScreen(target);
+        this._trackProductEvent('entry.viewed', { screenId: id });
     }
 
     syncScreenAccessibility() {

@@ -113,6 +113,7 @@ class MehGameOnlineModule {
     }
 
     _leaveOnlineSession(screenId, messageKey) {
+        this._productCompleteTable(messageKey ? 'network-exit' : 'user-exit');
         this._clearOnlineRuntime();
         this.online = false;
         this.isHost = false;
@@ -171,6 +172,7 @@ class MehGameOnlineModule {
             }
 
             this.lobbyPlayers.push({ id: conn.peer, name, avatar, host: false });
+            this._productSeatReady('host', this.lobbyPlayers.length);
             this.showToast(I18n.t('net_player_joined', { name }));
             this._broadcastLobby();
             this.renderLobby();
@@ -194,6 +196,7 @@ class MehGameOnlineModule {
             const players = this._sanitizeLobbyPlayers(msg.players);
             if (!players) return false;
             this.lobbyPlayers = players;
+            this._productSeatReady('guest', players.length);
             this.renderLobby();
         } else if (msg.t === 'gamestart') {
             this.beginClientGame();
@@ -215,12 +218,14 @@ class MehGameOnlineModule {
                 : msg.reason === 'started' ? 'game_already_started'
                     : 'invalid_player_data';
             this._joinRejected = true;
+            this._trackProductEvent('room.join_failed', { stage: 'lobby', reason: msg.reason || 'rejected' });
             this.online = false;
             this.showScreen('online-screen');
             this.showOnlineStatus(I18n.t(key), true);
             Net.close();
         } else if (msg.t === 'resumed') {
             this.online = true;
+            this._trackProductEvent('reconnect.completed', { kind: 'seat' });
             this.showToast(I18n.t('connection_restored'));
         } else {
             return false;
@@ -230,7 +235,11 @@ class MehGameOnlineModule {
 
     // ----- المضيف -----
     createRoom() {
-        if (!Net.available()) { this.showOnlineStatus(I18n.t('no_peerjs'), true); return; }
+        this._trackProductEvent('room.join_started', { role: 'host', method: 'create' });
+        if (!Net.available()) {
+            this._trackProductEvent('room.join_failed', { stage: 'availability', reason: 'peer-unavailable' });
+            this.showOnlineStatus(I18n.t('no_peerjs'), true); return;
+        }
         this.showOnlineStatus(I18n.t('creating_room'));
         const hostName = this._safePlayerName(this.humanProfile.name) || I18n.t('guest');
         const hostAvatar = this._safeAvatar(this.humanProfile.avatar) || '😎';
@@ -247,12 +256,20 @@ class MehGameOnlineModule {
         };
         Net.onData = (msg, conn) => this.handleHostMessage(msg, conn);
         Net.onPlayerLeave = (conn) => this._handleHostPlayerLeave(conn);
-        Net.onReconnecting = () => this.showToast(I18n.t('reconnecting'));
+        Net.onReconnecting = (details) => {
+            this._trackProductEvent('reconnect.started', { kind: details && details.kind || 'unknown' });
+            this.showToast(I18n.t('reconnecting'));
+        };
         Net.onReconnect = null;
-        Net.onSignalReconnect = () => this.showToast(I18n.t('connection_restored'));
+        Net.onSignalReconnect = () => {
+            this._trackProductEvent('reconnect.completed', { kind: 'signal' });
+            this.showToast(I18n.t('connection_restored'));
+        };
         Net.onError = (error) => this._handleOnlineNetworkError(error);
 
         Net.host((code) => {
+            this._trackProductEvent('invite.created', { method: 'code' });
+            this._productSeatReady('host', 1);
             document.getElementById('lobby-room-code').textContent = code;
             document.getElementById('lobby-start-btn').classList.remove('hidden');
             document.getElementById('lobby-wait').classList.add('hidden');
@@ -302,22 +319,34 @@ class MehGameOnlineModule {
 
     // ----- العميل -----
     joinRoom() {
-        if (!Net.available()) { this.showOnlineStatus(I18n.t('no_peerjs'), true); return; }
+        this._trackProductEvent('room.join_started', { role: 'guest', method: 'code' });
+        if (!Net.available()) {
+            this._trackProductEvent('room.join_failed', { stage: 'availability', reason: 'peer-unavailable' });
+            this.showOnlineStatus(I18n.t('no_peerjs'), true); return;
+        }
         const code = (document.getElementById('room-code-input').value || '').trim().toUpperCase();
-        if (!/^[A-HJ-NP-Z2-9]{5}$/.test(code)) { this.showOnlineStatus(I18n.t('conn_error'), true); return; }
+        if (!/^[A-HJ-NP-Z2-9]{5}$/.test(code)) {
+            this._trackProductEvent('room.join_failed', { stage: 'validation', reason: 'invalid-code-format' });
+            this.showOnlineStatus(I18n.t('conn_error'), true); return;
+        }
         this._joinRejected = false;
         this.showOnlineStatus(I18n.t('connecting'));
 
         Net.onData = (msg) => this.handleClientMessage(msg);
         Net.onPlayerLeave = () => this._handleClientPlayerLeave();
-        Net.onReconnecting = () => {
+        Net.onReconnecting = (details) => {
+            this._trackProductEvent('reconnect.started', { kind: details && details.kind || 'unknown' });
             if (this.online) this.showToast(I18n.t('reconnecting'));
             else this.showOnlineStatus(I18n.t('reconnecting'));
         };
         Net.onReconnect = () => {
+            this._trackProductEvent('reconnect.completed', { kind: 'data' });
             Net.send({ t: 'hello', name: this.humanProfile.name, avatar: this.humanProfile.avatar });
         };
-        Net.onSignalReconnect = () => this.showToast(I18n.t('connection_restored'));
+        Net.onSignalReconnect = () => {
+            this._trackProductEvent('reconnect.completed', { kind: 'signal' });
+            this.showToast(I18n.t('connection_restored'));
+        };
         Net.onError = (error) => this._handleOnlineNetworkError(error);
 
         Net.join(code, () => {
@@ -339,6 +368,7 @@ class MehGameOnlineModule {
 
     _handleOnlineNetworkError(error) {
         if (error && error.type === 'reconnect-failed') {
+            this._trackProductEvent('reconnect.failed', { kind: 'unknown' });
             this._leaveOnlineSession('main-menu', 'reconnect_failed');
             return;
         }
@@ -706,6 +736,7 @@ class MehGameOnlineModule {
         this.awaitingRemote = false; this.activeColor = ''; this.hideConfirmBar();
 
         this.players = this.buildOnlineSeats();
+        this._productBeginMatch();
         for (let i = 0; i < 7; i++) for (const p of this.players) p.hand.push(this.deck.draw());
         const initial = this.drawInitialCard();
         this.discardPile.push(initial);
@@ -722,6 +753,7 @@ class MehGameOnlineModule {
         this.online = true; this.isHost = false; this.myIndex = 0;
         this.actionInProgress = false; this.humanCanPlay = false;
         this.selectedCardIndex = -1; this.isAwaitingColor = false;
+        this._productBeginMatch(this.buildOnlineSeats());
         this.bindGameEvents();
         this.showScreen('game-screen');
         if (this.settings.wakeLock) WakeLock.enable();
@@ -810,6 +842,7 @@ class MehGameOnlineModule {
         if (!this.awaitingRemote || this.actionInProgress) return;
 
         if (msg.t === 'draw') {
+            this._trackProductEvent('action.committed', { actor: 'remote', action: 'draw' });
             this.clearTurnTimer();
             this.awaitingRemote = false;
             this.actionInProgress = true;
@@ -847,8 +880,13 @@ class MehGameOnlineModule {
         this.actionInProgress = true;
         const idx = player.hand.findIndex(card => this.isCardPlayableNow(card));
         this.showToast('⏱️ ' + player.name + ' تأخّر — لعب تلقائي');
-        if (idx >= 0) this.playCard(player, idx);
-        else this.doDrawForCurrent();
+        if (idx >= 0) {
+            this._productAutoAction = true;
+            this.playCard(player, idx);
+        } else {
+            this._trackProductEvent('action.committed', { actor: this._productActor(player), action: 'draw' });
+            this.doDrawForCurrent();
+        }
     }
 
     // ----- سحب للّاعب الحالي (يُستخدم محلياً وعن بُعد) -----
@@ -866,9 +904,10 @@ class MehGameOnlineModule {
     // ----- نهاية اللعبة أونلاين (لدى العميل) -----
     onlineGameOver(msg) {
         this._clearOnlineRuntime();
-        this.online = false;
         WakeLock.disable();
         Storage.recordResult(!!msg.youWon);
+        this._productCompleteMatch(!!msg.youWon, msg.youWon ? { isBot: false, isRemote: false } : null);
+        this.online = false;
         this.humanProfile = Storage.getCurrentProfile() || this.humanProfile;
         this.updateMenuChip();
         Sound.play(msg.youWon ? 'win' : 'lose');

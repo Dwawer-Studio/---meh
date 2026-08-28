@@ -29,6 +29,8 @@ test('HTML has a doctype, unique ids, and expected script order', () => {
         'features.js',
         'sound.js',
         'net.js',
+        'game/game-manifests.js',
+        'game/core-evidence.js',
         'deck.js',
         ...GAME_RUNTIME_SCRIPTS,
     ]);

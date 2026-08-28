@@ -35,6 +35,7 @@ class MehGame {
         this._joinRejected = false;
         this._rejectedConnections = new WeakSet();
         this._pendingAvatar = '😎';
+        this._initializeProductEvidence();
 
         // الإعدادات والعضو
         this.settings = Storage.getSettings();
@@ -67,6 +68,7 @@ class MehGame {
 }
 
 const MEH_GAME_METHOD_MODULES = Object.freeze([
+    MehGameProductMethods,
     MehGameProfileMethods,
     MehGameOnlineMethods,
     MehGameScreenMethods,

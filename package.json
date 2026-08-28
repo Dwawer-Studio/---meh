@@ -12,6 +12,7 @@
     "validate:html": "html-validate index.html tests/fixtures/responsive-harness.html",
     "validate:css": "stylelint style.css",
     "check:assets": "node --test tests/assets.test.js",
+    "report:telemetry": "node tools/telemetry-report.js",
     "test": "node --test",
     "test:security": "node --test tests/security-network.test.js",
     "test:reliability": "node --test tests/storage.test.js tests/reliability.test.js",

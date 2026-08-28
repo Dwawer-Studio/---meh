@@ -1,11 +1,14 @@
 class Card {
-    constructor(color, name, type, emoji, svgFile) {
+    constructor(color, name, type, emoji, svgFile, options = {}) {
         this.color = color;
         this.name = name;
         this.type = type;
         this.emoji = emoji;
         this.svgFile = svgFile;
-        this.id = Math.random().toString(36).substr(2, 9);
+        this.definitionId = options.definitionId || type;
+        this.id = typeof options.idFactory === 'function'
+            ? options.idFactory()
+            : Math.random().toString(36).slice(2, 11);
     }
     isPlayable(topCard, activeColor) {
         if (this.color === 'black') return true;
@@ -16,51 +19,59 @@ class Card {
 }
 
 class Deck {
-    constructor() {
+    constructor(options = {}) {
         this.cards = [];
-        this.buildDeck();
+        this.random = typeof options.random === 'function' ? options.random : Math.random;
+        this.recipeId = options.recipeId || MEH_CATALOG_MANIFEST.activeRecipeId;
+        this._idFactory = typeof options.idFactory === 'function' ? options.idFactory : null;
+        this._cardSequence = 0;
+        this.buildDeck(this.recipeId);
         this.shuffle();
     }
-    buildDeck() {
-        const cardDefs = [
-            { name: 'اسكت اسكت', type: 'draw2', emoji: '🤫' },
-            { name: 'افلاطون', type: 'plato', emoji: '🏛️' },
-            { name: 'الحرباية', type: 'chameleon', emoji: '🦎' },
-            { name: 'الدافور', type: 'normal', emoji: '🔥', img: 'dafour' },
-            { name: 'الرجل الصندوق', type: 'normal', emoji: '📦', img: 'boxMan' },
-            { name: 'النوخذه', type: 'nokhtha', emoji: '⚓' },
-            { name: 'الهامور', type: 'hamour', emoji: '🦈' },
-            { name: 'انت احسن واحد', type: 'bestOne', emoji: '🌳' },
-            { name: 'انثبر مكانك', type: 'skip', emoji: '🛑' },
-            { name: 'أنا آسف', type: 'sorry', emoji: '🤜' },
-            { name: 'ام حمار', type: 'normal', emoji: '🐴', img: 'umHumar' },
-            { name: 'ام كشة', type: 'normal', emoji: '👩', img: 'umKasha' },
-            { name: 'ام وجهين', type: 'umWajhain', emoji: '🎭' },
-            { name: 'بوشلاخ', type: 'boShlakh', emoji: '🗣️' },
-            { name: 'دراما كوين', type: 'dramaQueen', emoji: '👸' },
-            { name: 'شوقر', type: 'sugar', emoji: '🍬' },
-            { name: 'فانتوم', type: 'phantom', emoji: '🦇' },
-            { name: 'يوتيرن', type: 'reverse', emoji: '🔄' },
-            { name: 'هجمة مرتدة', type: 'counterAttack', emoji: '⚡' },
-        ];
+    _nextCardId(definitionId, color) {
+        const sequence = this._cardSequence++;
+        if (this._idFactory) return this._idFactory({ definitionId, color, sequence });
+        const entropy = Math.floor(this.random() * 0x1000000).toString(36).padStart(5, '0');
+        return `c${sequence.toString(36)}${entropy}`;
+    }
+    _createCard(definition, color) {
+        const imageFile = `assets/cards/${color}-${definition.assetBase}.webp`;
+        return new Card(
+            color,
+            definition.nameAr,
+            definition.type,
+            definition.emoji,
+            imageFile,
+            {
+                definitionId: definition.definitionId,
+                idFactory: () => this._nextCardId(definition.definitionId, color),
+            },
+        );
+    }
+    buildDeck(recipeId) {
+        const definitions = new Map(MEH_CATALOG_MANIFEST.definitions.map(def => [def.definitionId, def]));
+        const recipe = MEH_CATALOG_MANIFEST.recipes.find(item => item.recipeId === recipeId);
+        if (!recipe) throw new Error(`Unknown deck recipe: ${recipeId}`);
 
-        const colors = ['orange', 'gray', 'purple'];
-        for (const color of colors) {
-            for (const def of cardDefs) {
-                const imgBase = def.img || def.type;
-                const imgFile = `assets/cards/${color}-${imgBase}.webp`;
-                this.cards.push(new Card(color, def.name, def.type, def.emoji, imgFile));
+        for (const color of MEH_CORE_MANIFEST.standardColors) {
+            for (const definitionId of recipe.coloredDefinitionIds) {
+                const definition = definitions.get(definitionId);
+                if (!definition) throw new Error(`Unknown card definition: ${definitionId}`);
+                this.cards.push(this._createCard(definition, color));
             }
         }
-
-        // Black cards
-        this.cards.push(new Card('black', 'مه', 'meh', '🃏', 'assets/cards/black-meh.webp'));
-        this.cards.push(new Card('black', 'شنو كنت تقول', 'draw4Wild', '📜', 'assets/cards/black-draw4Wild.webp'));
-        this.cards.push(new Card('black', 'طلعت يا محلى نورها', 'wild', '📺', 'assets/cards/black-wild.webp'));
+        for (const definitionId of recipe.blackDefinitionIds) {
+            const definition = definitions.get(definitionId);
+            if (!definition) throw new Error(`Unknown card definition: ${definitionId}`);
+            this.cards.push(this._createCard(definition, MEH_CORE_MANIFEST.wildColor));
+        }
+        if (this.cards.length !== MEH_CORE_MANIFEST.deckSize) {
+            throw new Error(`Deck recipe ${recipeId} produced ${this.cards.length} cards`);
+        }
     }
     shuffle() {
         for (let i = this.cards.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
+            const j = Math.floor(this.random() * (i + 1));
             [this.cards[i], this.cards[j]] = [this.cards[j], this.cards[i]];
         }
     }

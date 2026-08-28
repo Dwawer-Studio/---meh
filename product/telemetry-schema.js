@@ -1,0 +1,133 @@
+'use strict';
+
+const TELEMETRY_ACTORS = Object.freeze(['self', 'remote', 'bot', 'unknown']);
+const TELEMETRY_MODES = Object.freeze(['local', 'online-host', 'online-client']);
+
+const PRODUCT_EVENT_SCHEMAS = Object.freeze({
+    'app.session_started': Object.freeze({
+        required: ['entrySource', 'language'],
+        fields: Object.freeze({
+            entrySource: Object.freeze({ type: 'enum', values: ['direct', 'reload', 'unknown'] }),
+            language: Object.freeze({ type: 'enum', values: ['ar', 'en', 'unknown'] }),
+        }),
+    }),
+    'entry.viewed': Object.freeze({
+        required: ['screenId'],
+        fields: Object.freeze({ screenId: Object.freeze({ type: 'token', maxLength: 48 }) }),
+    }),
+    'invite.created': Object.freeze({
+        required: ['method'],
+        fields: Object.freeze({ method: Object.freeze({ type: 'enum', values: ['code', 'link', 'share', 'qr'] }) }),
+    }),
+    'invite.opened': Object.freeze({
+        required: ['method'],
+        fields: Object.freeze({ method: Object.freeze({ type: 'enum', values: ['code', 'link', 'unknown'] }) }),
+    }),
+    'room.join_started': Object.freeze({
+        required: ['role', 'method'],
+        fields: Object.freeze({
+            role: Object.freeze({ type: 'enum', values: ['host', 'guest'] }),
+            method: Object.freeze({ type: 'enum', values: ['create', 'code', 'link'] }),
+        }),
+    }),
+    'room.join_failed': Object.freeze({
+        required: ['stage', 'reason'],
+        fields: Object.freeze({
+            stage: Object.freeze({ type: 'token', maxLength: 32 }),
+            reason: Object.freeze({ type: 'token', maxLength: 48 }),
+        }),
+    }),
+    'seat.ready': Object.freeze({
+        required: ['role', 'humanSeats'],
+        fields: Object.freeze({
+            role: Object.freeze({ type: 'enum', values: ['host', 'guest'] }),
+            humanSeats: Object.freeze({ type: 'integer', min: 1, max: 4 }),
+        }),
+    }),
+    'table.phase_changed': Object.freeze({
+        required: ['from', 'to'],
+        fields: Object.freeze({
+            from: Object.freeze({ type: 'token', maxLength: 24 }),
+            to: Object.freeze({ type: 'token', maxLength: 24 }),
+        }),
+    }),
+    'match.started': Object.freeze({
+        required: ['mode', 'humanSeats', 'botSeats', 'rematch'],
+        fields: Object.freeze({
+            mode: Object.freeze({ type: 'enum', values: TELEMETRY_MODES }),
+            humanSeats: Object.freeze({ type: 'integer', min: 1, max: 4 }),
+            botSeats: Object.freeze({ type: 'integer', min: 0, max: 3 }),
+            rematch: Object.freeze({ type: 'boolean' }),
+        }),
+    }),
+    'turn.started': Object.freeze({
+        required: ['actor', 'pendingDraws'],
+        fields: Object.freeze({
+            actor: Object.freeze({ type: 'enum', values: TELEMETRY_ACTORS }),
+            pendingDraws: Object.freeze({ type: 'integer', min: 0, max: 999 }),
+        }),
+    }),
+    'action.committed': Object.freeze({
+        required: ['actor', 'action'],
+        fields: Object.freeze({
+            actor: Object.freeze({ type: 'enum', values: TELEMETRY_ACTORS }),
+            action: Object.freeze({ type: 'enum', values: ['play', 'draw', 'auto-play'] }),
+            definitionId: Object.freeze({ type: 'token', maxLength: 48, optional: true }),
+        }),
+    }),
+    'action.rejected': Object.freeze({
+        required: ['action', 'reason'],
+        fields: Object.freeze({
+            action: Object.freeze({ type: 'enum', values: ['play', 'draw', 'choice'] }),
+            reason: Object.freeze({ type: 'token', maxLength: 48 }),
+        }),
+    }),
+    'reconnect.started': Object.freeze({
+        required: ['kind'],
+        fields: Object.freeze({
+            kind: Object.freeze({ type: 'enum', values: ['signal', 'data', 'unknown'] }),
+            attempt: Object.freeze({ type: 'integer', min: 1, max: 20, optional: true }),
+        }),
+    }),
+    'reconnect.completed': Object.freeze({
+        required: ['kind'],
+        fields: Object.freeze({ kind: Object.freeze({ type: 'enum', values: ['signal', 'data', 'seat', 'unknown'] }) }),
+    }),
+    'reconnect.failed': Object.freeze({
+        required: ['kind'],
+        fields: Object.freeze({ kind: Object.freeze({ type: 'enum', values: ['signal', 'data', 'seat', 'unknown'] }) }),
+    }),
+    'match.completed': Object.freeze({
+        required: ['mode', 'outcome', 'winnerActor'],
+        fields: Object.freeze({
+            mode: Object.freeze({ type: 'enum', values: TELEMETRY_MODES }),
+            outcome: Object.freeze({ type: 'enum', values: ['win', 'loss'] }),
+            winnerActor: Object.freeze({ type: 'enum', values: TELEMETRY_ACTORS }),
+        }),
+    }),
+    'rematch.prompted': Object.freeze({
+        required: ['mode'],
+        fields: Object.freeze({ mode: Object.freeze({ type: 'enum', values: TELEMETRY_MODES }) }),
+    }),
+    'rematch.ready': Object.freeze({
+        required: ['mode'],
+        fields: Object.freeze({ mode: Object.freeze({ type: 'enum', values: TELEMETRY_MODES }) }),
+    }),
+    'table.completed': Object.freeze({
+        required: ['reason', 'completedMatches'],
+        fields: Object.freeze({
+            reason: Object.freeze({ type: 'token', maxLength: 48 }),
+            completedMatches: Object.freeze({ type: 'integer', min: 0, max: 999 }),
+        }),
+    }),
+});
+
+const TELEMETRY_FORBIDDEN_FIELDS = Object.freeze([
+    'name', 'playername', 'roomcode', 'hand', 'cards', 'ip', 'ipaddress',
+    'contacts', 'clipboard', 'idfa', 'email', 'phone', 'avatar', 'message',
+]);
+
+if (typeof window !== 'undefined') {
+    window.PRODUCT_EVENT_SCHEMAS = PRODUCT_EVENT_SCHEMAS;
+    window.TELEMETRY_FORBIDDEN_FIELDS = TELEMETRY_FORBIDDEN_FIELDS;
+}

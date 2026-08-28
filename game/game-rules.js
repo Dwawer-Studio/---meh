@@ -28,6 +28,7 @@ class MehGameRuleModule {
         // اسم وصورة العضو الحالي
         this.players[0].name = this.humanProfile.name;
         this.players[0].avatar = this.humanProfile.avatar;
+        this._productBeginMatch();
 
         this.bindGameEvents();
         this.updateUI();                  // أيدٍ فارغة + عدّادات صفر
@@ -143,6 +144,10 @@ class MehGameRuleModule {
         this.humanCanPlay = false;       // يُمنح فقط عند وصول دور اللاعب الفعلي
         this.awaitingRemote = false;
         const player = this.currentPlayer;
+        this._trackProductEvent('turn.started', {
+            actor: this._productActor(player),
+            pendingDraws: Math.max(0, Math.min(999, this.pendingDraws || 0)),
+        });
         this.updateSugarLockForTurn(player);
         UI.turnIndicator.innerText = player.name;
 
@@ -184,6 +189,7 @@ class MehGameRuleModule {
                 this.actionInProgress = true;
                 this.showToast(I18n.t('no_card_draw'));
                 setTimeout(() => {
+                    this._trackProductEvent('action.committed', { actor: 'self', action: 'draw' });
                     this.handleDrawCard(player);
                     setTimeout(() => this.advanceTurn(), 600);
                 }, 1200);
@@ -211,6 +217,7 @@ class MehGameRuleModule {
         if (cardIndex !== -1) {
             this.playCard(bot, cardIndex);
         } else {
+            this._trackProductEvent('action.committed', { actor: this._productActor(bot), action: 'draw' });
             this.handleDrawCard(bot);
             setTimeout(() => this.advanceTurn(), 800);
         }
@@ -219,6 +226,7 @@ class MehGameRuleModule {
     handleDrawClick() {
         if (!this.humanCanPlay || this.isAwaitingColor || this.actionInProgress) return;
         if (this.online && !this.isHost) {
+            this._trackProductEvent('action.committed', { actor: 'self', action: 'draw' });
             this.humanCanPlay = false; this.selectedCardIndex = -1; this.hideConfirmBar();
             Net.send({ t: 'draw' });
             return;
@@ -227,6 +235,7 @@ class MehGameRuleModule {
         this.actionInProgress = true;
         this.selectedCardIndex = -1;
         this.hideConfirmBar();
+        this._trackProductEvent('action.committed', { actor: 'self', action: 'draw' });
         this.doDrawForCurrent();
     }
 
@@ -372,6 +381,13 @@ class MehGameRuleModule {
         }
 
         const card = player.hand.splice(cardIndex, 1)[0];
+        if (!card) return;
+        this._trackProductEvent('action.committed', {
+            actor: this._productActor(player),
+            action: this._productAutoAction ? 'auto-play' : 'play',
+            definitionId: card.definitionId || card.type,
+        });
+        this._productAutoAction = false;
         this.discardPile.push(card);
         if (card.color !== 'black') this.activeColor = card.color;
         Sound.play('cardPlay');
@@ -813,6 +829,7 @@ class MehGameRuleModule {
         }
         this._clearOnlineRuntime();
         const humanWon = this.online ? (winner === this.players[0]) : !winner.isBot;
+        this._productCompleteMatch(humanWon, winner);
         Storage.recordResult(humanWon);
         this.humanProfile = Storage.getCurrentProfile() || this.humanProfile;
         this.updateMenuChip();

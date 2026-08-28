@@ -6,6 +6,10 @@ const vm = require('node:vm');
 
 const ROOT = path.resolve(__dirname, '..', '..');
 const GAME_RUNTIME_SCRIPTS = Object.freeze([
+    'product/feature-flags.js',
+    'product/telemetry-schema.js',
+    'product/telemetry.js',
+    'game/game-product.js',
     'game/game-config.js',
     'game/game-profile.js',
     'game/game-online.js',
@@ -15,11 +19,19 @@ const GAME_RUNTIME_SCRIPTS = Object.freeze([
     'game.js',
 ]);
 
+const SCRIPT_PREREQUISITES = Object.freeze({
+    'deck.js': ['game/game-manifests.js', 'game/core-evidence.js'],
+});
+
 function expandRuntimePaths(relativePaths) {
     const paths = Array.isArray(relativePaths) ? relativePaths : [relativePaths];
-    const expanded = paths.flatMap(relativePath => (
-        relativePath === 'game.js' ? GAME_RUNTIME_SCRIPTS : [relativePath]
-    ));
+    const expanded = paths.flatMap(relativePath => {
+        const selected = relativePath === 'game.js' ? GAME_RUNTIME_SCRIPTS : [relativePath];
+        return selected.flatMap(scriptPath => [
+            ...(SCRIPT_PREREQUISITES[scriptPath] || []),
+            scriptPath,
+        ]);
+    });
     return [...new Set(expanded)];
 }
 

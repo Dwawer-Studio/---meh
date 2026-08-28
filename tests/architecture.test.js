@@ -7,6 +7,7 @@ const assert = require('node:assert/strict');
 const { GAME_RUNTIME_SCRIPTS, ROOT, loadScripts } = require('./helpers/load-script');
 
 const METHOD_MODULES = [
+    'MehGameProductMethods',
     'MehGameProfileMethods',
     'MehGameOnlineMethods',
     'MehGameScreenMethods',
@@ -50,6 +51,7 @@ test('method modules are immutable, disjoint, and preserve prototype accessors',
     }
 
     const expectedOwners = {
+        _trackProductEvent: 'MehGameProductMethods',
         applySettings: 'MehGameProfileMethods',
         bindOnlineEvents: 'MehGameOnlineMethods',
         handleHostMessage: 'MehGameOnlineMethods',

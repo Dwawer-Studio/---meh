@@ -98,7 +98,9 @@ npm run check:clean
 `docs/PHASE-11-FINAL-AUDIT.md`، ومرجع قواعد اللعب المعتمدة في
 `docs/RULES-DECISIONS.md`. أما برنامج التحول من لعبة مكتملة الأساس إلى منتج
 اجتماعي قابل للنمو، مع إبقاء قلب اللعب ثابتًا، فموثق في
-`docs/PRODUCT-TRANSFORMATION-PROGRAM.md`.
+`docs/PRODUCT-TRANSFORMATION-PROGRAM.md`. وتقرير تنفيذ مرحلة تأسيس الدليل P0 في
+`docs/PHASE-P0-CORE-EVIDENCE.md`، مع نموذج التهديد في
+`docs/THREAT-MODEL-P0.md`.
 
 خلال التطوير تشغّل GitHub Actions بوابة الاختبارات فقط. نشر Azure محفوظ كفعل
 يدوي صريح، ولا يعمل تلقائيًا على الفروع أو طلبات الدمج إلى أن تُجهز الاستضافة.

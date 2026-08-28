@@ -128,6 +128,12 @@ class TamashiService {
                 publicRecipeStandardized: true,
                 friendlyOwnershipModel: 'shared-deck-contribution',
                 calibrationStatus: this.policy.calibrationStatus,
+                earning: {
+                    completionReward: this.policy.completionReward,
+                    healthyParticipationReward: this.policy.healthyParticipationReward,
+                    winBonus: this.policy.winBonus,
+                    minimumHumanSeats: this.policy.minimumHumanSeats,
+                },
             },
             cards: manifest.definitions
                 .filter(definition => definition.releaseStatus !== 'disabled')

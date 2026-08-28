@@ -214,7 +214,7 @@ test('browser creates a consent-bound Majlis from results and regroups it from t
         expect(diagnostics).toEqual([]);
     });
 
-test('card catalog renders all classic cards, rerenders language, and fits a phone',
+test('card store separates sale inventory from the classic collection and fits a phone',
     { timeout: 30_000 }, async ({ page }) => {
         const diagnostics = [];
         page.on('pageerror', error => diagnostics.push(`pageerror: ${error.message}`));
@@ -253,9 +253,19 @@ test('card catalog renders all classic cards, rerenders language, and fits a pho
         await expect(page.locator('#catalog-btn')).toBeVisible();
         await page.locator('#catalog-btn').click();
         await expect(page.locator('#catalog-screen')).toHaveClass(/\bactive\b/);
-        await expect(page.locator('#catalog-list .catalog-card')).toHaveCount(22);
+        await expect(page.locator('#catalog-store-tab')).toHaveAttribute('aria-selected', 'true');
+        await expect(page.locator('#catalog-store-count')).toHaveText('0');
+        await expect(page.locator('#catalog-collection-count')).toHaveText('22');
+        await expect(page.locator('#catalog-list .catalog-card')).toHaveCount(0);
+        await expect(page.locator('.store-empty-state')).toContainText('لا توجد بطاقات جديدة معروضة الآن');
         await expect(page.locator('#tamashi-balance strong')).toHaveText(/^[0٠]$/);
+        await expect(page.locator('#tamashi-completion-reward')).toHaveText(/^\+(?:100|١٠٠)$/);
+        await expect(page.locator('#tamashi-healthy-reward')).toHaveText(/^\+(?:20|٢٠)$/);
+        await expect(page.locator('#tamashi-win-reward')).toHaveText(/^\+(?:20|٢٠)$/);
         await expect(page.locator('#catalog-list .catalog-buy')).toHaveCount(0);
+        await page.locator('#catalog-collection-tab').click();
+        await expect(page.locator('#catalog-collection-tab')).toHaveAttribute('aria-selected', 'true');
+        await expect(page.locator('#catalog-list .catalog-card')).toHaveCount(22);
         expect(await page.locator('#catalog-list img').evaluateAll(images =>
             images.every(image => image.complete && image.naturalWidth > 0))).toBe(true);
         await expect(page.locator('#catalog-list .catalog-card').first()).toContainText('متاحة');
@@ -265,6 +275,9 @@ test('card catalog renders all classic cards, rerenders language, and fits a pho
         await page.locator('.lang-btn[data-lang="en"]').click();
         await page.locator('#settings-back-btn').click();
         await page.locator('#catalog-btn').click();
+        await expect(page.locator('#catalog-store-tab')).toHaveAttribute('aria-selected', 'true');
+        await expect(page.locator('.store-empty-state')).toContainText('No new cards are on sale right now');
+        await page.locator('#catalog-collection-tab').click();
         await expect(page.locator('#catalog-list .catalog-card').first()).toContainText('Hush Hush');
         await expect(page.locator('#catalog-list .catalog-card').first()).toContainText('Available');
         expect(await page.locator('html').getAttribute('dir')).toBe('ltr');
@@ -275,9 +288,13 @@ test('card catalog renders all classic cards, rerenders language, and fits a pho
             scrollWidth: document.documentElement.scrollWidth,
             refreshHeight: document.getElementById('catalog-refresh-btn').getBoundingClientRect().height,
             backHeight: document.getElementById('catalog-back-btn').getBoundingClientRect().height,
+            storeTabHeight: document.getElementById('catalog-store-tab').getBoundingClientRect().height,
+            collectionTabHeight: document.getElementById('catalog-collection-tab').getBoundingClientRect().height,
         }));
         expect(mobile.scrollWidth).toBeLessThanOrEqual(mobile.viewport);
         expect(mobile.refreshHeight).toBeGreaterThanOrEqual(44);
         expect(mobile.backHeight).toBeGreaterThanOrEqual(44);
+        expect(mobile.storeTabHeight).toBeGreaterThanOrEqual(44);
+        expect(mobile.collectionTabHeight).toBeGreaterThanOrEqual(44);
         expect(diagnostics).toEqual([]);
     });

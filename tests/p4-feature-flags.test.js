@@ -50,9 +50,14 @@ test('P4 catalog UI is optional, accessible, text-safe, and does not interrupt f
     assert.match(html, /id="catalog-btn"[^>]*class="[^"]*hidden/);
     assert.match(html, /id="catalog-screen"[^>]*class="screen"/);
     assert.match(html, /id="tamashi-balance"[^>]*aria-live="polite"/);
+    assert.match(html, /id="catalog-store-tab"[^>]*role="tab"/);
+    assert.match(html, /id="catalog-collection-tab"[^>]*role="tab"/);
+    assert.match(html, /id="catalog-list"[^>]*role="tabpanel"/);
     assert.match(html, /id="friendly-recipe-summary"[^>]*aria-live="polite"/);
     assert.doesNotMatch(source, /\.innerHTML\s*=/);
     assert.match(source, /textContent/);
+    assert.match(source, /_catalogEmptyState\(\)/);
+    assert.match(source, /card => !card\.includedByDefault/);
     assert.doesNotMatch(source, /randomized|loot|pack/i);
 });
 

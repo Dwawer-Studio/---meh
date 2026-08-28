@@ -6,6 +6,7 @@ class MehGameCatalogModule {
         this._catalogLoading = null;
         this._catalogRoom = null;
         this._catalogSeats = [];
+        this._catalogView = 'store';
     }
 
     bindCatalogEvents() {
@@ -24,12 +25,17 @@ class MehGameCatalogModule {
         }
         on('catalog-back-btn', 'click', () => this.showScreen('main-menu'));
         on('catalog-refresh-btn', 'click', () => this._loadCardCatalog(true));
+        on('catalog-store-tab', 'click', () => this._setCatalogView('store'));
+        on('catalog-collection-tab', 'click', () => this._setCatalogView('collection'));
+        on('catalog-store-tab', 'keydown', event => this._handleCatalogTabKey(event));
+        on('catalog-collection-tab', 'keydown', event => this._handleCatalogTabKey(event));
         on('friendly-card-select', 'change', () => this._syncFriendlyReplacementOptions());
         on('friendly-recipe-apply', 'click', () => this._applyFriendlyContribution());
         on('friendly-recipe-clear', 'click', () => this._clearFriendlyContribution());
     }
 
     async _openCardCatalog() {
+        this._setCatalogView('store');
         this.showScreen('catalog-screen');
         await this._loadCardCatalog(true);
     }
@@ -82,8 +88,82 @@ class MehGameCatalogModule {
         if (balance) balance.textContent = new Intl.NumberFormat(I18n.lang === 'ar' ? 'ar' : 'en').format(
             state.currency.balance,
         );
+        const earning = state.policy && state.policy.earning || {};
+        const rewardBindings = [
+            ['tamashi-completion-reward', 'completionReward'],
+            ['tamashi-healthy-reward', 'healthyParticipationReward'],
+            ['tamashi-win-reward', 'winBonus'],
+        ];
+        rewardBindings.forEach(([elementId, policyKey]) => {
+            const element = document.getElementById(elementId);
+            if (element) element.textContent = `+${new Intl.NumberFormat(I18n.lang === 'ar' ? 'ar' : 'en')
+                .format(Number(earning[policyKey]) || 0)}`;
+        });
+        const earningNote = document.getElementById('tamashi-earn-note');
+        if (earningNote) earningNote.textContent = I18n.t('earn_tamashi_policy_note', {
+            count: Number(earning.minimumHumanSeats) || 2,
+        });
+        const storeCards = state.cards.filter(card => !card.includedByDefault);
+        const collectionCards = state.cards.filter(card => card.includedByDefault || card.unlocked);
+        const storeCount = document.getElementById('catalog-store-count');
+        const collectionCount = document.getElementById('catalog-collection-count');
+        if (storeCount) storeCount.textContent = String(storeCards.length);
+        if (collectionCount) collectionCount.textContent = String(collectionCards.length);
+        const visibleCards = this._catalogView === 'collection' ? collectionCards : storeCards;
+        const calibrationNote = document.getElementById('catalog-calibration-note');
+        if (calibrationNote) calibrationNote.classList.toggle('hidden', this._catalogView !== 'store');
+        list.setAttribute('aria-labelledby', this._catalogView === 'collection'
+            ? 'catalog-collection-tab' : 'catalog-store-tab');
         list.replaceChildren();
-        state.cards.forEach(card => list.appendChild(this._catalogCard(card)));
+        if (!visibleCards.length && this._catalogView === 'store') {
+            list.appendChild(this._catalogEmptyState());
+            return;
+        }
+        visibleCards.forEach(card => list.appendChild(this._catalogCard(card)));
+    }
+
+    _setCatalogView(view) {
+        if (!['store', 'collection'].includes(view)) return;
+        this._catalogView = view;
+        ['store', 'collection'].forEach(name => {
+            const selected = name === view;
+            const button = document.getElementById(`catalog-${name}-tab`);
+            if (!button) return;
+            button.classList.toggle('active', selected);
+            button.setAttribute('aria-selected', String(selected));
+            button.tabIndex = selected ? 0 : -1;
+        });
+        if (this._catalogState) this._renderCardCatalog();
+    }
+
+    _handleCatalogTabKey(event) {
+        const actions = {
+            ArrowLeft: 'collection',
+            ArrowRight: 'store',
+            Home: 'store',
+            End: 'collection',
+        };
+        const view = actions[event.key];
+        if (!view) return;
+        event.preventDefault();
+        this._setCatalogView(view);
+        const button = document.getElementById(`catalog-${view}-tab`);
+        if (button) button.focus();
+    }
+
+    _catalogEmptyState() {
+        const section = document.createElement('section');
+        section.className = 'store-empty-state';
+        const icon = document.createElement('span');
+        icon.className = 'store-empty-icon';
+        icon.setAttribute('aria-hidden', 'true');
+        icon.textContent = '🏪';
+        const title = document.createElement('h3');
+        title.textContent = I18n.t('store_empty_title');
+        const body = document.createElement('p');
+        body.textContent = I18n.t('store_empty_body');
+        section.append(icon, title, body);
+        return section;
     }
 
     _refreshCatalogLocalization() {

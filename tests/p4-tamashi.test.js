@@ -157,6 +157,12 @@ test('P4 direct unlock spends Tamashi once and never creates duplicates or paid 
     assert.equal(state.cards.find(card => card.definitionId === 'test-strategist').unlocked, true);
     assert.equal(state.policy.randomizedPacks, false);
     assert.equal(state.policy.paidExclusiveGameplayCards, false);
+    assert.deepEqual(state.policy.earning, {
+        completionReward: 100,
+        healthyParticipationReward: 20,
+        winBonus: 20,
+        minimumHumanSeats: 2,
+    });
 });
 
 test('P4 content kill switch prevents unlock without consuming Tamashi', async () => {

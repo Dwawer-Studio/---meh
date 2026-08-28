@@ -52,7 +52,7 @@
                         <span>🌐</span> <span data-i18n="online_play">أونلاين</span>
                     </button>
                     <button id="catalog-btn" class="btn secondary-btn hidden" type="button">
-                        <span>🃏</span> <span data-i18n="card_catalog">كتالوج البطاقات</span>
+                        <span>🏪</span> <span data-i18n="card_catalog">متجر البطاقات</span>
                     </button>
                     <button id="instructions-btn" class="btn secondary-btn" type="button">
                         <span>📖</span> <span data-i18n="instructions">التعليمات</span>
@@ -157,12 +157,12 @@
             </div>
         </div>
 
-        <!-- ===== كتالوج البطاقات وتاماشي ===== -->
+        <!-- ===== متجر البطاقات وتاماشي ===== -->
         <div id="catalog-screen" class="screen">
             <div class="instructions-panel catalog-panel">
                 <div class="catalog-heading">
                     <div>
-                        <h2 data-i18n="card_catalog_title">كتالوج البطاقات</h2>
+                        <h2 data-i18n="card_catalog_title">🏪 متجر البطاقات</h2>
                         <p data-i18n="catalog_fairness">كل بطاقة قابلة للكسب باللعب، وتدخل الرزمة المشتركة بلا أفضلية فردية.</p>
                     </div>
                     <div id="tamashi-balance" class="tamashi-balance" aria-live="polite">
@@ -171,9 +171,31 @@
                         <small data-i18n="tamashi">تاماشي</small>
                     </div>
                 </div>
+                <section class="tamashi-earn-panel" aria-labelledby="tamashi-earn-title">
+                    <div>
+                        <h3 id="tamashi-earn-title" data-i18n="earn_tamashi_title">اكسب تاماشي باللعب</h3>
+                        <p id="tamashi-earn-note" data-i18n="earn_tamashi_note">تُحتسب المكافآت بعد مباراة أونلاين موثقة تضم لاعبين بشريين على الأقل.</p>
+                    </div>
+                    <div class="tamashi-rewards" role="group" aria-label="مكافآت تاماشي" data-i18n-attr="aria-label:tamashi_rewards">
+                        <span><small data-i18n="completion_reward">إكمال المباراة</small><strong id="tamashi-completion-reward">—</strong></span>
+                        <span><small data-i18n="healthy_reward">مشاركة فعلية</small><strong id="tamashi-healthy-reward">—</strong></span>
+                        <span><small data-i18n="win_reward">إضافة الفوز</small><strong id="tamashi-win-reward">—</strong></span>
+                    </div>
+                    <small class="store-safety-note" data-i18n="local_iap_disabled">الشراء النقدي مغلق في النسخة المحلية.</small>
+                </section>
+                <div class="catalog-tabs" role="tablist" aria-label="أقسام متجر البطاقات" data-i18n-attr="aria-label:store_sections">
+                    <button id="catalog-store-tab" class="catalog-tab active" type="button" role="tab"
+                            aria-selected="true" aria-controls="catalog-list">
+                        <span data-i18n="store_tab">المتجر</span><strong id="catalog-store-count">0</strong>
+                    </button>
+                    <button id="catalog-collection-tab" class="catalog-tab" type="button" role="tab"
+                            aria-selected="false" aria-controls="catalog-list" tabindex="-1">
+                        <span data-i18n="collection_tab">مجموعتي</span><strong id="catalog-collection-count">0</strong>
+                    </button>
+                </div>
                 <p id="catalog-calibration-note" class="catalog-note" data-i18n="catalog_calibration_note">أسعار البطاقات الجديدة لا تُفتح للإطلاق قبل معايرة جلسات اللعب الفعلية.</p>
                 <div id="catalog-status" class="online-status" role="status" aria-live="polite"></div>
-                <div id="catalog-list" class="catalog-list"></div>
+                <div id="catalog-list" class="catalog-list" role="tabpanel" aria-labelledby="catalog-store-tab" aria-live="polite"></div>
                 <button id="catalog-refresh-btn" class="btn secondary-btn" type="button" data-i18n="refresh_catalog">تحديث الكتالوج</button>
                 <button id="catalog-back-btn" class="btn primary-btn" type="button" data-i18n="main_menu">القائمة الرئيسية</button>
             </div>

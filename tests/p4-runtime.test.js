@@ -108,6 +108,12 @@ test('P4 HTTP catalog is authenticated, fixed-price, reversible, and IAP fails c
             assert.equal(store.tamashiWallets.size, 0);
             assert.equal(catalog.cards.find(item => item.definitionId === 'test-strategist').tamashiPrice, 1_200);
             assert.equal(catalog.policy.randomizedPacks, false);
+            assert.deepEqual(catalog.policy.earning, {
+                completionReward: 100,
+                healthyParticipationReward: 20,
+                winBonus: 20,
+                minimumHumanSeats: 2,
+            });
 
             const originalEconomyState = store.getEconomyState.bind(store);
             store.getEconomyState = async () => { throw new Error('database secret detail'); };

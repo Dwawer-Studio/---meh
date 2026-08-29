@@ -1120,8 +1120,8 @@ class MehGameOnlineModule {
         this.online = false;
         this.humanProfile = Storage.getCurrentProfile() || this.humanProfile;
         this.updateMenuChip();
-        Sound.play(msg.youWon ? 'win' : 'lose');
-        if (msg.youWon) this.launchConfetti();
+        Sound.play(msg.youWon ? 'round-resolve-win' : 'round-resolve');
+        this.launchConfetti(!!msg.youWon);
         UI.winnerText.innerText = msg.youWon ? I18n.t('you_win') : I18n.t('bot_win', { name: msg.winnerName });
         this._updateResultPresentation(!!msg.youWon, msg.winnerName);
         this._renderPersonalRecord();

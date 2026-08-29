@@ -91,8 +91,9 @@ test('A11Y-01: static game controls use native keyboard semantics', () => {
 });
 
 test('A11Y-01: settings toggles expose keyboard switch semantics', () => {
-    const switches = [...html.matchAll(/<div\b[^>]*class="setting-row toggle-row"[^>]*>/g)].map(match => match[0]);
-    assert.equal(switches.length, 6);
+    const switches = [...html.matchAll(/<div\b[^>]*class="[^"]*\bsetting-row\b[^"]*\btoggle-row\b[^"]*"[^>]*>/g)]
+        .map(match => match[0]);
+    assert.equal(switches.length, 8);
     for (const toggle of switches) {
         assert.match(toggle, /\brole="switch"/);
         assert.match(toggle, /\btabindex="0"/);

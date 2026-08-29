@@ -141,7 +141,7 @@
     radial-gradient(circle at center, rgb(238 54 51 / 16%), transparent 40%),
     var(--ui-surface-paper);
   opacity: 1;
-  transition: opacity 320ms var(--ui-ease-out);
+  transition: opacity 140ms var(--ui-ease-out);
 }
 
 .ui-v2 .ui-splash::before {
@@ -152,7 +152,7 @@
   border-radius: 50%;
   content: "";
   opacity: .4;
-  animation: ui-splash-orbit 1.1s var(--ui-ease-settle) both;
+  animation: ui-splash-orbit 260ms var(--ui-ease-settle) both;
 }
 
 .ui-v2 .ui-splash__studio,
@@ -165,7 +165,7 @@
 .ui-v2 .ui-splash__studio {
   grid-template-columns: 48px minmax(0, 170px);
   gap: var(--ui-space-3);
-  animation: ui-splash-studio 1.25s var(--ui-ease-out) both;
+  animation: ui-splash-studio 170ms var(--ui-ease-out) both;
 }
 
 .ui-v2 .ui-splash__studio img:first-child {
@@ -179,7 +179,7 @@
 .ui-v2 .ui-splash__game {
   gap: var(--ui-space-2);
   opacity: 0;
-  animation: ui-splash-game .75s .72s var(--ui-ease-settle) both;
+  animation: ui-splash-game 160ms 100ms var(--ui-ease-settle) both;
 }
 
 .ui-v2 .ui-splash__game span {

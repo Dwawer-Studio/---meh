@@ -177,7 +177,7 @@ class MehGameRuleModule {
 
         if (this.pendingDraws > 0) {
             this._showGuidance('first-penalty', I18n.t('first_penalty_tip'), I18n.t('reason_counter'));
-            this._haptic([80, 50, 80]);
+            this._haptic([45, 60, 45]);
             const hasResponse = player.hand.some(card => this.canRespondToPendingDraw(card));
             if (!hasResponse) {
                 this.actionInProgress = true;
@@ -198,10 +198,10 @@ class MehGameRuleModule {
             this.updateUI();   // يبثّ canPlay=true لذلك العميل
             this.startTurnTimer();
         } else {
-            Sound.play('turn');
+            Sound.play('turn-ready');
             this.humanCanPlay = true;    // ✅ الآن فقط يُسمح للاعب بالفعل
             this._showGuidance('first-turn', I18n.t('first_turn_tip'), I18n.t('reason_legal_action'));
-            this._haptic(60);
+            this._haptic(45);
             this.updateUI();
             const hasPlayable = player.hand.some(c => c.isPlayable(this.topCard, this.activeColor));
             if (!hasPlayable && this.pendingDraws === 0) {
@@ -284,6 +284,7 @@ class MehGameRuleModule {
     // ===== تأكيد رمي البطاقة =====
     selectCard(index) {
         this.selectedCardIndex = index;
+        Sound.play('card-lift');
         this.updateUI();
         UI.confirmBar.classList.remove('hidden');
         const confirmButton = document.getElementById('confirm-play-btn');
@@ -322,40 +323,10 @@ class MehGameRuleModule {
 
     // ===== DRAW ANIMATIONS =====
     animateCardFly(player, delayMs = 0) {
-        if (this.settings.batterySaver) return;  // توفير البطارية: لا حركات
         const fromEl = UI.drawPile;
         const toEl = document.getElementById(player.containerId);
-        if (!fromEl || !toEl) return;
-
-        const fromRect = fromEl.getBoundingClientRect();
-        const toRect = toEl.getBoundingClientRect();
-
-        const fly = document.createElement('div');
-        fly.className = 'card back draw-fly-card';
-        fly.style.cssText = `
-            position: fixed;
-            width: 72px; height: 104px;
-            top:  ${fromRect.top + fromRect.height / 2 - 52}px;
-            left: ${fromRect.left + fromRect.width / 2 - 36}px;
-            z-index: 9998;
-            pointer-events: none;
-            border-radius: 10px;
-            box-shadow: 0 10px 30px rgba(0,0,0,.6);
-            transition: none;
-        `;
-        document.body.appendChild(fly);
-
-        const destTop = toRect.top + toRect.height / 2 - 52;
-        const destLeft = toRect.left + toRect.width / 2 - 36;
-
-        setTimeout(() => {
-            fly.style.transition = 'top .45s cubic-bezier(.4,0,.2,1), left .45s cubic-bezier(.4,0,.2,1), transform .45s, opacity .2s .3s';
-            fly.style.top = destTop + 'px';
-            fly.style.left = destLeft + 'px';
-            fly.style.transform = 'scale(0.55) rotate(12deg)';
-            fly.style.opacity = '0';
-            setTimeout(() => fly.remove(), 500);
-        }, delayMs + 30);
+        if (!fromEl || !toEl || typeof FeedbackDirector === 'undefined') return;
+        setTimeout(() => FeedbackDirector.animateDraw(fromEl, toEl), Math.max(0, delayMs));
     }
 
     showDrawPenalty(player, count) {
@@ -369,6 +340,15 @@ class MehGameRuleModule {
         badge.textContent = `+${count}`;
         area.appendChild(badge);
         setTimeout(() => badge.remove(), 2200);
+
+        const reason = this._latestActionReason || I18n.t('reason_counter');
+        const reasonBanner = document.createElement('div');
+        reasonBanner.className = 'penalty-reason-banner';
+        reasonBanner.setAttribute('role', 'status');
+        reasonBanner.textContent = I18n.t('penalty_reason_banner', { name: player.name, n: count });
+        area.appendChild(reasonBanner);
+        this._showTransientReason(reasonBanner.textContent, reason, 3000);
+        setTimeout(() => reasonBanner.remove(), 3000);
     }
 
     drawMultiple(player, count, callback) {
@@ -382,7 +362,7 @@ class MehGameRuleModule {
             return;
         }
         this.showDrawPenalty(player, count);
-        Sound.play('penalty');
+        Sound.play('penalty-double');
         UI.drawPile.classList.add('dealing');
 
         let drawn = 0;
@@ -435,40 +415,20 @@ class MehGameRuleModule {
         this._productAutoAction = false;
         this.discardPile.push(card);
         if (card.color !== 'black') this.activeColor = card.color;
-        Sound.play('cardPlay');
-
         this.updateUI();
 
-        if (!this.settings.batterySaver && startRect && UI.discardPile.lastChild) {
+        if (startRect && UI.discardPile.lastChild && typeof FeedbackDirector !== 'undefined') {
             const endEl = UI.discardPile.lastChild;
-            const endRect = endEl.getBoundingClientRect();
-
             const clone = this.createCardElement(card, false);
-            clone.style.position = 'fixed';
-            clone.style.top = startRect.top + 'px';
-            clone.style.left = startRect.left + 'px';
-            clone.style.margin = '0';
-            clone.style.zIndex = '9999';
-            clone.style.transition = 'all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1)';
-            clone.style.boxShadow = '0 10px 20px rgba(0,0,0,0.3)';
-            document.body.appendChild(clone);
-
-            endEl.style.opacity = '0';
-
-            requestAnimationFrame(() => {
-                requestAnimationFrame(() => {
-                    clone.style.top = endRect.top + 'px';
-                    clone.style.left = endRect.left + 'px';
-                    clone.style.transform = `rotate(${Math.random() * 20 - 10}deg) scale(1)`;
-                });
-            });
-
+            const duration = FeedbackDirector.animateCardPlay(startRect, endEl, clone);
             setTimeout(() => {
-                endEl.style.opacity = '1';
-                clone.remove();
+                Sound.play('card-settle');
+                if (!player.isBot && !player.isRemote) this._haptic(35);
                 this.processEffect(card, player);
-            }, 400);
+            }, duration);
         } else {
+            Sound.play('card-settle');
+            if (!player.isBot && !player.isRemote) this._haptic(35);
             this.processEffect(card, player);
         }
     }
@@ -889,9 +849,9 @@ class MehGameRuleModule {
         this.updateMenuChip();
 
         WakeLock.disable();
-        Sound.play(humanWon ? 'win' : 'lose');
-        if (humanWon) this.launchConfetti();
-        this._haptic(humanWon ? [100, 60, 180] : 120);
+        Sound.play(humanWon ? 'round-resolve-win' : 'round-resolve');
+        this.launchConfetti(humanWon);
+        this._haptic(humanWon ? [60, 50, 90] : 80);
 
         UI.winnerText.innerText = humanWon
             ? I18n.t('you_win')

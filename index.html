@@ -279,9 +279,19 @@
                              <small data-i18n="confirm_desc"></small></div>
                         <div class="switch"><span class="knob"></span></div>
                     </div>
-                    <div class="setting-row toggle-row" data-setting="sound" role="switch" tabindex="0" aria-checked="false">
-                        <div><label data-i18n="sound_label">المؤثرات الصوتية</label>
-                             <small data-i18n="sound_desc"></small></div>
+                    <div class="setting-row toggle-row sound-setting sound-setting--master" data-setting="soundMaster" role="switch" tabindex="0" aria-checked="false">
+                        <div><label data-i18n="sound_master_label">الصوت الرئيسي</label>
+                             <small data-i18n="sound_master_desc">مغلق افتراضياً؛ يسمح بالصوت فقط بعد تشغيله.</small></div>
+                        <div class="switch"><span class="knob"></span></div>
+                    </div>
+                    <div class="setting-row toggle-row sound-setting sound-setting--child" data-setting="music" role="switch" tabindex="0" aria-checked="false">
+                        <div><label data-i18n="music_label">أجواء الطاولة</label>
+                             <small data-i18n="music_desc">طبقة هادئة اختيارية، منفصلة عن المؤثرات.</small></div>
+                        <div class="switch"><span class="knob"></span></div>
+                    </div>
+                    <div class="setting-row toggle-row sound-setting sound-setting--child" data-setting="sfx" role="switch" tabindex="0" aria-checked="false">
+                        <div><label data-i18n="sfx_label">المؤثرات الصوتية</label>
+                             <small data-i18n="sfx_desc">ورق وطرقات قصيرة؛ كل معناها ظاهر ومقروء أيضاً.</small></div>
                         <div class="switch"><span class="knob"></span></div>
                     </div>
                     <div class="setting-row toggle-row" data-setting="haptics" role="switch" tabindex="0" aria-checked="false">
@@ -853,6 +863,13 @@
                         </div>
                         <div id="session-score" class="session-score" role="group" aria-label="نتيجة الجلسة" data-i18n-attr="aria-label:session_score"></div>
                     </section>
+                    <section id="result-tamashi-status" class="result-tamashi-status ui-surface" role="status" aria-live="polite">
+                        <svg class="ui-icon" aria-hidden="true"><use href="assets/ui/icons.svg#icon-tamashi"></use></svg>
+                        <div>
+                            <strong data-i18n="result_tamashi_title">تاماشي</strong>
+                            <span class="result-tamashi-copy" data-i18n="result_tamashi_local">الجولة المحلية لا تمنح رصيداً؛ المكافآت للمباريات الموثقة.</span>
+                        </div>
+                    </section>
                     <section id="result-rematch" class="result-rematch ui-surface" aria-labelledby="rematch-title">
                         <div>
                             <h2 id="rematch-title" data-i18n="rematch_title">نكمل المجلس؟</h2>
@@ -910,6 +927,7 @@
     <script src="i18n.js"></script>
     <script src="features.js"></script>
     <script src="sound.js"></script>
+    <script src="ui/feedback-director.js"></script>
     <script src="net.js"></script>
     <script src="game/game-manifests.js"></script>
     <script src="game/core-evidence.js"></script>

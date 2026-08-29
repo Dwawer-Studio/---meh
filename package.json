@@ -42,7 +42,8 @@
     "test:uiux-u2": "node --test tests/uiux-u2-app-shell.test.js && playwright test tests/e2e/uiux-u2.spec.js",
     "test:uiux-u3": "node --test tests/uiux-u3-game-table.test.js && playwright test tests/e2e/uiux-u3.spec.js",
     "test:uiux-u4": "node --test tests/uiux-u4-social-session.test.js && playwright test tests/e2e/uiux-u4.spec.js tests/e2e/online.spec.js tests/e2e/authoritative.spec.js",
-    "test:uiux-u5": "node --test tests/uiux-u5-collection-store.test.js tests/p4-feature-flags.test.js && playwright test tests/e2e/uiux-u5.spec.js tests/e2e/authoritative.spec.js"
+    "test:uiux-u5": "node --test tests/uiux-u5-collection-store.test.js tests/p4-feature-flags.test.js && playwright test tests/e2e/uiux-u5.spec.js tests/e2e/authoritative.spec.js",
+    "test:uiux-u6": "node --test tests/uiux-u6-feedback.test.js tests/storage.test.js tests/guidance.test.js && playwright test tests/e2e/uiux-u6.spec.js"
   },
   "engines": {
     "node": "^22.22.0 || >=24.8.0"

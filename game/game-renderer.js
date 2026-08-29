@@ -1,20 +1,9 @@
 'use strict';
 
 class MehGameRendererModule {
-    launchConfetti() {
-        if (this.settings.batterySaver) return;
-        const colors = ['#fbbf24', '#f97316', '#8b5cf6', '#22c55e', '#ef4444', '#38bdf8', '#ffffff'];
-        for (let i = 0; i < 90; i++) {
-            const c = document.createElement('div');
-            c.className = 'confetti';
-            c.style.left = (Math.random() * 100) + 'vw';
-            c.style.background = colors[i % colors.length];
-            c.style.width = c.style.height = (6 + Math.random() * 9) + 'px';
-            c.style.animationDelay = (Math.random() * 0.7) + 's';
-            c.style.animationDuration = (1.9 + Math.random() * 1.7) + 's';
-            document.body.appendChild(c);
-            setTimeout(() => c.remove(), 4000);
-        }
+    launchConfetti(won = true) {
+        const resultScreen = document.getElementById('end-screen');
+        if (typeof FeedbackDirector !== 'undefined') FeedbackDirector.result(resultScreen, won);
     }
 
     // ========== RENDERING ==========
@@ -103,6 +92,9 @@ class MehGameRendererModule {
         screen.classList.toggle('local-turn', isLocalTurn);
         screen.classList.toggle('awaiting-decision', !!this.isAwaitingColor);
         screen.classList.toggle('pending-penalty', Number(this.pendingDraws) > 0);
+        if (typeof FeedbackDirector !== 'undefined') {
+            FeedbackDirector.turn(screen, this.currentPlayerIndex, this.direction, this.currentPlayer.id);
+        }
 
         const context = document.getElementById('table-context-name');
         if (context) {
@@ -151,6 +143,16 @@ class MehGameRendererModule {
 
         const subtitle = document.getElementById('result-subtitle');
         if (subtitle) subtitle.textContent = I18n.t(humanWon ? 'result_win_subtitle' : 'result_loss_subtitle');
+
+        const tamashiStatus = document.getElementById('result-tamashi-status');
+        if (tamashiStatus) {
+            const verified = !!this._authoritativeClient
+                && this._productFeatureEnabled('tamashi_wallet');
+            tamashiStatus.dataset.settlement = verified ? 'pending' : 'local';
+            const message = tamashiStatus.querySelector('span');
+            if (message) message.textContent = I18n.t(verified
+                ? 'result_tamashi_pending' : 'result_tamashi_local');
+        }
 
         const hasTable = !!(this.tableSession || this.tableSnapshot);
         const board = document.getElementById('result-board');
@@ -360,29 +362,10 @@ class MehGameRendererModule {
         setTimeout(() => t.remove(), 3000);
     }
 
-    // تأثيرات بصرية لكل بطاقة (اهتزاز + وميض)
+    // نبضة حدّ واحدة بلا وميض؛ المعنى الأساسي يبقى في النص/السجل.
     screenFx(kind) {
-        if (this.settings.batterySaver) return;
         const gs = document.getElementById('game-screen');
-        const shake = () => {
-            if (!gs) return;
-            gs.classList.remove('shake'); void gs.offsetWidth; gs.classList.add('shake');
-            setTimeout(() => gs.classList.remove('shake'), 460);
-        };
-        const flash = (col) => {
-            const f = document.createElement('div');
-            f.className = 'screen-flash';
-            f.style.background = `radial-gradient(circle, ${col} 0%, transparent 72%)`;
-            document.body.appendChild(f);
-            setTimeout(() => f.remove(), 520);
-        };
-        switch (kind) {
-            case 'draw4':   shake(); flash('rgba(239,68,68,0.55)'); break;
-            case 'counter': shake(); flash('rgba(255,255,255,0.6)'); break;
-            case 'wild':    flash('rgba(168,85,247,0.45)'); break;
-            case 'draw2':   flash('rgba(249,115,22,0.4)'); break;
-            case 'skip':    flash('rgba(148,163,184,0.35)'); break;
-        }
+        if (typeof FeedbackDirector !== 'undefined') FeedbackDirector.impact(gs, kind);
     }
 
     colorName(c) {

@@ -28,6 +28,7 @@ test('HTML has a doctype, unique ids, and expected script order', () => {
         'i18n.js',
         'features.js',
         'sound.js',
+        'ui/feedback-director.js',
         'net.js',
         'game/game-manifests.js',
         'game/core-evidence.js',

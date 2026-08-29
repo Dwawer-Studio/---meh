@@ -84,7 +84,10 @@ class AccountService {
     async updateSettings(accountId, input) {
         if (!input || typeof input !== 'object' || Array.isArray(input)) throw new TypeError('INVALID_SETTINGS');
         const settings = {};
-        const booleanKeys = ['colorblind', 'batterySaver', 'wakeLock', 'confirmPlay', 'sound', 'haptics'];
+        const booleanKeys = [
+            'colorblind', 'batterySaver', 'wakeLock', 'confirmPlay',
+            'sound', 'soundMaster', 'music', 'sfx', 'haptics',
+        ];
         if (input.lang !== undefined) {
             if (!['ar', 'en'].includes(input.lang)) throw new TypeError('INVALID_SETTINGS');
             settings.lang = input.lang;

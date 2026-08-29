@@ -4,8 +4,14 @@ class MehGameProfileModule {
     runSplash() {
         const s = document.getElementById('splash');
         if (!s) return;
-        setTimeout(() => s.classList.add('gone'), 1300);
-        setTimeout(() => s.remove(), 1900);
+        const profile = typeof FeedbackDirector !== 'undefined' ? FeedbackDirector.profile : 'full';
+        if (profile === 'battery') {
+            s.remove();
+            return;
+        }
+        const reduced = profile === 'reduced';
+        setTimeout(() => s.classList.add('gone'), reduced ? 100 : 280);
+        setTimeout(() => s.remove(), reduced ? 220 : 420);
     }
 
     // ============ الإعدادات ============
@@ -13,7 +19,9 @@ class MehGameProfileModule {
         I18n.setLang(this.settings.lang);   // يطبّق الترجمة والاتجاه
         document.body.classList.toggle('colorblind', !!this.settings.colorblind);
         document.body.classList.toggle('battery-saver', !!this.settings.batterySaver);
-        Sound.setEnabled(this.settings.sound !== false);
+        if (typeof Sound.configure === 'function') Sound.configure(this.settings);
+        else if (typeof Sound.setEnabled === 'function') Sound.setEnabled(this.settings.soundMaster === true);
+        if (typeof FeedbackDirector !== 'undefined') FeedbackDirector.configure(this.settings);
         this.renderInstructions();
         this._refreshCatalogLocalization();
         this.updateMenuChip();
@@ -41,15 +49,18 @@ class MehGameProfileModule {
             const toggleSetting = () => {
                 const key = row.dataset.setting;
                 this.settings[key] = !this.settings[key];
-                Storage.setSetting(key, this.settings[key]);
+                this.settings = Storage.setSetting(key, this.settings[key]);
                 this._syncAuthoritativeSettings();
                 if (key === 'colorblind') document.body.classList.toggle('colorblind', this.settings[key]);
                 if (key === 'batterySaver') document.body.classList.toggle('battery-saver', this.settings[key]);
                 if (key === 'wakeLock') {
                     if (this.settings[key]) WakeLock.enable(); else WakeLock.disable();
                 }
-                if (key === 'sound') Sound.setEnabled(this.settings[key]);
-                Sound.play('click');
+                if (['soundMaster', 'music', 'sfx', 'batterySaver'].includes(key)) {
+                    if (typeof Sound.configure === 'function') Sound.configure(this.settings);
+                    if (typeof FeedbackDirector !== 'undefined') FeedbackDirector.configure(this.settings);
+                }
+                Sound.play('tap-soft');
                 this.refreshSettingsUI();
             };
             row.onclick = toggleSetting;
@@ -69,6 +80,9 @@ class MehGameProfileModule {
             const enabled = !!this.settings[key];
             row.querySelector('.switch').classList.toggle('on', enabled);
             row.setAttribute('aria-checked', String(enabled));
+            if (row.classList.contains('sound-setting--child')) {
+                row.dataset.masterMuted = String(this.settings.soundMaster !== true);
+            }
         });
     }
 

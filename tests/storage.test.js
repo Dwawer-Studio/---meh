@@ -103,13 +103,27 @@ test('settings retain defaults while persisting an override', () => {
 
     const defaults = Storage.getSettings();
     assert.equal(defaults.lang, 'ar');
-    assert.equal(defaults.sound, true);
+    assert.equal(defaults.sound, false);
+    assert.equal(defaults.soundMaster, false);
+    assert.equal(defaults.music, false);
+    assert.equal(defaults.sfx, true);
 
-    Storage.setSetting('sound', false);
+    Storage.setSetting('soundMaster', true);
     const saved = Storage.getSettings();
-    assert.equal(saved.sound, false);
+    assert.equal(saved.sound, true);
+    assert.equal(saved.soundMaster, true);
     assert.equal(saved.lang, 'ar');
     assert.equal(saved.confirmPlay, true);
+});
+
+test('legacy sound=true never bypasses the new explicit master opt-in', () => {
+    const localStorage = memoryLocalStorage();
+    localStorage.setItem('meh_settings', JSON.stringify({ sound: true }));
+    const { Storage } = loadScript('storage.js', ['Storage'], { localStorage });
+
+    const migrated = Storage.getSettings();
+    assert.equal(migrated.sound, false);
+    assert.equal(migrated.soundMaster, false);
 });
 
 test('malformed JSON falls back without crashing', () => {

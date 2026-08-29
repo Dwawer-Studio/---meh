@@ -530,6 +530,7 @@
 }
 
 .ui-v2 .result-board,
+.ui-v2 .result-tamashi-status,
 .ui-v2 .result-rematch,
 .ui-v2 .results-screen .majlis-result-panel {
   border: 2px solid var(--ui-brand-ink);
@@ -541,6 +542,33 @@
 
 .ui-v2 .result-board {
   padding: 14px;
+}
+
+.ui-v2 .result-tamashi-status {
+  min-height: 64px;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-color: var(--ui-economy-tamashi);
+  box-shadow: 0 4px 0 var(--ui-economy-tamashi);
+}
+
+.ui-v2 .result-tamashi-status .ui-icon {
+  width: 30px;
+  height: 30px;
+  color: var(--ui-economy-tamashi);
+}
+
+.ui-v2 .result-tamashi-status div {
+  display: grid;
+  gap: 2px;
+}
+
+.ui-v2 .result-tamashi-copy {
+  color: var(--ui-text-muted);
+  font-size: var(--ui-type-meta);
 }
 
 .ui-v2 .result-section-heading {

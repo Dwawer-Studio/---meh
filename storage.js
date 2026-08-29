@@ -59,18 +59,32 @@ const Storage = {
             batterySaver: false, // وضع توفير البطارية
             wakeLock: true,      // منع نوم الشاشة أثناء اللعب
             confirmPlay: true,   // ضغطة للمعاينة ثم تأكيد
-            sound: true,
+            // الصوت mute-first: لا يُنشأ AudioContext قبل موافقة صريحة.
+            sound: false,        // مرآة توافقية لقيمة Master
+            soundMaster: false,
+            music: false,
+            sfx: true,
             haptics: false,
         };
     },
     getSettings() {
         const stored = this._read(this.KEYS.settings, {});
         const overrides = stored && typeof stored === 'object' && !Array.isArray(stored) ? stored : {};
-        return Object.assign(this.defaultSettings(), overrides);
+        const settings = Object.assign(this.defaultSettings(), overrides);
+        // لا نعتبر `sound: true` القديمة موافقة؛ فقد كانت القيمة الافتراضية سابقاً.
+        settings.soundMaster = Object.prototype.hasOwnProperty.call(overrides, 'soundMaster')
+            ? overrides.soundMaster === true : false;
+        settings.music = overrides.music === true;
+        settings.sfx = overrides.sfx !== false;
+        settings.sound = settings.soundMaster;
+        settings.haptics = overrides.haptics === true;
+        return settings;
     },
     setSetting(key, value) {
         const s = this.getSettings();
-        s[key] = value;
+        const normalizedKey = key === 'sound' ? 'soundMaster' : key;
+        s[normalizedKey] = value;
+        if (normalizedKey === 'soundMaster') s.sound = value === true;
         this._write(this.KEYS.settings, s);
         return s;
     },

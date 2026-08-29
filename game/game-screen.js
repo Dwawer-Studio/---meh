@@ -131,6 +131,10 @@ class MehGameScreenModule {
             screen.toggleAttribute('inert', !isActive);
             screen.setAttribute('aria-hidden', String(!isActive));
         });
+        if (typeof FeedbackDirector !== 'undefined') FeedbackDirector.transition(current, target);
+        else if (typeof Sound.setScene === 'function') {
+            Sound.setScene(id === 'game-screen' ? 'table' : (id === 'end-screen' ? 'result' : 'home'));
+        }
         if (!navigation.fromHistory && current !== target && window.history) {
             if (navigation.replaceHistory && typeof window.history.replaceState === 'function') {
                 window.history.replaceState({ mehScreen: id, mehDepth: this._screenDepth || 0 }, '', window.location.href);

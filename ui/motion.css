@@ -1,4 +1,5 @@
-.ui-v2 .ui-motion-enter {
+.ui-v2 .ui-motion-enter,
+.ui-v2 .ui-screen-enter {
   animation: ui-enter var(--ui-duration-screen) var(--ui-ease-settle) both;
 }
 
@@ -10,6 +11,7 @@
 
 .ui-v2 .ui-motion-ack:active {
   scale: .98;
+  translate: 0 2px;
 }
 
 .ui-v2 .ui-motion-lift {
@@ -23,16 +25,202 @@
   box-shadow: var(--ui-shadow-paper-raised);
 }
 
-@keyframes ui-enter {
-  from {
-    opacity: 0;
-    translate: 0 12px;
-  }
+.ui-v2 .feedback-card-flight,
+.ui-v2 .feedback-card-crossfade,
+.ui-v2 .feedback-draw-flight {
+  position: fixed;
+  inset: 0 auto auto 0;
+  width: var(--feedback-card-w, 60px);
+  height: var(--feedback-card-h, 86px);
+  z-index: 9998;
+  margin: 0;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
 
-  to {
+.ui-v2 .feedback-card-flight {
+  animation: feedback-card-arc var(--feedback-duration, 260ms) var(--ui-ease-settle) both;
+  box-shadow: 0 14px 28px rgb(4 7 7 / 26%);
+}
+
+.ui-v2 .feedback-card-crossfade {
+  animation: feedback-card-crossfade var(--feedback-duration, 120ms) linear both;
+}
+
+.ui-v2 .feedback-draw-flight {
+  width: 60px;
+  height: 86px;
+  animation: feedback-draw-arc var(--feedback-duration, 280ms) var(--ui-ease-out) both;
+}
+
+.ui-v2 .feedback-settle-target {
+  opacity: .12;
+}
+
+.ui-v2 .feedback-count-pulse {
+  animation: feedback-count-pulse 120ms linear 1;
+}
+
+.ui-v2 .player-area.turn-departure {
+  animation: feedback-turn-departure 120ms linear 1;
+}
+
+.ui-v2 .player-area.turn-arrival {
+  animation: feedback-turn-arrival 180ms var(--ui-ease-settle) 1;
+}
+
+.ui-v2 #game-screen.feedback-impact::after {
+  content: "";
+  position: absolute;
+  inset: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right))
+    max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
+  z-index: 45;
+  border: 3px solid rgb(238 54 51 / 34%);
+  border-radius: var(--ui-radius-xl);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 30%);
+  pointer-events: none;
+  animation: feedback-impact-border 360ms linear 1 both;
+}
+
+.ui-v2 #game-screen[data-feedback-impact="wild"]::after {
+  border-style: dashed;
+}
+
+.ui-v2 #game-screen[data-feedback-impact="counter"]::after {
+  border-width: 5px;
+}
+
+.ui-v2 .penalty-reason-banner {
+  position: absolute;
+  inset-inline-start: 50%;
+  inset-block-end: -2.15rem;
+  z-index: 24;
+  translate: -50% 0;
+  min-width: max-content;
+  max-width: min(72vw, 26rem);
+  padding: .36rem .62rem;
+  border: 1px solid rgb(238 54 51 / 55%);
+  border-radius: 999px;
+  background: var(--ui-color-paper);
+  color: var(--ui-color-ink);
+  box-shadow: var(--ui-shadow-paper);
+  font: 700 .74rem/1.25 var(--ui-font-family);
+  text-align: center;
+  animation: feedback-reason-enter 160ms var(--ui-ease-out) both;
+}
+
+.ui-v2 .results-screen.result-moment-active .result-seal {
+  animation: result-circle-contract 260ms var(--ui-ease-settle) both;
+}
+
+.ui-v2 .results-screen.result-moment-active .result-copy,
+.ui-v2 .results-screen.result-moment-active .results-layout {
+  animation: result-paper-open 420ms var(--ui-ease-settle) both;
+}
+
+.ui-v2 .results-screen.result-moment-active .result-copy {
+  animation-delay: 0ms;
+}
+
+.ui-v2 .sound-setting--child[data-master-muted="true"] {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    transparent 0 10px,
+    rgb(4 7 7 / 2%) 10px 20px
+  );
+}
+
+.ui-v2 .sound-setting--child[data-master-muted="true"] small::after {
+  content: " · Master muted";
+  color: var(--ui-color-signal);
+  font-weight: 750;
+}
+
+[dir="rtl"] .ui-v2 .sound-setting--child[data-master-muted="true"] small::after {
+  content: " · الصوت الرئيسي مغلق";
+}
+
+@keyframes ui-enter {
+  from { opacity: 0; translate: 0 8px; }
+  to { opacity: 1; translate: 0 0; }
+}
+
+@keyframes feedback-card-arc {
+  0% {
     opacity: 1;
-    translate: 0 0;
+    transform: translate(var(--feedback-from-x), var(--feedback-from-y)) translateY(2px) scale(.98);
   }
+  34% {
+    transform:
+      translate(var(--feedback-mid-x), var(--feedback-mid-y))
+      scale(1.035) rotate(-2deg);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(var(--feedback-to-x), var(--feedback-to-y)) scale(1) rotate(1deg);
+  }
+}
+
+@keyframes feedback-card-crossfade {
+  from { opacity: 1; transform: translate(var(--feedback-from-x), var(--feedback-from-y)); }
+  to { opacity: 0; transform: translate(var(--feedback-from-x), var(--feedback-from-y)); }
+}
+
+@keyframes feedback-draw-arc {
+  0% {
+    opacity: .94;
+    transform: translate(var(--feedback-from-x), var(--feedback-from-y)) scale(.92) rotate(0);
+  }
+  55% {
+    opacity: .82;
+    transform:
+      translate(var(--feedback-mid-x), var(--feedback-mid-y))
+      scale(.74) rotate(5deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--feedback-to-x), var(--feedback-to-y)) scale(.56) rotate(9deg);
+  }
+}
+
+@keyframes feedback-count-pulse {
+  50% { box-shadow: 0 0 0 3px rgb(238 54 51 / 34%); }
+}
+
+@keyframes feedback-turn-departure {
+  to { box-shadow: none; filter: saturate(.78); }
+}
+
+@keyframes feedback-turn-arrival {
+  0% { box-shadow: 0 0 0 0 rgb(238 54 51 / 0%); }
+  58% { box-shadow: 0 0 0 4px rgb(238 54 51 / 72%); }
+  100% { box-shadow: 0 0 0 2px rgb(238 54 51 / 44%); }
+}
+
+@keyframes feedback-impact-border {
+  0% { opacity: 0; }
+  28%, 66% { opacity: .72; }
+  100% { opacity: 0; }
+}
+
+@keyframes feedback-reason-enter {
+  from { opacity: 0; translate: -50% 4px; }
+  to { opacity: 1; translate: -50% 0; }
+}
+
+@keyframes result-circle-contract {
+  0% { opacity: .65; scale: 1.22; }
+  100% { opacity: 1; scale: 1; }
+}
+
+@keyframes result-paper-open {
+  0%, 18% { opacity: 0; clip-path: inset(48% 0 48% 0 round 18px); }
+  100% { opacity: 1; clip-path: inset(0 0 0 0 round 18px); }
+}
+
+@keyframes ui-crossfade {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -58,9 +246,40 @@
   }
 }
 
-.ui-v2[data-ui-motion="reduced"] *,
-.ui-v2[data-ui-motion="reduced"] *::before,
-.ui-v2[data-ui-motion="reduced"] *::after {
+.ui-v2[data-ui-motion="reduced"] :where(
+  .feedback-card-flight,
+  .feedback-card-crossfade,
+  .feedback-draw-flight
+) {
+  animation-name: feedback-card-crossfade !important;
+  animation-duration: 120ms !important;
+}
+
+.ui-v2[data-ui-motion="reduced"] :where(
+  .feedback-count-pulse,
+  .player-area.turn-arrival,
+  .player-area.turn-departure
+) {
+  animation-duration: 120ms !important;
+}
+
+.ui-v2[data-ui-motion="reduced"] :where(
+  .ui-screen-enter,
+  .results-screen.result-moment-active .result-seal,
+  .results-screen.result-moment-active .result-copy,
+  .results-screen.result-moment-active .results-layout
+) {
+  animation-name: ui-crossfade !important;
+  animation-duration: 120ms !important;
+}
+
+.ui-v2[data-ui-motion="reduced"] :where(.ui-spinner, .ui-skeleton) {
+  animation: none !important;
+}
+
+.ui-v2[data-feedback-profile="battery"] *,
+.ui-v2[data-feedback-profile="battery"] *::before,
+.ui-v2[data-feedback-profile="battery"] *::after {
   animation: none !important;
   scroll-behavior: auto !important;
   transition-duration: 1ms !important;

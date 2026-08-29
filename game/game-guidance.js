@@ -31,6 +31,19 @@ class MehGameGuidanceModule {
         return true;
     }
 
+    _showTransientReason(message, reason, duration = 3000) {
+        const tip = document.getElementById('context-tip');
+        const text = document.getElementById('context-tip-text');
+        if (!tip || !text) return false;
+        text.textContent = message;
+        this._latestActionReason = reason || message;
+        tip.classList.remove('hidden');
+        clearTimeout(this._guidanceTimer);
+        clearTimeout(this._penaltyReasonTimer);
+        this._penaltyReasonTimer = setTimeout(() => tip.classList.add('hidden'), Math.max(1000, duration));
+        return true;
+    }
+
     _recordActionJournal(text, reason, kind = 'system', broadcast = true) {
         if (!this._productFeatureEnabled('action_journal')) return false;
         if (typeof text !== 'string' || !text.trim()) return false;

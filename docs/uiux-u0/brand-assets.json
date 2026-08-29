@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "studio": "Dwawer Studio",
+  "identityStatus": "Owner-provided studio identity; product use authorized by the project owner. No public redistribution license was found beside the source archive.",
+  "sourceArchive": "dwawer-logo (sibling studio workspace archive)",
+  "exports": [
+    {
+      "role": "full color wordmark",
+      "file": "assets/brand/dwawer-wordmark-color.png",
+      "sourceFile": "logo/colored logo@4x.png",
+      "sourceSha256": "47a382143db002f887c73beccb4c49d5a686efeae7d674ae394d39193490d089",
+      "transformation": "byte-for-byte copy"
+    },
+    {
+      "role": "full color mark",
+      "file": "assets/brand/dwawer-mark-color.png",
+      "sourceFile": "logo/colored1@4x.png",
+      "sourceSha256": "db1579c97c4663c02adee4f8dbe08619f7fe7211a738a0903f1db3418ea701b2",
+      "transformation": "byte-for-byte copy"
+    },
+    {
+      "role": "ink mark",
+      "file": "assets/brand/dwawer-mark-ink.png",
+      "sourceFile": "logo/black3@4x.png",
+      "sourceSha256": "caf91c861c7d2765342d4dd98a630972837d2ccd4a651ece41955c960a41aaa4",
+      "transformation": "byte-for-byte copy"
+    },
+    {
+      "role": "paper mark",
+      "file": "assets/brand/dwawer-mark-paper.png",
+      "sourceFile": "logo/white2@4x.png",
+      "sourceSha256": "75da96cf4a3b9bca37cc75a43474f5e72c9be1e3fcc9276076f5315ad7fbac87",
+      "transformation": "byte-for-byte copy"
+    },
+    {
+      "role": "four-seat circle",
+      "file": "assets/brand/dwawer-circle-four.png",
+      "sourceFile": "illustration/1.png",
+      "sourceSha256": "8fdc309641cb19dc63c93cc09d49478a72e8c9ff1ea9d7324c32741a6fed1cb8",
+      "transformation": "byte-for-byte copy"
+    },
+    {
+      "role": "people field",
+      "file": "assets/brand/dwawer-people-field.png",
+      "sourceFile": "illustration/illustration2.png",
+      "sourceSha256": "eaff64582b7ea4ca3b9898cb1ce445f637cc955546b15ee28f51f7e7b594248d",
+      "transformation": "byte-for-byte copy"
+    },
+    {
+      "role": "people focus pattern",
+      "file": "assets/brand/dwawer-people-focus.png",
+      "sourceFile": "illustration/ilustration1.png",
+      "sourceSha256": "fa4dd2a4a3e440ecf0351fe322c0fd8ff8e58214022d6de7db0fd16fb28cc825",
+      "transformation": "byte-for-byte copy"
+    }
+  ],
+  "font": {
+    "family": "IBM Plex Sans Arabic",
+    "weights": ["Regular", "SemiBold"],
+    "source": "https://github.com/IBM/plex",
+    "license": "SIL Open Font License 1.1",
+    "licenseFile": "assets/fonts/ibm-plex-sans-arabic/OFL.txt",
+    "runtimePolicy": "local only; no network font dependency"
+  }
+}

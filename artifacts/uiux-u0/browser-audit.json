@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "capturedOn": "2026-08-29",
+  "browserSurface": "Codex in-app browser",
+  "prototype": "prototypes/uiux-u0/index.html",
+  "method": "For every visible element with a non-zero client rect, assert left/top >= -1 and right/bottom <= viewport + 1 after fonts and images load.",
+  "cases": [
+    { "screen": "home", "locale": "ar", "orientation": "portrait", "width": 393, "height": 852, "visibleOverflowCount": 0 },
+    { "screen": "table", "locale": "ar", "orientation": "portrait", "width": 393, "height": 852, "visibleOverflowCount": 0 },
+    { "screen": "results", "locale": "ar", "orientation": "portrait", "width": 393, "height": 852, "visibleOverflowCount": 0 },
+    { "screen": "home", "locale": "en", "orientation": "portrait", "width": 393, "height": 852, "visibleOverflowCount": 0 },
+    { "screen": "table", "locale": "en", "orientation": "portrait", "width": 393, "height": 852, "visibleOverflowCount": 0 },
+    { "screen": "results", "locale": "en", "orientation": "portrait", "width": 393, "height": 852, "visibleOverflowCount": 0 },
+    { "screen": "home", "locale": "ar", "orientation": "landscape", "width": 932, "height": 430, "visibleOverflowCount": 0 },
+    { "screen": "table", "locale": "ar", "orientation": "landscape", "width": 932, "height": 430, "visibleOverflowCount": 0 },
+    { "screen": "results", "locale": "ar", "orientation": "landscape", "width": 932, "height": 430, "visibleOverflowCount": 0 },
+    { "screen": "home", "locale": "en", "orientation": "landscape", "width": 932, "height": 430, "visibleOverflowCount": 0 },
+    { "screen": "table", "locale": "en", "orientation": "landscape", "width": 932, "height": 430, "visibleOverflowCount": 0 },
+    { "screen": "results", "locale": "en", "orientation": "landscape", "width": 932, "height": 430, "visibleOverflowCount": 0 }
+  ]
+}

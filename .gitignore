@@ -22,6 +22,12 @@ design/
 production/
 prototypes/
 
+# UIX-0 reference prototype is a reviewed, versioned design contract.
+!prototypes/
+prototypes/*
+!prototypes/uiux-u0/
+!prototypes/uiux-u0/**
+
 # ===== أدوات Node المحلية =====
 node_modules/
 coverage/

@@ -135,6 +135,8 @@ npm run check:clean
 `docs/THREAT-MODEL-P4.md`.
 أما برنامج إعادة بناء UI/UX من هوية Dwawer، مع قفل قلب اللعبة وآرت البطاقات،
 فموثق في `docs/UIUX-STUDIO-IDENTITY-TRANSFORMATION.md`.
+وتنفيذ شريحة الدستور البصري والنماذج المرجعية UIX-0 موثق في
+`docs/UIX-0-VISUAL-CONTRACT.md`.
 والاختبارات البشرية والميدانية المؤجلة بقرار مالك المنتج مجمعة في
 `docs/DEFERRED-VALIDATION-REGISTER.md`.
 

@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light">
+    <title>مِهْ — UIX-0 visual reference</title>
+    <link rel="stylesheet" href="prototype.css">
+</head>
+<body>
+    <svg class="svg-defs" aria-hidden="true">
+        <symbol id="icon-play" viewBox="0 0 24 24"><path d="M8 5.5v13l10-6.5z"/></symbol>
+        <symbol id="icon-home" viewBox="0 0 24 24"><path d="M3.5 10.5 12 3l8.5 7.5v9H15v-6H9v6H3.5z"/></symbol>
+        <symbol id="icon-people" viewBox="0 0 24 24"><path d="M8.2 11.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4Zm7.7-1.2a2.6 2.6 0 1 0 0-5.2 2.6 2.6 0 0 0 0 5.2ZM2.8 19.2c.3-3.7 2.1-5.6 5.4-5.6s5.1 1.9 5.4 5.6m.5-6.6c3.9-.2 6 2 6.3 5.7"/></symbol>
+        <symbol id="icon-cards" viewBox="0 0 24 24"><rect x="5" y="3.5" width="12.5" height="17" rx="2"/><path d="m9.5 8 3-1.8L15.5 8l-3 2zm8-1.8 2.1.6a2 2 0 0 1 1.4 2.5l-2.6 9"/></symbol>
+        <symbol id="icon-history" viewBox="0 0 24 24"><path d="M4 7.5V3m0 4.5h4.5M5 7a8.5 8.5 0 1 1-1.3 8.1M12 7.5V12l3 2"/></symbol>
+        <symbol id="icon-sound" viewBox="0 0 24 24"><path d="M4 14.5h4l5 4v-13l-5 4H4zm12-5a4 4 0 0 1 0 5m2.3-7.3a7 7 0 0 1 0 9.6"/></symbol>
+        <symbol id="icon-replay" viewBox="0 0 24 24"><path d="M5 8V3.5M5 8h4.5M5.5 7.5a8.5 8.5 0 1 1-1.4 8"/></symbol>
+        <symbol id="icon-share" viewBox="0 0 24 24"><circle cx="6" cy="12" r="2.5"/><circle cx="17.5" cy="6" r="2.5"/><circle cx="17.5" cy="18" r="2.5"/><path d="m8.3 10.8 7-3.6m-7 6 7 3.6"/></symbol>
+        <symbol id="icon-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2.8v2m0 14.4v2M2.8 12h2m14.4 0h2M5.5 5.5l1.4 1.4m10.2 10.2 1.4 1.4m0-13-1.4 1.4M6.9 17.1l-1.4 1.4"/></symbol>
+        <symbol id="icon-arrow" viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6"/></symbol>
+    </svg>
+
+    <header class="prototype-toolbar" aria-label="Prototype controls">
+        <strong>UIX-0 / Living Circle</strong>
+        <nav aria-label="Prototype views">
+            <button type="button" data-set="screen" data-value="home">Home</button>
+            <button type="button" data-set="screen" data-value="table">Table</button>
+            <button type="button" data-set="screen" data-value="results">Results</button>
+            <button type="button" data-set="locale" data-value="ar">AR</button>
+            <button type="button" data-set="locale" data-value="en">EN</button>
+            <button type="button" data-set="frame" data-value="portrait">Portrait</button>
+            <button type="button" data-set="frame" data-value="landscape">Landscape</button>
+        </nav>
+    </header>
+
+    <main id="device" class="device portrait screen-home" aria-label="UIX-0 reference frame">
+        <section id="home-screen" class="mock-screen home-screen" aria-labelledby="home-title">
+            <div class="paper-grain" aria-hidden="true"></div>
+            <header class="app-bar">
+                <div class="brand-lockup">
+                    <img src="../../assets/brand/dwawer-mark-color.png" alt="" class="brand-mark">
+                    <span class="meh-word">مِهْ</span>
+                </div>
+                <button class="profile-chip" type="button">
+                    <span class="profile-avatar">ن</span>
+                    <span data-ar="نورة" data-en="Noura">نورة</span>
+                    <span class="level-dot" role="img" aria-label="Level 7">7</span>
+                </button>
+            </header>
+
+            <div class="home-composition">
+                <div class="hero-copy">
+                    <p class="eyebrow" data-ar="الطاولة جاهزة" data-en="THE TABLE IS READY">الطاولة جاهزة</p>
+                    <h1 id="home-title" data-ar="لمّ الربع. خلّ الورق يتكلم." data-en="Bring the crew. Let the cards talk.">لمّ الربع. خلّ الورق يتكلم.</h1>
+                    <p class="hero-subtitle" data-ar="لعبة اجتماعية سريعة، كل جولة فيها سالفة جديدة." data-en="A fast social card game. Every round tells a new story.">لعبة اجتماعية سريعة، كل جولة فيها سالفة جديدة.</p>
+                    <button class="primary-action" type="button">
+                        <svg aria-hidden="true"><use href="#icon-play"/></svg>
+                        <span data-ar="العب الآن" data-en="Play now">العب الآن</span>
+                        <small data-ar="محلي · سريع · أصدقاء" data-en="Local · Quick · Friends">محلي · سريع · أصدقاء</small>
+                    </button>
+                </div>
+
+                <div class="hero-art" aria-hidden="true">
+                    <div class="hero-orbit orbit-one"></div>
+                    <div class="hero-orbit orbit-two"></div>
+                    <img class="hero-people" src="../../assets/brand/dwawer-people-focus.png" alt="">
+                    <img class="hero-card hero-card-back" src="../../assets/cards/card-back.webp" alt="">
+                    <img class="hero-card hero-card-front" src="../../assets/cards/black-meh.webp" alt="">
+                    <img class="floating-mark" src="../../assets/brand/dwawer-mark-color.png" alt="">
+                </div>
+
+                <article class="return-card">
+                    <div class="return-card-heading">
+                        <div>
+                            <p class="eyebrow" data-ar="مجلسك الأخير" data-en="YOUR LAST MAJLIS">مجلسك الأخير</p>
+                            <h2 data-ar="مجلس الجمعة" data-en="Friday Majlis">مجلس الجمعة</h2>
+                        </div>
+                        <span class="live-pill" data-ar="3 جاهزين" data-en="3 ready">3 جاهزين</span>
+                    </div>
+                    <div class="return-card-footer">
+                        <div class="avatar-stack" role="group" aria-label="3 players ready"><span>ن</span><span>ع</span><span>م</span><span class="avatar-more">+1</span></div>
+                        <button class="text-action" type="button"><span data-ar="ارجع للطاولة" data-en="Rejoin table">ارجع للطاولة</span><svg aria-hidden="true"><use href="#icon-arrow"/></svg></button>
+                    </div>
+                </article>
+            </div>
+
+            <nav class="bottom-nav" aria-label="Primary navigation">
+                <button class="active" type="button"><svg aria-hidden="true"><use href="#icon-home"/></svg><span data-ar="الرئيسية" data-en="Home">الرئيسية</span></button>
+                <button type="button"><svg aria-hidden="true"><use href="#icon-people"/></svg><span data-ar="المجالس" data-en="Majlis">المجالس</span><i>2</i></button>
+                <button type="button"><svg aria-hidden="true"><use href="#icon-cards"/></svg><span data-ar="البطاقات" data-en="Cards">البطاقات</span></button>
+            </nav>
+        </section>
+
+        <section id="table-screen" class="mock-screen table-screen" aria-labelledby="table-title">
+            <div class="table-paper" aria-hidden="true"></div>
+            <header class="table-bar">
+                <div class="table-brand"><img src="../../assets/brand/dwawer-mark-paper.png" alt=""><span>مِهْ</span></div>
+                <p id="table-title"><strong data-ar="مجلس الجمعة" data-en="Friday Majlis">مجلس الجمعة</strong><span data-ar="الجولة ٢" data-en="Round 2">الجولة ٢</span></p>
+                <div class="table-tools">
+                    <button type="button" aria-label="Sound"><svg aria-hidden="true"><use href="#icon-sound"/></svg></button>
+                    <button type="button" aria-label="History"><svg aria-hidden="true"><use href="#icon-history"/></svg></button>
+                </div>
+            </header>
+
+            <div class="table-stage">
+                <div class="seat seat-top active-seat"><span class="seat-avatar">ع</span><div><strong data-ar="علي" data-en="Ali">علي</strong><small><b>4</b> <span data-ar="بطاقات" data-en="cards">بطاقات</span></small></div><i class="turn-pulse"></i></div>
+                <div class="seat seat-left"><span class="seat-avatar">م</span><div><strong data-ar="مريم" data-en="Maryam">مريم</strong><small><b>6</b> <span data-ar="بطاقات" data-en="cards">بطاقات</span></small></div></div>
+                <div class="seat seat-right"><span class="seat-avatar">ح</span><div><strong data-ar="حمد" data-en="Hamad">حمد</strong><small><b>3</b> <span data-ar="بطاقات" data-en="cards">بطاقات</span></small></div></div>
+
+                <div class="living-ring" role="img" aria-label="Turn direction">
+                    <span class="ring-arrow ring-a"></span><span class="ring-arrow ring-b"></span><span class="ring-arrow ring-c"></span>
+                </div>
+                <div class="center-piles">
+                    <div class="pile draw-stack"><img src="../../assets/cards/card-back.webp" alt="Draw pile"><span class="pile-count">31</span></div>
+                    <div class="pile discard-stack"><img src="../../assets/cards/orange-boShlakh.webp" alt="بوشلاخ"></div>
+                </div>
+                <div class="turn-callout"><span data-ar="دور علي" data-en="Ali's turn">دور علي</span><strong data-ar="اختار بطاقة" data-en="Choose a card">اختار بطاقة</strong></div>
+            </div>
+
+            <div class="player-dock">
+                <div class="self-seat"><span class="seat-avatar">ن</span><div><strong data-ar="أنت" data-en="You">أنت</strong><small data-ar="5 بطاقات" data-en="5 cards">5 بطاقات</small></div></div>
+                <div class="hand-fan" role="group" aria-label="Your hand">
+                    <button type="button" class="hand-card c1"><img src="../../assets/cards/purple-phantom.webp" alt="فانتوم"></button>
+                    <button type="button" class="hand-card c2 playable"><img src="../../assets/cards/orange-counterAttack.webp" alt="هجمة مرتدة"></button>
+                    <button type="button" class="hand-card c3 selected"><img src="../../assets/cards/black-meh.webp" alt="مِهْ"></button>
+                    <button type="button" class="hand-card c4 playable"><img src="../../assets/cards/orange-umWajhain.webp" alt="أم وجهين"></button>
+                    <button type="button" class="hand-card c5"><img src="../../assets/cards/gray-reverse.webp" alt="يوتيرن"></button>
+                </div>
+                <button class="play-confirm" type="button"><span data-ar="العب البطاقة" data-en="Play card">العب البطاقة</span><svg aria-hidden="true"><use href="#icon-arrow"/></svg></button>
+            </div>
+        </section>
+
+        <section id="results-screen" class="mock-screen results-screen" aria-labelledby="result-title">
+            <div class="result-pattern" aria-hidden="true"></div>
+            <header class="result-brand"><img src="../../assets/brand/dwawer-mark-color.png" alt=""><span>مِهْ</span></header>
+            <div class="result-composition">
+                <div class="win-orbit" aria-hidden="true"><img src="../../assets/brand/dwawer-circle-four.png" alt=""><span class="winner-avatar">ن</span></div>
+                <div class="result-copy">
+                    <p class="eyebrow" data-ar="خلصت الجولة" data-en="ROUND COMPLETE">خلصت الجولة</p>
+                    <h1 id="result-title" data-ar="كفو يا نورة!" data-en="Nice one, Noura!">كفو يا نورة!</h1>
+                    <p data-ar="قلبتي الطاولة بآخر بطاقة مِهْ." data-en="You flipped the table with a final MEH card.">قلبتي الطاولة بآخر بطاقة مِهْ.</p>
+                    <div class="reward-strip"><span class="tamashi-mark">魂</span><div><small data-ar="تاماشي هذه الجولة" data-en="Tamashi this round">تاماشي هذه الجولة</small><strong>+120</strong></div><span class="fair-note" data-ar="لعب + مشاركة" data-en="Play + participation">لعب + مشاركة</span></div>
+                </div>
+                <article class="score-card">
+                    <header><span data-ar="حصيلة المجلس" data-en="MAJLIS SCORE">حصيلة المجلس</span><small data-ar="بعد جولتين" data-en="After 2 rounds">بعد جولتين</small></header>
+                    <ol>
+                        <li class="winner-row"><span><b>1</b><i>ن</i><strong data-ar="نورة" data-en="Noura">نورة</strong></span><em>2</em></li>
+                        <li><span><b>2</b><i>ح</i><strong data-ar="حمد" data-en="Hamad">حمد</strong></span><em>1</em></li>
+                        <li><span><b>3</b><i>ع</i><strong data-ar="علي" data-en="Ali">علي</strong></span><em>0</em></li>
+                        <li><span><b>4</b><i>م</i><strong data-ar="مريم" data-en="Maryam">مريم</strong></span><em>0</em></li>
+                    </ol>
+                </article>
+                <div class="rematch-card">
+                    <div><span class="ready-dots"><i></i><i></i><i></i><i class="waiting"></i></span><p><strong data-ar="3 من 4 جاهزين" data-en="3 of 4 ready">3 من 4 جاهزين</strong><small data-ar="باقي حمد" data-en="Waiting for Hamad">باقي حمد</small></p></div>
+                    <button class="primary-action compact" type="button"><svg aria-hidden="true"><use href="#icon-replay"/></svg><span data-ar="مرة ثانية" data-en="Play again">مرة ثانية</span></button>
+                </div>
+                <div class="result-actions"><button type="button"><svg aria-hidden="true"><use href="#icon-share"/></svg><span data-ar="شارك النتيجة" data-en="Share result">شارك النتيجة</span></button><button type="button" data-ar="اخرج بهدوء" data-en="Leave table">اخرج بهدوء</button></div>
+            </div>
+        </section>
+    </main>
+
+    <script src="prototype.js"></script>
+</body>
+</html>

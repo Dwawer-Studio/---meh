@@ -276,6 +276,8 @@ ui/responsive.css
 
 الفرع: `codex/uiux-u0-visual-contract`
 
+الحالة: `Implemented` — الدليل التنفيذي في `docs/UIX-0-VISUAL-CONTRACT.md`.
+
 المخرجات:
 
 - تصدير العلامة والرسوم، لوحة tokens، وتدقيق الترخيص.

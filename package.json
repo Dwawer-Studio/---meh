@@ -10,8 +10,8 @@
     "serve:service": "node tools/serve-service.js",
     "check:syntax": "node tools/check-syntax.js",
     "validate": "npm run validate:html && npm run validate:css",
-    "validate:html": "html-validate index.html tests/fixtures/responsive-harness.html",
-    "validate:css": "stylelint style.css",
+    "validate:html": "html-validate index.html tests/fixtures/responsive-harness.html prototypes/uiux-u0/index.html",
+    "validate:css": "stylelint style.css prototypes/uiux-u0/prototype.css",
     "check:assets": "node --test tests/assets.test.js",
     "report:telemetry": "node tools/telemetry-report.js",
     "test": "node --test",
@@ -35,7 +35,9 @@
     "test:p3:load": "node tools/p3-social-load-gate.js",
     "test:p4": "node --test tests/p4-catalog.test.js tests/p4-feature-flags.test.js tests/p4-postgres-integration.test.js tests/p4-realtime.test.js tests/p4-recipes.test.js tests/p4-runtime.test.js tests/p4-tamashi.test.js",
     "test:p4:simulation": "node tools/p4-simulation-gate.js",
-    "test:p4:economy": "node tools/p4-economy-gate.js"
+    "test:p4:economy": "node tools/p4-economy-gate.js",
+    "uiux:u0:manifests": "node tools/uiux-u0-manifests.js --write",
+    "test:uiux-u0": "node --test tests/uiux-u0-contract.test.js"
   },
   "engines": {
     "node": "^22.22.0 || >=24.8.0"

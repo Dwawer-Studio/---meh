@@ -4,6 +4,8 @@
   "private": true,
   "description": "لعبة مِهْ مع أدوات فحص واختبارات خط الأساس",
   "scripts": {
+    "build:site": "vite build && node tools/build-hosted-site.js",
+    "preview:site": "vite preview --host 127.0.0.1",
     "check": "node tools/check-all.js",
     "check:clean": "node tools/check-clean.js",
     "serve": "node tools/serve.js",
@@ -52,12 +54,14 @@
   "devDependencies": {
     "@axe-core/playwright": "4.13.0",
     "@electric-sql/pglite": "0.5.7",
+    "@openai/sites-vite-plugin": "0.2.0",
     "@playwright/test": "1.62.1",
     "html-validate": "^11.10.0",
     "peer": "1.0.2",
     "peerjs": "1.5.4",
     "stylelint": "^17.14.1",
     "stylelint-config-recommended": "^18.0.0",
+    "vite": "8.2.2",
     "yaml": "2.9.0"
   },
   "dependencies": {

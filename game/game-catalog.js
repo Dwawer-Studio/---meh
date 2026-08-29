@@ -7,6 +7,10 @@ class MehGameCatalogModule {
         this._catalogRoom = null;
         this._catalogSeats = [];
         this._catalogView = 'store';
+        this._catalogFilter = 'all';
+        this._catalogDetailCardId = null;
+        this._catalogDetailLastFocus = null;
+        this._catalogPreviousBodyOverflow = '';
     }
 
     bindCatalogEvents() {
@@ -20,12 +24,32 @@ class MehGameCatalogModule {
             this._syncCatalogEntryVisibility();
             button.addEventListener('click', () => this._openCardCatalog());
         }
-        on('catalog-back-btn', 'click', () => this.showScreen('main-menu'));
+        on('catalog-back-btn', 'click', () => {
+            this._closeCatalogDetail(false);
+            this.showScreen('main-menu');
+        });
         on('catalog-refresh-btn', 'click', () => this._loadCardCatalog(true));
         on('catalog-store-tab', 'click', () => this._setCatalogView('store'));
         on('catalog-collection-tab', 'click', () => this._setCatalogView('collection'));
         on('catalog-store-tab', 'keydown', event => this._handleCatalogTabKey(event));
         on('catalog-collection-tab', 'keydown', event => this._handleCatalogTabKey(event));
+        document.querySelectorAll('[data-catalog-filter]').forEach(filter => {
+            filter.addEventListener('click', () => this._setCatalogFilter(filter.dataset.catalogFilter));
+        });
+        on('catalog-detail-close', 'click', () => this._closeCatalogDetail());
+        on('catalog-detail-cancel', 'click', () => this._closeCatalogDetail());
+        on('catalog-detail-buy', 'click', event => {
+            const card = this._catalogDetailCard();
+            if (card) void this._unlockCatalogCard(card, event.currentTarget);
+        });
+        const detailBackdrop = get('catalog-detail-backdrop');
+        if (detailBackdrop) detailBackdrop.addEventListener('click', event => {
+            if (event.target === detailBackdrop) this._closeCatalogDetail();
+        });
+        document.addEventListener('keydown', event => this._handleCatalogDialogKey(event));
+        if (typeof window.addEventListener === 'function') {
+            window.addEventListener('popstate', () => this._closeCatalogDetail(false));
+        }
         on('friendly-card-select', 'change', () => this._syncFriendlyReplacementOptions());
         on('friendly-recipe-apply', 'click', () => this._applyFriendlyContribution());
         on('friendly-recipe-clear', 'click', () => this._clearFriendlyContribution());
@@ -47,7 +71,10 @@ class MehGameCatalogModule {
 
     async _openCardCatalog() {
         this._setCatalogView('store');
+        this._setCatalogFilter('all');
         this.showScreen('catalog-screen');
+        const scroll = document.querySelector('#catalog-screen .catalog-scroll');
+        if (scroll) scroll.scrollTop = 0;
         await this._loadCardCatalog(true);
     }
 
@@ -56,6 +83,7 @@ class MehGameCatalogModule {
         if (this._catalogLoading) return this._catalogLoading;
         const status = document.getElementById('catalog-status');
         if (status) status.textContent = I18n.t('catalog_loading');
+        if (!this._catalogState) this._renderCatalogLoadState('loading');
         this._catalogLoading = (async () => {
             try {
                 await this._ensureAuthoritativeClient();
@@ -78,9 +106,10 @@ class MehGameCatalogModule {
                 if (this._catalogRoom) this._renderFriendlyRecipe(this._catalogRoom, this._catalogSeats);
                 return state;
             } catch (error) {
-                if (status) status.textContent = I18n.t(
-                    error.code === 'CATALOG_UPDATE_REQUIRED' ? 'catalog_update_required' : 'catalog_load_failed',
-                );
+                const messageKey = error.code === 'CATALOG_UPDATE_REQUIRED'
+                    ? 'catalog_update_required' : 'catalog_load_failed';
+                if (status) status.textContent = I18n.t(messageKey);
+                if (!this._catalogState) this._renderCatalogLoadState('error', messageKey);
                 return null;
             } finally {
                 this._catalogLoading = null;
@@ -120,7 +149,12 @@ class MehGameCatalogModule {
         const collectionCount = document.getElementById('catalog-collection-count');
         if (storeCount) storeCount.textContent = String(storeCards.length);
         if (collectionCount) collectionCount.textContent = String(collectionCards.length);
-        const visibleCards = this._catalogView === 'collection' ? collectionCards : storeCards;
+        const collectionSummary = document.getElementById('catalog-collection-summary');
+        if (collectionSummary) collectionSummary.classList.toggle('hidden', this._catalogView !== 'collection');
+        this._renderCatalogCompletion(collectionCards.length, state.cards.length);
+        const collectionVisible = this._catalogFilter === 'all' ? collectionCards
+            : collectionCards.filter(card => card.replacementClass === this._catalogFilter);
+        const visibleCards = this._catalogView === 'collection' ? collectionVisible : storeCards;
         const calibrationNote = document.getElementById('catalog-calibration-note');
         if (calibrationNote) calibrationNote.classList.toggle('hidden', this._catalogView !== 'store');
         list.setAttribute('aria-labelledby', this._catalogView === 'collection'
@@ -130,7 +164,16 @@ class MehGameCatalogModule {
             list.appendChild(this._catalogEmptyState());
             return;
         }
+        if (!visibleCards.length) {
+            list.appendChild(this._catalogFilterEmptyState());
+            return;
+        }
         visibleCards.forEach(card => list.appendChild(this._catalogCard(card)));
+        if (this._catalogDetailCardId) {
+            const detailCard = this._catalogDetailCard();
+            if (detailCard) this._renderCatalogDetail(detailCard);
+            else this._closeCatalogDetail(false);
+        }
     }
 
     _setCatalogView(view) {
@@ -145,6 +188,36 @@ class MehGameCatalogModule {
             button.tabIndex = selected ? 0 : -1;
         });
         if (this._catalogState) this._renderCardCatalog();
+    }
+
+    _setCatalogFilter(filter) {
+        const allowed = ['all', 'colored-normal', 'colored-action', 'colored-power', 'black-wild'];
+        if (!allowed.includes(filter)) return;
+        this._catalogFilter = filter;
+        document.querySelectorAll('[data-catalog-filter]').forEach(button => {
+            const selected = button.dataset.catalogFilter === filter;
+            button.classList.toggle('active', selected);
+            button.setAttribute('aria-pressed', String(selected));
+        });
+        if (this._catalogState && this._catalogView === 'collection') this._renderCardCatalog();
+    }
+
+    _renderCatalogCompletion(owned, total) {
+        const safeTotal = Math.max(0, Number(total) || 0);
+        const safeOwned = Math.min(safeTotal, Math.max(0, Number(owned) || 0));
+        const percentage = safeTotal ? Math.round((safeOwned / safeTotal) * 100) : 0;
+        const value = document.getElementById('catalog-completion-value');
+        const progress = document.getElementById('catalog-completion-progress');
+        const formatter = new Intl.NumberFormat(I18n.lang === 'ar' ? 'ar' : 'en');
+        if (value) value.textContent = I18n.t('collection_completion_value', {
+            owned: formatter.format(safeOwned), total: formatter.format(safeTotal),
+            percentage: formatter.format(percentage),
+        });
+        if (!progress) return;
+        progress.setAttribute('aria-valuetext', I18n.t('collection_completion_value', {
+            owned: safeOwned, total: safeTotal, percentage,
+        }));
+        progress.value = percentage;
     }
 
     _handleCatalogTabKey(event) {
@@ -168,7 +241,7 @@ class MehGameCatalogModule {
         const icon = document.createElement('span');
         icon.className = 'store-empty-icon';
         icon.setAttribute('aria-hidden', 'true');
-        icon.textContent = '🏪';
+        icon.appendChild(this._catalogIcon('icon-store'));
         const title = document.createElement('h3');
         title.textContent = I18n.t('store_empty_title');
         const body = document.createElement('p');
@@ -177,18 +250,91 @@ class MehGameCatalogModule {
         return section;
     }
 
+    _catalogFilterEmptyState() {
+        const section = document.createElement('section');
+        section.className = 'catalog-filter-empty';
+        const icon = document.createElement('span');
+        icon.className = 'catalog-state-icon';
+        icon.setAttribute('aria-hidden', 'true');
+        icon.appendChild(this._catalogIcon('icon-cards'));
+        const title = document.createElement('h3');
+        title.textContent = I18n.t('catalog_filter_empty_title');
+        const body = document.createElement('p');
+        body.textContent = I18n.t('catalog_filter_empty_body');
+        const reset = document.createElement('button');
+        reset.type = 'button';
+        reset.className = 'btn secondary-btn';
+        reset.textContent = I18n.t('filter_all');
+        reset.addEventListener('click', () => this._setCatalogFilter('all'));
+        section.append(icon, title, body, reset);
+        return section;
+    }
+
+    _renderCatalogLoadState(kind, messageKey = 'catalog_load_failed') {
+        const list = document.getElementById('catalog-list');
+        if (!list) return;
+        list.replaceChildren();
+        const section = document.createElement('section');
+        section.className = `catalog-load-state catalog-load-state--${kind}`;
+        if (kind === 'loading') {
+            const spinner = document.createElement('span');
+            spinner.className = 'ui-spinner';
+            spinner.setAttribute('aria-hidden', 'true');
+            const message = document.createElement('p');
+            message.textContent = I18n.t('catalog_loading');
+            section.append(spinner, message);
+        } else {
+            const icon = document.createElement('span');
+            icon.className = 'catalog-state-icon';
+            icon.setAttribute('aria-hidden', 'true');
+            icon.appendChild(this._catalogIcon('icon-refresh'));
+            const title = document.createElement('h3');
+            title.textContent = I18n.t('catalog_error_title');
+            const message = document.createElement('p');
+            message.textContent = I18n.t(messageKey);
+            const retry = document.createElement('button');
+            retry.type = 'button';
+            retry.className = 'btn secondary-btn catalog-retry';
+            retry.textContent = I18n.t('catalog_retry');
+            retry.addEventListener('click', () => this._loadCardCatalog(true));
+            section.append(icon, title, message, retry);
+        }
+        list.appendChild(section);
+    }
+
+    _catalogIcon(symbolId) {
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('class', 'ui-icon');
+        svg.setAttribute('aria-hidden', 'true');
+        const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+        use.setAttribute('href', `assets/ui/icons.svg#${symbolId}`);
+        svg.appendChild(use);
+        return svg;
+    }
+
     _refreshCatalogLocalization() {
         if (this._catalogState) this._renderCardCatalog();
+        if (this._catalogDetailCardId && typeof this._renderCatalogDetail === 'function') {
+            const card = this._catalogDetailCard();
+            if (card) this._renderCatalogDetail(card);
+        }
         if (this._catalogRoom) this._renderFriendlyRecipe(this._catalogRoom, this._catalogSeats);
     }
 
     _catalogCard(card) {
         const article = document.createElement('article');
-        article.className = `catalog-card${card.unlocked ? ' unlocked' : ''}`;
+        article.className = `catalog-card${card.unlocked ? ' unlocked' : ''}${card.inFreeRotation ? ' free-rotation' : ''}`;
+        article.dataset.definitionId = card.definitionId;
+        const preview = document.createElement('button');
+        preview.type = 'button';
+        preview.className = 'catalog-card-preview';
+        preview.setAttribute('aria-label', I18n.t('open_card_detail', { name: this._catalogCardName(card) }));
+        const art = document.createElement('span');
+        art.className = 'catalog-card-art';
         const image = document.createElement('img');
-        const color = card.replacementClass === 'black-wild' ? 'black' : 'orange';
-        image.src = `assets/cards/${color}-${card.assetBase}.webp`;
+        image.src = this._catalogImageUrl(card);
         image.alt = this._catalogCardName(card);
+        art.appendChild(image);
         const body = document.createElement('div');
         body.className = 'catalog-card-body';
         const heading = document.createElement('div');
@@ -197,35 +343,148 @@ class MehGameCatalogModule {
         title.textContent = this._catalogCardName(card);
         const badge = document.createElement('span');
         badge.className = 'catalog-badge';
-        badge.textContent = I18n.t(card.inFreeRotation
-            ? 'free_rotation' : (card.unlocked ? 'card_unlocked' : 'card_locked'));
+        badge.textContent = I18n.t(this._catalogAvailabilityKey(card));
         heading.append(title, badge);
         const effect = document.createElement('p');
         effect.textContent = this._catalogLocalized(card.design && card.design.effect)
             || I18n.cardDesc(card.nameAr) || I18n.t('classic_card');
-        body.append(heading, effect);
-        if (card.design) {
-            const details = document.createElement('details');
-            const summary = document.createElement('summary');
-            summary.textContent = I18n.t('card_lab');
-            const decision = document.createElement('p');
-            decision.textContent = `${I18n.t('card_decision')}: ${this._catalogLocalized(card.design.decision)}`;
-            const counter = document.createElement('p');
-            counter.textContent = `${I18n.t('card_counterplay')}: ${this._catalogLocalized(card.design.counterplay)}`;
-            details.append(summary, decision, counter);
-            body.appendChild(details);
-        }
-        if (card.purchasable && !card.unlocked) {
-            const buy = document.createElement('button');
-            buy.type = 'button';
-            buy.className = 'btn secondary-btn catalog-buy';
-            buy.textContent = I18n.t('unlock_for_tamashi', { amount: card.tamashiPrice });
-            buy.disabled = this._catalogState.currency.balance < card.tamashiPrice;
-            buy.addEventListener('click', () => this._unlockCatalogCard(card, buy));
-            body.appendChild(buy);
-        }
-        article.append(image, body);
+        const cta = document.createElement('span');
+        cta.className = 'catalog-card-cta';
+        cta.append(document.createTextNode(I18n.t('view_card_detail')), this._catalogIcon('icon-arrow'));
+        body.append(heading, effect, cta);
+        preview.append(art, body);
+        preview.addEventListener('click', () => this._openCatalogDetail(card, preview));
+        article.appendChild(preview);
         return article;
+    }
+
+    _catalogImageUrl(card) {
+        const color = card.replacementClass === 'black-wild' ? 'black' : 'orange';
+        return `assets/cards/${color}-${card.assetBase}.webp`;
+    }
+
+    _catalogAvailabilityKey(card) {
+        if (card.unlocked) return 'card_unlocked';
+        if (card.inFreeRotation) return 'free_rotation';
+        return 'card_locked';
+    }
+
+    _catalogDetailCard() {
+        return this._catalogState && this._catalogState.cards
+            .find(card => card.definitionId === this._catalogDetailCardId) || null;
+    }
+
+    _openCatalogDetail(card, trigger) {
+        const backdrop = document.getElementById('catalog-detail-backdrop');
+        if (!backdrop || !card) return;
+        this._catalogDetailCardId = card.definitionId;
+        this._catalogDetailLastFocus = trigger || document.activeElement;
+        this._catalogPreviousBodyOverflow = document.body.style.overflow;
+        this._renderCatalogDetail(card);
+        const shell = document.querySelector('#catalog-screen .catalog-shell');
+        if (shell) {
+            shell.inert = true;
+            shell.setAttribute('inert', '');
+        }
+        backdrop.hidden = false;
+        backdrop.inert = false;
+        backdrop.removeAttribute('inert');
+        backdrop.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+        const close = document.getElementById('catalog-detail-close');
+        if (close) close.focus();
+    }
+
+    _renderCatalogDetail(card) {
+        const get = id => document.getElementById(id);
+        const name = this._catalogCardName(card);
+        const effect = this._catalogLocalized(card.design && card.design.effect)
+            || I18n.cardDesc(card.nameAr) || I18n.t('classic_card');
+        const decision = this._catalogLocalized(card.design && card.design.decision)
+            || I18n.t('classic_decision');
+        const counterplay = this._catalogLocalized(card.design && card.design.counterplay)
+            || I18n.t('classic_counterplay');
+        if (get('catalog-detail-title')) get('catalog-detail-title').textContent = name;
+        const image = get('catalog-detail-image');
+        if (image) {
+            image.src = this._catalogImageUrl(card);
+            image.alt = name;
+        }
+        if (get('catalog-detail-badge')) {
+            const badge = get('catalog-detail-badge');
+            badge.textContent = I18n.t(this._catalogAvailabilityKey(card));
+            badge.dataset.state = card.unlocked ? 'unlocked' : (card.inFreeRotation ? 'rotation' : 'locked');
+        }
+        if (get('catalog-detail-effect')) get('catalog-detail-effect').textContent = effect;
+        if (get('catalog-detail-decision')) get('catalog-detail-decision').textContent = decision;
+        if (get('catalog-detail-counterplay')) get('catalog-detail-counterplay').textContent = counterplay;
+        if (get('catalog-detail-access')) {
+            get('catalog-detail-access').textContent = I18n.t(card.includedByDefault
+                ? 'classic_access_note' : (card.unlocked ? 'unlocked_access_note' : 'locked_access_note'));
+        }
+        const trial = get('catalog-detail-trial');
+        if (trial) {
+            trial.classList.toggle('hidden', !card.inFreeRotation);
+            trial.textContent = card.inFreeRotation ? I18n.t('free_rotation_note') : '';
+        }
+        const price = get('catalog-detail-price');
+        const hasPrice = !card.includedByDefault && Number.isSafeInteger(card.tamashiPrice)
+            && card.tamashiPrice > 0;
+        const formattedPrice = new Intl.NumberFormat(I18n.lang === 'ar' ? 'ar' : 'en')
+            .format(Number(card.tamashiPrice) || 0);
+        if (price) {
+            price.classList.toggle('hidden', !hasPrice);
+            price.textContent = hasPrice ? I18n.t('card_price', { amount: formattedPrice }) : '';
+        }
+        const buy = get('catalog-detail-buy');
+        if (buy) {
+            const canBuy = Boolean(card.purchasable && !card.unlocked);
+            buy.classList.toggle('hidden', !canBuy);
+            buy.disabled = canBuy && this._catalogState.currency.balance < card.tamashiPrice;
+            buy.textContent = canBuy ? I18n.t('unlock_for_tamashi', { amount: formattedPrice }) : '';
+        }
+    }
+
+    _closeCatalogDetail(restoreFocus = true) {
+        const backdrop = document.getElementById('catalog-detail-backdrop');
+        if (!backdrop || backdrop.hidden) return;
+        backdrop.hidden = true;
+        backdrop.inert = true;
+        backdrop.setAttribute('inert', '');
+        backdrop.setAttribute('aria-hidden', 'true');
+        const shell = document.querySelector('#catalog-screen .catalog-shell');
+        if (shell) {
+            shell.inert = false;
+            shell.removeAttribute('inert');
+        }
+        document.body.style.overflow = this._catalogPreviousBodyOverflow || '';
+        const lastFocus = this._catalogDetailLastFocus;
+        this._catalogDetailCardId = null;
+        this._catalogDetailLastFocus = null;
+        if (restoreFocus && lastFocus && lastFocus.isConnected && !lastFocus.disabled) lastFocus.focus();
+    }
+
+    _handleCatalogDialogKey(event) {
+        const backdrop = document.getElementById('catalog-detail-backdrop');
+        if (!backdrop || backdrop.hidden) return;
+        if (event.key === 'Escape') {
+            event.preventDefault();
+            this._closeCatalogDetail();
+            return;
+        }
+        if (event.key !== 'Tab') return;
+        const controls = [...backdrop.querySelectorAll('button:not([disabled]):not(.hidden)')]
+            .filter(control => !control.hidden);
+        if (!controls.length) return;
+        const first = controls[0];
+        const last = controls[controls.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+            event.preventDefault();
+            last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+            event.preventDefault();
+            first.focus();
+        }
     }
 
     _catalogCardName(card) {

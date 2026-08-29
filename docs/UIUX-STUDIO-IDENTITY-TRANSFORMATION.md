@@ -350,6 +350,9 @@ RESULTS والانقطاع والاستعادة؛ لا نص حر ولا contacts
 
 الفرع: `codex/uiux-u5-collection-store`
 
+الحالة: `Implemented / Human Validation Deferred` — الدليل التنفيذي في
+`docs/UIX-5-COLLECTION-STORE.md`.
+
 المخرجات: معرض مجموعة، card detail، مرشحات، نسبة اكتمال، متجر توسعات، تاماشي،
 free rotation/preview عندما تكون متاحة، وحالات empty/loading/error.
 

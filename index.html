@@ -16,6 +16,7 @@
     <link rel="stylesheet" href="ui/screens/entry.css">
     <link rel="stylesheet" href="ui/screens/table.css">
     <link rel="stylesheet" href="ui/screens/social.css">
+    <link rel="stylesheet" href="ui/screens/catalog.css">
     <link rel="stylesheet" href="ui/motion.css">
     <link rel="stylesheet" href="ui/accessibility.css">
 </head>
@@ -322,47 +323,150 @@
             </section>
         </div>
 
-        <!-- ===== متجر البطاقات وتاماشي ===== -->
+        <!-- ===== مجموعة البطاقات والمتجر وتاماشي ===== -->
         <div id="catalog-screen" class="screen">
-            <div class="instructions-panel catalog-panel">
-                <div class="catalog-heading">
-                    <div>
-                        <h2 data-i18n="card_catalog_title">🏪 متجر البطاقات</h2>
-                        <p data-i18n="catalog_fairness">كل بطاقة قابلة للكسب باللعب، وتدخل الرزمة المشتركة بلا أفضلية فردية.</p>
+            <section class="catalog-shell" aria-labelledby="catalog-title">
+                <header class="catalog-appbar">
+                    <button id="catalog-back-btn" class="ui-icon-button" type="button"
+                            data-i18n-attr="aria-label:main_menu" aria-label="القائمة الرئيسية">
+                        <svg class="ui-icon" aria-hidden="true"><use href="assets/ui/icons.svg#icon-back"></use></svg>
+                    </button>
+                    <div class="catalog-title-group">
+                        <p class="screen-eyebrow" data-i18n="catalog_eyebrow">خزانة المجلس</p>
+                        <h1 id="catalog-title" class="ui-title" data-i18n="card_catalog_title">البطاقات وتاماشي</h1>
                     </div>
                     <div id="tamashi-balance" class="tamashi-balance" aria-live="polite">
-                        <span aria-hidden="true">魂</span>
+                        <svg class="ui-icon" aria-hidden="true"><use href="assets/ui/icons.svg#icon-tamashi"></use></svg>
                         <strong>—</strong>
                         <small data-i18n="tamashi">تاماشي</small>
                     </div>
+                </header>
+
+                <div class="catalog-scroll">
+                    <div class="catalog-intro">
+                        <p data-i18n="catalog_fairness">كل بطاقة قابلة للكسب باللعب، وتدخل الرزمة المشتركة بلا أفضلية فردية.</p>
+                        <span class="catalog-shared-deck-note">
+                            <svg class="ui-icon" aria-hidden="true"><use href="assets/ui/icons.svg#icon-people"></use></svg>
+                            <span data-i18n="catalog_shared_deck">بطاقات التوسعة توسّع القرار للجميع؛ لا تدخل يد المشتري وحده.</span>
+                        </span>
+                    </div>
+
+                    <div class="catalog-layout">
+                        <aside class="catalog-economy" aria-labelledby="tamashi-earn-title">
+                            <section class="tamashi-earn-panel">
+                                <div class="tamashi-earn-heading">
+                                    <span class="catalog-section-icon" aria-hidden="true">
+                                        <svg class="ui-icon"><use href="assets/ui/icons.svg#icon-tamashi"></use></svg>
+                                    </span>
+                                    <div>
+                                        <p class="screen-eyebrow" data-i18n="tamashi_eyebrow">رصيد يُكسب باللعب</p>
+                                        <h2 id="tamashi-earn-title" data-i18n="earn_tamashi_title">اكسب تاماشي باللعب</h2>
+                                    </div>
+                                </div>
+                                <p id="tamashi-earn-note" data-i18n="earn_tamashi_note">تُحتسب المكافآت بعد مباراة أونلاين موثقة تضم لاعبين بشريين على الأقل.</p>
+                                <div class="tamashi-rewards" role="group" aria-label="مكافآت تاماشي" data-i18n-attr="aria-label:tamashi_rewards">
+                                    <span><small data-i18n="completion_reward">إكمال المباراة</small><strong id="tamashi-completion-reward">—</strong></span>
+                                    <span><small data-i18n="healthy_reward">مشاركة فعلية</small><strong id="tamashi-healthy-reward">—</strong></span>
+                                    <span><small data-i18n="win_reward">إضافة الفوز</small><strong id="tamashi-win-reward">—</strong></span>
+                                </div>
+                                <small class="store-safety-note">
+                                    <svg class="ui-icon" aria-hidden="true"><use href="assets/ui/icons.svg#icon-info"></use></svg>
+                                    <span data-i18n="local_iap_disabled">الشراء النقدي مغلق في النسخة المحلية.</span>
+                                </small>
+                            </section>
+                        </aside>
+
+                        <div class="catalog-browser">
+                            <div class="catalog-tabs" role="tablist" aria-label="أقسام متجر البطاقات" data-i18n-attr="aria-label:store_sections">
+                                <button id="catalog-store-tab" class="catalog-tab active" type="button" role="tab"
+                                        aria-selected="true" aria-controls="catalog-list">
+                                    <svg class="ui-icon" aria-hidden="true"><use href="assets/ui/icons.svg#icon-store"></use></svg>
+                                    <span data-i18n="store_tab">المتجر</span><strong id="catalog-store-count">0</strong>
+                                </button>
+                                <button id="catalog-collection-tab" class="catalog-tab" type="button" role="tab"
+                                        aria-selected="false" aria-controls="catalog-list" tabindex="-1">
+                                    <svg class="ui-icon" aria-hidden="true"><use href="assets/ui/icons.svg#icon-cards"></use></svg>
+                                    <span data-i18n="collection_tab">مجموعتي</span><strong id="catalog-collection-count">0</strong>
+                                </button>
+                            </div>
+
+                            <section id="catalog-collection-summary" class="catalog-collection-summary hidden" aria-labelledby="collection-progress-title">
+                                <div class="catalog-progress-copy">
+                                    <div>
+                                        <p class="screen-eyebrow" data-i18n="collection_progress_eyebrow">الرزمة التي تعرفها</p>
+                                        <h2 id="collection-progress-title" data-i18n="collection_progress_title">اكتمال المجموعة</h2>
+                                    </div>
+                                    <strong id="catalog-completion-value">—</strong>
+                                </div>
+                                <progress id="catalog-completion-progress" class="catalog-progress"
+                                          aria-labelledby="collection-progress-title" max="100" value="0"></progress>
+                                <div id="catalog-filters" class="catalog-filters" role="group"
+                                     aria-label="تصفية البطاقات" data-i18n-attr="aria-label:catalog_filters">
+                                    <button class="catalog-filter active" type="button" data-catalog-filter="all" aria-pressed="true" data-i18n="filter_all">الكل</button>
+                                    <button class="catalog-filter" type="button" data-catalog-filter="colored-normal" aria-pressed="false" data-i18n="filter_characters">الشخصيات</button>
+                                    <button class="catalog-filter" type="button" data-catalog-filter="colored-action" aria-pressed="false" data-i18n="filter_actions">الحركة</button>
+                                    <button class="catalog-filter" type="button" data-catalog-filter="colored-power" aria-pressed="false" data-i18n="filter_powers">القوى</button>
+                                    <button class="catalog-filter" type="button" data-catalog-filter="black-wild" aria-pressed="false" data-i18n="filter_wild">الخاصة</button>
+                                </div>
+                            </section>
+
+                            <p id="catalog-calibration-note" class="catalog-note" data-i18n="catalog_calibration_note">أسعار البطاقات الجديدة لا تُفتح للإطلاق قبل معايرة جلسات اللعب الفعلية.</p>
+                            <div id="catalog-status" class="online-status catalog-status" role="status" aria-live="polite"></div>
+                            <div id="catalog-list" class="catalog-list" role="tabpanel" aria-labelledby="catalog-store-tab" aria-live="polite"></div>
+                            <div class="catalog-footer">
+                                <button id="catalog-refresh-btn" class="btn secondary-btn" type="button">
+                                    <svg class="ui-icon" aria-hidden="true"><use href="assets/ui/icons.svg#icon-refresh"></use></svg>
+                                    <span data-i18n="refresh_catalog">تحديث الكتالوج</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <section class="tamashi-earn-panel" aria-labelledby="tamashi-earn-title">
-                    <div>
-                        <h3 id="tamashi-earn-title" data-i18n="earn_tamashi_title">اكسب تاماشي باللعب</h3>
-                        <p id="tamashi-earn-note" data-i18n="earn_tamashi_note">تُحتسب المكافآت بعد مباراة أونلاين موثقة تضم لاعبين بشريين على الأقل.</p>
+            </section>
+
+            <div id="catalog-detail-backdrop" class="ui-dialog-backdrop" hidden inert aria-hidden="true">
+                <section id="catalog-detail-dialog" class="ui-dialog catalog-detail-dialog" role="dialog" aria-modal="true"
+                         aria-labelledby="catalog-detail-title" aria-describedby="catalog-detail-effect">
+                    <header class="ui-dialog__header">
+                        <div>
+                            <p class="screen-eyebrow" data-i18n="card_detail_eyebrow">قبل أن تضمّها</p>
+                            <h2 id="catalog-detail-title" class="ui-title" data-i18n="card_detail_placeholder">تفاصيل البطاقة</h2>
+                        </div>
+                        <button id="catalog-detail-close" class="ui-icon-button" type="button"
+                                data-i18n-attr="aria-label:close" aria-label="إغلاق">
+                            <svg class="ui-icon" aria-hidden="true"><use href="assets/ui/icons.svg#icon-close"></use></svg>
+                        </button>
+                    </header>
+                    <div class="catalog-detail-layout">
+                        <div class="catalog-detail-art">
+                            <img id="catalog-detail-image" src="assets/cards/orange-dafour.webp" alt="">
+                            <span id="catalog-detail-badge" class="catalog-badge"></span>
+                        </div>
+                        <div class="catalog-detail-copy">
+                            <section>
+                                <h3 data-i18n="card_effect">الأثر</h3>
+                                <p id="catalog-detail-effect"></p>
+                            </section>
+                            <section>
+                                <h3 data-i18n="card_decision">القرار</h3>
+                                <p id="catalog-detail-decision"></p>
+                            </section>
+                            <section>
+                                <h3 data-i18n="card_counterplay">الرد المضاد</h3>
+                                <p id="catalog-detail-counterplay"></p>
+                            </section>
+                        </div>
                     </div>
-                    <div class="tamashi-rewards" role="group" aria-label="مكافآت تاماشي" data-i18n-attr="aria-label:tamashi_rewards">
-                        <span><small data-i18n="completion_reward">إكمال المباراة</small><strong id="tamashi-completion-reward">—</strong></span>
-                        <span><small data-i18n="healthy_reward">مشاركة فعلية</small><strong id="tamashi-healthy-reward">—</strong></span>
-                        <span><small data-i18n="win_reward">إضافة الفوز</small><strong id="tamashi-win-reward">—</strong></span>
+                    <div class="catalog-detail-terms">
+                        <p id="catalog-detail-access" class="catalog-access-note"></p>
+                        <p id="catalog-detail-trial" class="catalog-trial-note hidden"></p>
+                        <p id="catalog-detail-price" class="catalog-detail-price hidden"></p>
                     </div>
-                    <small class="store-safety-note" data-i18n="local_iap_disabled">الشراء النقدي مغلق في النسخة المحلية.</small>
+                    <div class="ui-dialog__actions">
+                        <button id="catalog-detail-cancel" class="btn secondary-btn" type="button" data-i18n="close">إغلاق</button>
+                        <button id="catalog-detail-buy" class="btn primary-btn catalog-buy hidden" type="button"></button>
+                    </div>
                 </section>
-                <div class="catalog-tabs" role="tablist" aria-label="أقسام متجر البطاقات" data-i18n-attr="aria-label:store_sections">
-                    <button id="catalog-store-tab" class="catalog-tab active" type="button" role="tab"
-                            aria-selected="true" aria-controls="catalog-list">
-                        <span data-i18n="store_tab">المتجر</span><strong id="catalog-store-count">0</strong>
-                    </button>
-                    <button id="catalog-collection-tab" class="catalog-tab" type="button" role="tab"
-                            aria-selected="false" aria-controls="catalog-list" tabindex="-1">
-                        <span data-i18n="collection_tab">مجموعتي</span><strong id="catalog-collection-count">0</strong>
-                    </button>
-                </div>
-                <p id="catalog-calibration-note" class="catalog-note" data-i18n="catalog_calibration_note">أسعار البطاقات الجديدة لا تُفتح للإطلاق قبل معايرة جلسات اللعب الفعلية.</p>
-                <div id="catalog-status" class="online-status" role="status" aria-live="polite"></div>
-                <div id="catalog-list" class="catalog-list" role="tabpanel" aria-labelledby="catalog-store-tab" aria-live="polite"></div>
-                <button id="catalog-refresh-btn" class="btn secondary-btn" type="button" data-i18n="refresh_catalog">تحديث الكتالوج</button>
-                <button id="catalog-back-btn" class="btn primary-btn" type="button" data-i18n="main_menu">القائمة الرئيسية</button>
             </div>
         </div>
 

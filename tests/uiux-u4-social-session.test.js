@@ -99,7 +99,7 @@ test('UIX-4 uses the icon vocabulary and avoids new system-emoji chrome', () => 
 });
 
 test('UIX-4 composes portrait and short-landscape lobby/results independently', () => {
-    assert.match(socialCss, /\.ui-v2 #end-screen\.results-screen[\s\S]*var\(--ui-surface-paper\)/);
+    assert.match(socialCss, /#end-screen\.results-screen[\s\S]*var\(--ui-surface-paper\)/);
     assert.match(socialCss, /@media \(max-width: 720px\)/);
     assert.match(socialCss, /@media \(max-width: 390px\)/);
     assert.match(socialCss, /@media \(max-height: 520px\) and \(orientation: landscape\)/);

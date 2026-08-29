@@ -1,13 +1,13 @@
-.ui-v2 :where(button, [role="button"], a, input, select, textarea) {
+:where(button, [role="button"], a, input, select, textarea) {
   min-inline-size: var(--ui-target-min);
 }
 
-.ui-v2 :where(button, [role="button"], a, input, select) {
+:where(button, [role="button"], a, input, select) {
   min-block-size: var(--ui-target-min);
 }
 
-.ui-v2 [data-ui-visually-hidden],
-.ui-v2 .ui-visually-hidden {
+[data-ui-visually-hidden],
+.ui-visually-hidden {
   position: absolute !important;
   width: 1px !important;
   height: 1px !important;
@@ -18,15 +18,15 @@
   border: 0 !important;
 }
 
-.ui-v2[data-ui-text-scale="200"] {
+body[data-ui-text-scale="200"] {
   font-size: 200%;
 }
 
-.ui-v2[data-ui-text-scale="200"] :where(.ui-dialog, .modal-box) {
+body[data-ui-text-scale="200"] :where(.ui-dialog, .modal-box) {
   width: min(100%, 40rem);
 }
 
-.ui-v2 .ui-skip-link {
+.ui-skip-link {
   position: fixed;
   z-index: 5000;
   inset-block-start: var(--ui-space-2);
@@ -39,24 +39,24 @@
   background: var(--ui-brand-signal-deep);
 }
 
-.ui-v2 .ui-skip-link:focus {
+.ui-skip-link:focus {
   translate: 0 0;
 }
 
 @media (forced-colors: active) {
-  .ui-v2 :where(.ui-button, .btn, .ui-surface, .ui-input, .ui-tab, .catalog-tab) {
+  :where(.ui-button, .btn, .ui-surface, .ui-input, .ui-tab, .catalog-tab) {
     border: 2px solid ButtonText;
     box-shadow: none;
     forced-color-adjust: auto;
   }
 
-  .ui-v2 :where(.ui-button, .btn, .ui-tab, .catalog-tab):focus-visible {
+  :where(.ui-button, .btn, .ui-tab, .catalog-tab):focus-visible {
     outline: 3px solid Highlight;
   }
 }
 
 @media (max-width: 420px) {
-  .ui-v2 .ui-dialog__actions > * {
+  .ui-dialog__actions > * {
     flex: 1 1 100%;
   }
 }

@@ -35,7 +35,7 @@ test('UIX-5 loads one collection/store layer after social and before motion', ()
     assert.ok(html.indexOf('ui/screens/catalog.css') > html.indexOf('ui/screens/social.css'));
     assert.ok(html.indexOf('ui/screens/catalog.css') < html.indexOf('ui/motion.css'));
     assert.match(html, /id="catalog-screen" class="screen"/);
-    assert.match(catalogCss, /\.ui-v2 #catalog-screen/);
+    assert.match(catalogCss, /#catalog-screen/);
 });
 
 test('UIX-5 exposes wallet, collection progress, filters, gallery and detail dialog', () => {

@@ -73,13 +73,14 @@
   --ui-radius-sm: 12px;
   --ui-radius-md: 22px;
   --ui-radius-lg: 34px;
+  --ui-radius-xl: 42px;
   --ui-stroke-quiet: 1px;
   --ui-stroke-standard: 2px;
   --ui-stroke-focus: 3px;
   --ui-target-min: 44px;
   --ui-target-primary: 48px;
 
-  /* Elevation is short and physical, never casino glow */
+  /* Elevation stays short, physical, and free of ornamental glow. */
   --ui-shadow-paper: 0 4px 0 var(--ui-brand-ink);
   --ui-shadow-paper-raised: 0 8px 0 var(--ui-brand-ink);
   --ui-shadow-float: 0 18px 42px rgb(4 7 7 / 22%);
@@ -89,6 +90,13 @@
   --ui-ease-settle: cubic-bezier(.16, 1, .3, 1);
   --ui-duration-ack: 80ms;
   --ui-duration-micro: 180ms;
+  --ui-duration-feedback: 180ms;
+  --ui-duration-interaction: 260ms;
   --ui-duration-screen: 340ms;
   --ui-duration-blocking-max: 450ms;
+
+  /* Stable aliases used by feedback and accessibility surfaces. */
+  --ui-color-paper: var(--ui-surface-paper-bright);
+  --ui-color-ink: var(--ui-brand-ink);
+  --ui-color-signal: var(--ui-brand-signal-deep);
 }

@@ -5,12 +5,12 @@ const path = require('node:path');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { GAME_RUNTIME_SCRIPTS, ROOT } = require('./helpers/load-script');
+const { PRODUCTION_STYLESHEETS } = require('./helpers/ui-css');
 
 const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
 const gameSource = GAME_RUNTIME_SCRIPTS
     .map(relativePath => fs.readFileSync(path.join(ROOT, relativePath), 'utf8'))
     .join('\n');
-const css = fs.readFileSync(path.join(ROOT, 'style.css'), 'utf8');
 
 test('HTML has a doctype, unique ids, and expected script order', () => {
     assert.match(html, /^<!DOCTYPE html>/i);
@@ -88,13 +88,16 @@ test('literal DOM ids used by the game runtime exist in index.html', () => {
     assert.deepEqual(missing, []);
 });
 
-test('CSS braces are balanced after comments are removed', () => {
-    const withoutComments = css.replace(/\/\*[\s\S]*?\*\//g, '');
-    let depth = 0;
-    for (const character of withoutComments) {
-        if (character === '{') depth++;
-        if (character === '}') depth--;
-        assert.ok(depth >= 0, 'CSS contains an unexpected closing brace');
+test('every production CSS module has balanced braces', () => {
+    for (const relativePath of PRODUCTION_STYLESHEETS) {
+        const css = fs.readFileSync(path.join(ROOT, relativePath), 'utf8');
+        const withoutComments = css.replace(/\/\*[\s\S]*?\*\//g, '');
+        let depth = 0;
+        for (const character of withoutComments) {
+            if (character === '{') depth++;
+            if (character === '}') depth--;
+            assert.ok(depth >= 0, `${relativePath} contains an unexpected closing brace`);
+        }
+        assert.equal(depth, 0, `${relativePath} has unbalanced braces`);
     }
-    assert.equal(depth, 0);
 });

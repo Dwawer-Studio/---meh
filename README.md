@@ -149,6 +149,9 @@ npm run check:clean
 `docs/UIX-4-SOCIAL-SESSION.md`.
 وتنفيذ مجموعة البطاقات والمتجر وتاماشي UIX-5 موثق في
 `docs/UIX-5-COLLECTION-STORE.md`.
+وتنفيذ الإخراج الحركي والصوتي UIX-6 موثق في `docs/UIX-6-FEEDBACK.md`، وإغلاق
+الصلابة والمصفوفة والوصول والأداء UIX-7 موثق في
+`docs/UIX-7-HARDENING.md`.
 والاختبارات البشرية والميدانية المؤجلة بقرار مالك المنتج مجمعة في
 `docs/DEFERRED-VALIDATION-REGISTER.md`.
 

@@ -1,33 +1,33 @@
-.ui-v2 .ui-motion-enter,
-.ui-v2 .ui-screen-enter {
+.ui-motion-enter,
+.ui-screen-enter {
   animation: ui-enter var(--ui-duration-screen) var(--ui-ease-settle) both;
 }
 
-.ui-v2 .ui-motion-ack {
+.ui-motion-ack {
   transition:
     scale var(--ui-duration-ack) linear,
     translate var(--ui-duration-ack) linear;
 }
 
-.ui-v2 .ui-motion-ack:active {
+.ui-motion-ack:active {
   scale: .98;
   translate: 0 2px;
 }
 
-.ui-v2 .ui-motion-lift {
+.ui-motion-lift {
   transition:
     translate var(--ui-duration-micro) var(--ui-ease-out),
     box-shadow var(--ui-duration-micro) var(--ui-ease-out);
 }
 
-.ui-v2 .ui-motion-lift:hover {
+.ui-motion-lift:hover {
   translate: 0 -4px;
   box-shadow: var(--ui-shadow-paper-raised);
 }
 
-.ui-v2 .feedback-card-flight,
-.ui-v2 .feedback-card-crossfade,
-.ui-v2 .feedback-draw-flight {
+.feedback-card-flight,
+.feedback-card-crossfade,
+.feedback-draw-flight {
   position: fixed;
   inset: 0 auto auto 0;
   width: var(--feedback-card-w, 60px);
@@ -38,38 +38,38 @@
   will-change: transform, opacity;
 }
 
-.ui-v2 .feedback-card-flight {
+.feedback-card-flight {
   animation: feedback-card-arc var(--feedback-duration, 260ms) var(--ui-ease-settle) both;
   box-shadow: 0 14px 28px rgb(4 7 7 / 26%);
 }
 
-.ui-v2 .feedback-card-crossfade {
+.feedback-card-crossfade {
   animation: feedback-card-crossfade var(--feedback-duration, 120ms) linear both;
 }
 
-.ui-v2 .feedback-draw-flight {
+.feedback-draw-flight {
   width: 60px;
   height: 86px;
   animation: feedback-draw-arc var(--feedback-duration, 280ms) var(--ui-ease-out) both;
 }
 
-.ui-v2 .feedback-settle-target {
+.feedback-settle-target {
   opacity: .12;
 }
 
-.ui-v2 .feedback-count-pulse {
+.feedback-count-pulse {
   animation: feedback-count-pulse 120ms linear 1;
 }
 
-.ui-v2 .player-area.turn-departure {
+.player-area.turn-departure {
   animation: feedback-turn-departure 120ms linear 1;
 }
 
-.ui-v2 .player-area.turn-arrival {
+.player-area.turn-arrival {
   animation: feedback-turn-arrival 180ms var(--ui-ease-settle) 1;
 }
 
-.ui-v2 #game-screen.feedback-impact::after {
+#game-screen.feedback-impact::after {
   content: "";
   position: absolute;
   inset: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right))
@@ -82,15 +82,15 @@
   animation: feedback-impact-border 360ms linear 1 both;
 }
 
-.ui-v2 #game-screen[data-feedback-impact="wild"]::after {
+#game-screen[data-feedback-impact="wild"]::after {
   border-style: dashed;
 }
 
-.ui-v2 #game-screen[data-feedback-impact="counter"]::after {
+#game-screen[data-feedback-impact="counter"]::after {
   border-width: 5px;
 }
 
-.ui-v2 .penalty-reason-banner {
+.penalty-reason-banner {
   position: absolute;
   inset-inline-start: 50%;
   inset-block-end: -2.15rem;
@@ -109,20 +109,20 @@
   animation: feedback-reason-enter 160ms var(--ui-ease-out) both;
 }
 
-.ui-v2 .results-screen.result-moment-active .result-seal {
+.results-screen.result-moment-active .result-seal {
   animation: result-circle-contract 260ms var(--ui-ease-settle) both;
 }
 
-.ui-v2 .results-screen.result-moment-active .result-copy,
-.ui-v2 .results-screen.result-moment-active .results-layout {
+.results-screen.result-moment-active .result-copy,
+.results-screen.result-moment-active .results-layout {
   animation: result-paper-open 420ms var(--ui-ease-settle) both;
 }
 
-.ui-v2 .results-screen.result-moment-active .result-copy {
+.results-screen.result-moment-active .result-copy {
   animation-delay: 0ms;
 }
 
-.ui-v2 .sound-setting--child[data-master-muted="true"] {
+.sound-setting--child[data-master-muted="true"] {
   background-image: repeating-linear-gradient(
     -45deg,
     transparent 0 10px,
@@ -130,13 +130,13 @@
   );
 }
 
-.ui-v2 .sound-setting--child[data-master-muted="true"] small::after {
+.sound-setting--child[data-master-muted="true"] small::after {
   content: " · Master muted";
   color: var(--ui-color-signal);
   font-weight: 750;
 }
 
-[dir="rtl"] .ui-v2 .sound-setting--child[data-master-muted="true"] small::after {
+[dir="rtl"] .sound-setting--child[data-master-muted="true"] small::after {
   content: " · الصوت الرئيسي مغلق";
 }
 
@@ -230,9 +230,9 @@
     --ui-duration-screen: 1ms;
   }
 
-  .ui-v2 *,
-  .ui-v2 *::before,
-  .ui-v2 *::after {
+  *,
+  *::before,
+  *::after {
     scroll-behavior: auto !important;
     animation-delay: 0ms !important;
     animation-duration: 1ms !important;
@@ -241,12 +241,12 @@
     transition-duration: 1ms !important;
   }
 
-  .ui-v2 :where(.ui-spinner, .ui-skeleton) {
+  :where(.ui-spinner, .ui-skeleton) {
     animation: none !important;
   }
 }
 
-.ui-v2[data-ui-motion="reduced"] :where(
+body[data-ui-motion="reduced"] :where(
   .feedback-card-flight,
   .feedback-card-crossfade,
   .feedback-draw-flight
@@ -255,7 +255,7 @@
   animation-duration: 120ms !important;
 }
 
-.ui-v2[data-ui-motion="reduced"] :where(
+body[data-ui-motion="reduced"] :where(
   .feedback-count-pulse,
   .player-area.turn-arrival,
   .player-area.turn-departure
@@ -263,7 +263,7 @@
   animation-duration: 120ms !important;
 }
 
-.ui-v2[data-ui-motion="reduced"] :where(
+body[data-ui-motion="reduced"] :where(
   .ui-screen-enter,
   .results-screen.result-moment-active .result-seal,
   .results-screen.result-moment-active .result-copy,
@@ -273,13 +273,13 @@
   animation-duration: 120ms !important;
 }
 
-.ui-v2[data-ui-motion="reduced"] :where(.ui-spinner, .ui-skeleton) {
+body[data-ui-motion="reduced"] :where(.ui-spinner, .ui-skeleton) {
   animation: none !important;
 }
 
-.ui-v2[data-feedback-profile="battery"] *,
-.ui-v2[data-feedback-profile="battery"] *::before,
-.ui-v2[data-feedback-profile="battery"] *::after {
+body[data-feedback-profile="battery"] *,
+body[data-feedback-profile="battery"] *::before,
+body[data-feedback-profile="battery"] *::after {
   animation: none !important;
   scroll-behavior: auto !important;
   transition-duration: 1ms !important;

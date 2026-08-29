@@ -34,6 +34,11 @@ async function primeApp(page, lang = 'ar') {
     await page.addInitScript(selectedLang => {
         localStorage.clear();
         sessionStorage.clear();
+        let seed = 0x75697837;
+        Math.random = () => {
+            seed = (seed * 1664525 + 1013904223) >>> 0;
+            return seed / 0x100000000;
+        };
         localStorage.setItem('meh_settings', JSON.stringify({
             lang: selectedLang, colorblind: false, batterySaver: true,
             wakeLock: false, confirmPlay: true, sound: false, haptics: false,

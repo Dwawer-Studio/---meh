@@ -6,12 +6,13 @@ const path = require('node:path');
 const test = require('node:test');
 
 const { GAME_RUNTIME_SCRIPTS, ROOT, loadScripts } = require('./helpers/load-script');
+const { readUiCss } = require('./helpers/ui-css');
 
 const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
 const gameSource = GAME_RUNTIME_SCRIPTS
     .map(relativePath => fs.readFileSync(path.join(ROOT, relativePath), 'utf8'))
     .join('\n');
-const css = fs.readFileSync(path.join(ROOT, 'style.css'), 'utf8');
+const css = readUiCss();
 
 function makeClassList() {
     const values = new Set();
@@ -194,9 +195,8 @@ test('A11Y-01: opening a decision dialog exposes it and focuses its first contro
 
 test('A11Y-01: keyboard focus has a visible style across primary controls', () => {
     assert.match(css, /\.human-hand \.card\.playable:focus-visible/);
-    assert.match(css, /\.toggle-row:focus-visible/);
-    assert.match(css, /\.btn:focus-visible/);
-    assert.match(css, /outline:\s*3px solid var\(--gold\)/);
+    assert.match(css, /:where\(button, input, select, textarea, \[tabindex\]\):focus-visible/);
+    assert.match(css, /outline:\s*var\(--ui-stroke-focus\) solid var\(--ui-brand-signal\)/);
 });
 
 test('P1 guidance, journal, and timer expose non-motion accessible alternatives', () => {
@@ -204,5 +204,5 @@ test('P1 guidance, journal, and timer expose non-motion accessible alternatives'
     assert.match(html, /id="action-journal"[^>]*role="dialog"[^>]*aria-hidden="true"[^>]*inert/);
     assert.match(html, /id="turn-timer"[^>]*role="timer"[^>]*aria-live="polite"/);
     assert.match(css, /@media\s*\(prefers-reduced-motion:\s*reduce\)/);
-    assert.match(css, /animation-duration:\s*\.01ms\s*!important/);
+    assert.match(css, /animation-duration:\s*1ms\s*!important/);
 });

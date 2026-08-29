@@ -82,7 +82,6 @@ test('UIX-1 production entry loads the executable identity foundation', async ({
         await document.fonts.ready;
         const body = getComputedStyle(document.body);
         return {
-            system: document.body.dataset.uiSystem,
             fontLoaded: document.fonts.check('16px "Meh UI"'),
             fontFamily: body.fontFamily,
             signal: body.getPropertyValue('--ui-brand-signal').trim(),
@@ -90,7 +89,6 @@ test('UIX-1 production entry loads the executable identity foundation', async ({
         };
     });
     expect(identity).toEqual({
-        system: 'living-circle',
         fontLoaded: true,
         fontFamily: expect.stringContaining('Meh UI'),
         signal: '#ee3633',

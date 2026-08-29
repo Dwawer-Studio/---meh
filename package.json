@@ -11,7 +11,7 @@
     "check:syntax": "node tools/check-syntax.js",
     "validate": "npm run validate:html && npm run validate:css",
     "validate:html": "html-validate index.html tests/fixtures/responsive-harness.html prototypes/uiux-u0/index.html ui/fixture/index.html",
-    "validate:css": "stylelint style.css prototypes/uiux-u0/prototype.css ui/*.css ui/screens/*.css ui/fixture/*.css",
+    "validate:css": "stylelint prototypes/uiux-u0/prototype.css ui/*.css ui/screens/*.css ui/fixture/*.css",
     "check:assets": "node --test tests/assets.test.js",
     "report:telemetry": "node tools/telemetry-report.js",
     "test": "node --test",
@@ -43,12 +43,14 @@
     "test:uiux-u3": "node --test tests/uiux-u3-game-table.test.js && playwright test tests/e2e/uiux-u3.spec.js",
     "test:uiux-u4": "node --test tests/uiux-u4-social-session.test.js && playwright test tests/e2e/uiux-u4.spec.js tests/e2e/online.spec.js tests/e2e/authoritative.spec.js",
     "test:uiux-u5": "node --test tests/uiux-u5-collection-store.test.js tests/p4-feature-flags.test.js && playwright test tests/e2e/uiux-u5.spec.js tests/e2e/authoritative.spec.js",
-    "test:uiux-u6": "node --test tests/uiux-u6-feedback.test.js tests/storage.test.js tests/guidance.test.js && playwright test tests/e2e/uiux-u6.spec.js"
+    "test:uiux-u6": "node --test tests/uiux-u6-feedback.test.js tests/storage.test.js tests/guidance.test.js && playwright test tests/e2e/uiux-u6.spec.js",
+    "test:uiux-u7": "node --test tests/uiux-u7-hardening.test.js && playwright test tests/e2e/uiux-u7.spec.js tests/e2e/uiux-u7-visual.spec.js"
   },
   "engines": {
     "node": "^22.22.0 || >=24.8.0"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
     "@electric-sql/pglite": "0.5.7",
     "@playwright/test": "1.62.1",
     "html-validate": "^11.10.0",

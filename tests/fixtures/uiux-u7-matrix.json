@@ -1,0 +1,17 @@
+{
+  "frames": [
+    { "name": "ar-phone-360", "lang": "ar", "width": 360, "height": 800 },
+    { "name": "ar-phone-393", "lang": "ar", "width": 393, "height": 852 },
+    { "name": "en-phone-360", "lang": "en", "width": 360, "height": 800 },
+    { "name": "en-phone-430", "lang": "en", "width": 430, "height": 932 },
+    { "name": "ar-landscape-844", "lang": "ar", "width": 844, "height": 390 },
+    { "name": "en-landscape-932", "lang": "en", "width": 932, "height": 430 },
+    { "name": "ar-tablet-portrait", "lang": "ar", "width": 768, "height": 1024 },
+    { "name": "en-tablet-landscape", "lang": "en", "width": 1024, "height": 768 },
+    { "name": "ar-desktop-1366", "lang": "ar", "width": 1366, "height": 768 },
+    { "name": "en-desktop-1440", "lang": "en", "width": 1440, "height": 900 }
+  ],
+  "profiles": ["normal", "reduced-motion", "colorblind", "text-200"],
+  "catalogStates": ["loading", "error", "empty"],
+  "tableStages": ["ready", "selected", "decision", "penalty", "result"]
+}

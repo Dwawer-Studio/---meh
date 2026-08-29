@@ -51,7 +51,8 @@ test('UIX-1 production loads the shared design system in dependency order', () =
         previous = position;
         assert.ok(exists(stylesheet), stylesheet);
     }
-    assert.match(productionHtml, /<body class="ui-v2" data-ui-system="living-circle">/);
+    assert.match(productionHtml, /<body>/);
+    assert.doesNotMatch(productionHtml, /ui-v2|data-ui-system/);
     assert.match(productionHtml, /class="ui-skip-link"/);
 });
 

@@ -1,4 +1,6 @@
-.ui-v2 #app {
+#app {
+  position: relative;
+  width: 100%;
   min-width: 320px;
   min-height: 100dvh;
   height: 100dvh;
@@ -7,7 +9,23 @@
   isolation: isolate;
 }
 
-.ui-v2 .screen.app-screen {
+.screen {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.screen.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.screen.app-screen {
   min-width: 320px;
   min-height: 100dvh;
   height: 100dvh;
@@ -27,17 +45,17 @@
   overscroll-behavior: contain;
 }
 
-.ui-v2 .screen.app-screen.active {
+.screen.app-screen.active {
   transform: translateY(0);
 }
 
-.ui-v2 .app-screen--paper {
+.app-screen--paper {
   background:
     radial-gradient(circle at 16% 12%, rgb(238 54 51 / 9%) 0 2px, transparent 2.5px) 0 0 / 28px 28px,
     linear-gradient(145deg, var(--ui-surface-paper-bright), var(--ui-surface-paper));
 }
 
-.ui-v2 .app-panel {
+.app-panel {
   width: min(100%, 680px);
   min-height: min(720px, calc(100dvh - 32px));
   display: flex;
@@ -52,14 +70,14 @@
   box-shadow: var(--ui-shadow-paper-raised), var(--ui-shadow-float);
 }
 
-.ui-v2 .screen-heading {
+.screen-heading {
   display: flex;
   align-items: center;
   gap: var(--ui-space-3);
 }
 
-.ui-v2 .screen-heading__icon,
-.ui-v2 .play-mode-card__icon {
+.screen-heading__icon,
+.play-mode-card__icon {
   width: 48px;
   height: 48px;
   display: grid;
@@ -72,23 +90,23 @@
   box-shadow: 0 3px 0 var(--ui-brand-ink);
 }
 
-.ui-v2 .screen-eyebrow {
+.screen-eyebrow {
   margin: 0 0 var(--ui-space-1);
   color: var(--ui-brand-signal-deep);
   font-size: var(--ui-type-label);
   font-weight: 600;
 }
 
-.ui-v2 .screen-heading .ui-title {
+.screen-heading .ui-title {
   font-size: clamp(1.45rem, 5vw, 2rem);
 }
 
-.ui-v2 .screen-heading :where(h1, h2)[tabindex="-1"]:focus,
-.ui-v2 .screen-heading :where(h1, h2)[tabindex="-1"]:focus-visible {
+.screen-heading :where(h1, h2)[tabindex="-1"]:focus,
+.screen-heading :where(h1, h2)[tabindex="-1"]:focus-visible {
   outline: none;
 }
 
-.ui-v2 .app-bottom-nav {
+.app-bottom-nav {
   position: absolute;
   z-index: 12;
   inset-inline: max(12px, env(safe-area-inset-left)) max(12px, env(safe-area-inset-right));
@@ -106,7 +124,7 @@
   box-shadow: 0 5px 0 var(--ui-brand-ink), var(--ui-shadow-float);
 }
 
-.ui-v2 .app-nav-item {
+.app-nav-item {
   min-width: 0;
   min-height: 54px;
   display: grid;
@@ -123,13 +141,13 @@
   font-weight: 600;
 }
 
-.ui-v2 .app-nav-item.active,
-.ui-v2 .app-nav-item[aria-current="page"] {
+.app-nav-item.active,
+.app-nav-item[aria-current="page"] {
   color: #fff;
   background: var(--ui-brand-ink);
 }
 
-.ui-v2 .ui-splash {
+.ui-splash {
   position: fixed;
   z-index: 9999;
   inset: 0;
@@ -144,7 +162,7 @@
   transition: opacity 140ms var(--ui-ease-out);
 }
 
-.ui-v2 .ui-splash::before {
+.ui-splash::before {
   position: absolute;
   width: min(70vw, 440px);
   aspect-ratio: 1;
@@ -155,46 +173,46 @@
   animation: ui-splash-orbit 260ms var(--ui-ease-settle) both;
 }
 
-.ui-v2 .ui-splash__studio,
-.ui-v2 .ui-splash__game {
+.ui-splash__studio,
+.ui-splash__game {
   position: absolute;
   display: grid;
   place-items: center;
 }
 
-.ui-v2 .ui-splash__studio {
+.ui-splash__studio {
   grid-template-columns: 48px minmax(0, 170px);
   gap: var(--ui-space-3);
   animation: ui-splash-studio 170ms var(--ui-ease-out) both;
 }
 
-.ui-v2 .ui-splash__studio img:first-child {
+.ui-splash__studio img:first-child {
   width: 48px;
 }
 
-.ui-v2 .ui-splash__studio img:last-child {
+.ui-splash__studio img:last-child {
   width: min(42vw, 170px);
 }
 
-.ui-v2 .ui-splash__game {
+.ui-splash__game {
   gap: var(--ui-space-2);
   opacity: 0;
   animation: ui-splash-game 160ms 100ms var(--ui-ease-settle) both;
 }
 
-.ui-v2 .ui-splash__game span {
+.ui-splash__game span {
   font-size: clamp(4.5rem, 18vw, 8rem);
   font-weight: 600;
   letter-spacing: -.08em;
   line-height: .9;
 }
 
-.ui-v2 .ui-splash__game small {
+.ui-splash__game small {
   color: var(--ui-brand-ink-soft);
   font-weight: 600;
 }
 
-.ui-v2 .ui-splash.gone {
+.ui-splash.gone {
   opacity: 0;
   pointer-events: none;
 }
@@ -216,23 +234,23 @@
 }
 
 @media (min-width: 760px) {
-  .ui-v2 .screen.app-screen {
+  .screen.app-screen {
     padding: clamp(24px, 5vw, 56px);
   }
 
-  .ui-v2 .app-bottom-nav {
+  .app-bottom-nav {
     width: min(520px, calc(100% - 32px));
     margin-inline: auto;
   }
 }
 
 @media (max-height: 520px) and (orientation: landscape) {
-  .ui-v2 .screen.app-screen {
+  .screen.app-screen {
     align-items: flex-start;
     padding: 12px max(16px, env(safe-area-inset-right)) 12px max(16px, env(safe-area-inset-left));
   }
 
-  .ui-v2 .app-panel {
+  .app-panel {
     min-height: calc(100dvh - 24px);
     margin-block: 0;
     padding: 16px 24px;
@@ -240,17 +258,17 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ui-v2 .ui-splash::before,
-  .ui-v2 .ui-splash__studio,
-  .ui-v2 .ui-splash__game {
+  .ui-splash::before,
+  .ui-splash__studio,
+  .ui-splash__game {
     animation: none;
   }
 
-  .ui-v2 .ui-splash__studio {
+  .ui-splash__studio {
     display: none;
   }
 
-  .ui-v2 .ui-splash__game {
+  .ui-splash__game {
     opacity: 1;
   }
 }

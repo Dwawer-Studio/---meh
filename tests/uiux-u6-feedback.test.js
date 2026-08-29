@@ -6,6 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const test = require('node:test');
 const { loadScript } = require('./helpers/load-script');
+const { readUiCss } = require('./helpers/ui-css');
 
 const ROOT = path.resolve(__dirname, '..');
 const read = relativePath => fs.readFileSync(path.join(ROOT, relativePath), 'utf8');
@@ -154,7 +155,7 @@ test('UIX-6 keeps every sound meaning visible or textual and removes heavy/flash
     assert.match(html, /id="context-tip"[^>]+aria-live="polite"/);
     assert.match(rulesSource, /penalty-reason-banner/);
     assert.match(rulesSource, /_showTransientReason\([^,]+, reason, 3000\)/);
-    assert.doesNotMatch(`${rendererSource}\n${read('style.css')}`, /screen-flash|confettiFall|className = 'confetti'/);
+    assert.doesNotMatch(`${rendererSource}\n${readUiCss()}`, /screen-flash|confettiFall|className = 'confetti'/);
     assert.doesNotMatch(rendererSource, /for\s*\(let i = 0; i < 90/);
     assert.match(motionSource, /feedback-impact-border 360ms linear 1/);
 });

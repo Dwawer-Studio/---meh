@@ -269,7 +269,11 @@ class MehGameRendererModule {
         const handScroller = hc.parentElement;
         if (handScroller) handScroller.classList.toggle('is-dense-hand', isDenseHand);
         // تداخل ديناميكي: يوزّع البطاقات على عرض متاح مع ضمان حد أدنى مرئي لكل بطاقة
-        const avail = Math.min(window.innerWidth * 0.92, 1150);
+        // اترك هامش أمان إضافياً على الهواتف كي لا تقص الشاشة حواف المروحة بعد دورانها.
+        const viewportSafeWidth = window.innerWidth <= 620
+            ? Math.max(cardW, window.innerWidth - 56)
+            : window.innerWidth * 0.92;
+        const avail = Math.min(viewportSafeWidth, 1150);
         let overlap = -10;
         if (n > 1) {
             const fit = (avail - cardW) / (n - 1) - cardW;   // التباعد المثالي ليملأ العرض

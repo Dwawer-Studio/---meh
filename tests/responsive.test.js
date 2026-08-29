@@ -7,18 +7,18 @@ const test = require('node:test');
 
 const { ROOT } = require('./helpers/load-script');
 
-const css = fs.readFileSync(path.join(ROOT, 'style.css'), 'utf8');
+const css = fs.readFileSync(path.join(ROOT, 'ui/screens/table.css'), 'utf8');
 const harness = fs.readFileSync(path.join(ROOT, 'tests/fixtures/responsive-harness.html'), 'utf8');
 
 test('RESP-01: portrait phones use a dedicated table layout', () => {
-    assert.match(css, /@media\s*\(max-width:\s*600px\)/);
-    assert.match(css, /grid-template-columns:\s*68px\s+minmax\(0,\s*1fr\)\s+68px/);
+    assert.match(css, /@media\s*\(max-width:\s*620px\)/);
+    assert.match(css, /#game-screen \.left-player,[\s\S]*#game-screen \.right-player/);
     assert.match(css, /height:\s*100dvh/);
 });
 
 test('RESP-02: short landscape phones use a dedicated table layout', () => {
-    assert.match(css, /@media\s*\(max-height:\s*500px\)\s*and\s*\(orientation:\s*landscape\)/);
-    assert.match(css, /grid-template-columns:\s*140px\s+minmax\(0,\s*1fr\)\s+140px/);
+    assert.match(css, /@media\s*\(max-height:\s*520px\)\s*and\s*\(orientation:\s*landscape\)/);
+    assert.match(css, /#game-screen #player-human[\s\S]*height:\s*142px/);
 });
 
 test('RESP-01/02: the browser harness preserves the target viewport sizes', () => {

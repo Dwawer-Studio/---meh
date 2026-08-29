@@ -363,6 +363,9 @@ free rotation/preview عندما تكون متاحة، وحالات empty/loadin
 
 الفرع: `codex/uiux-u6-feedback`
 
+الحالة: `Implemented / Human Validation Deferred` — الدليل التنفيذي في
+`docs/UIX-6-FEEDBACK.md`.
+
 المخرجات: choreography، SFX، haptics، transition director، result moment،
 battery/reduced-motion profiles، وفصل الصوت إلى Master/Music/SFX.
 
@@ -373,11 +376,15 @@ task بسبب FX، ولا صوت/اهتزاز قبل opt-in حيث يلزم.
 
 الفرع: `codex/uiux-u7-hardening`
 
+الحالة: `Engineering Complete / Human Validation Deferred` — الدليل التنفيذي
+في `docs/UIX-7-HARDENING.md`.
+
 المخرجات: visual regression، مصفوفة أجهزة، pseudo-localization، قارئ شاشة،
 لوحة مفاتيح، performance budgets، إزالة CSS القديم والflag، وتقرير نهائي.
 
-البوابة: `npm run check` و`check:clean`، اختبارات البشر أدناه، ثم يبدأ سجل P1
-المؤجل على الواجهة الجديدة فقط.
+البوابة الهندسية: `npm run check` و`check:clean`. اختبارات البشر أدناه مؤجلة
+بقرار مالك المنتج ومقفلة في السجل؛ ثم يبدأ P1 على الواجهة الجديدة فقط بعد
+إغلاقها.
 
 ## 8. مصفوفة التحقق
 

@@ -7,7 +7,8 @@
     <meta name="theme-color" content="#040707">
     <title>لعبة مِهْ</title>
     <meta name="description" content="مِهْ - لعبة ورقية بطابع بحريني. تخلص من بطاقاتك قبل اللاعبين الآخرين!">
-    <link rel="stylesheet" href="style.css">
+    <link rel="preload" href="assets/fonts/ibm-plex-sans-arabic/IBMPlexSansArabic-Regular.woff2"
+          as="font" type="font/woff2" crossorigin>
     <link rel="stylesheet" href="ui/tokens.css">
     <link rel="stylesheet" href="ui/foundations.css">
     <link rel="stylesheet" href="ui/components.css">
@@ -20,7 +21,7 @@
     <link rel="stylesheet" href="ui/motion.css">
     <link rel="stylesheet" href="ui/accessibility.css">
 </head>
-<body class="ui-v2" data-ui-system="living-circle">
+<body>
     <a class="ui-skip-link" href="#app" data-i18n="skip_to_content">تخطَّ إلى المحتوى</a>
     <div id="app">
         <!-- ===== شاشة البداية (Splash) ===== -->
@@ -311,7 +312,7 @@
         <div id="invite-screen" class="screen app-screen app-screen--paper">
             <section class="app-panel online-panel invite-panel" aria-labelledby="invite-title">
                 <div class="invite-identity" aria-hidden="true">
-                    <img src="assets/brand/dwawer-circle-four.png" alt="">
+                    <img src="assets/brand/dwawer-circle-four.png" alt="" loading="lazy" decoding="async">
                     <span><svg class="ui-icon"><use href="assets/ui/icons.svg#icon-invite"></use></svg></span>
                 </div>
                 <p class="screen-eyebrow" data-i18n="invite_eyebrow">مقعدك محجوز</p>
@@ -449,7 +450,7 @@
                     </header>
                     <div class="catalog-detail-layout">
                         <div class="catalog-detail-art">
-                            <img id="catalog-detail-image" src="assets/cards/orange-dafour.webp" alt="">
+                            <img id="catalog-detail-image" src="assets/cards/orange-dafour.webp" alt="" loading="lazy" decoding="async">
                             <span id="catalog-detail-badge" class="catalog-badge"></span>
                         </div>
                         <div class="catalog-detail-copy">
@@ -541,7 +542,7 @@
             <section class="lobby-shell" aria-labelledby="lobby-title">
                 <header class="social-app-bar">
                     <div class="social-brand">
-                        <img src="assets/brand/dwawer-mark-paper.png" alt="" aria-hidden="true">
+                        <img src="assets/brand/dwawer-mark-paper.png" alt="" aria-hidden="true" loading="lazy" decoding="async">
                         <span>مِهْ</span>
                     </div>
                     <div class="social-heading">
@@ -632,7 +633,7 @@
         <div id="game-screen" class="screen game-table-screen">
             <header class="table-bar" aria-labelledby="table-context-name">
                 <div class="table-brand">
-                    <img src="assets/brand/dwawer-mark-paper.png" alt="" aria-hidden="true">
+                    <img src="assets/brand/dwawer-mark-paper.png" alt="" aria-hidden="true" loading="lazy" decoding="async">
                     <span>مِهْ</span>
                 </div>
                 <p class="table-context">
@@ -828,7 +829,7 @@
             <div class="end-content">
                 <header class="results-app-bar" aria-label="إجراءات النتيجة" data-i18n-attr="aria-label:result_actions">
                     <div class="social-brand social-brand--ink">
-                        <img src="assets/brand/dwawer-mark-ink.png" alt="" aria-hidden="true">
+                        <img src="assets/brand/dwawer-mark-ink.png" alt="" aria-hidden="true" loading="lazy" decoding="async">
                         <span>مِهْ</span>
                     </div>
                     <div class="result-utilities">

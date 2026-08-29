@@ -292,12 +292,22 @@ test('card store separates sale inventory from the classic collection and fits a
         const mobile = await page.evaluate(() => ({
             viewport: innerWidth,
             scrollWidth: document.documentElement.scrollWidth,
+            overflowing: [...document.body.querySelectorAll('*')].map(element => {
+                const rect = element.getBoundingClientRect();
+                return {
+                    element: `${element.tagName.toLowerCase()}#${element.id || ''}.${typeof element.className === 'string' ? element.className : ''}`,
+                    left: rect.left,
+                    right: rect.right,
+                    width: rect.width,
+                };
+            }).filter(item => item.left < -1 || item.right > innerWidth + 1),
             refreshHeight: document.getElementById('catalog-refresh-btn').getBoundingClientRect().height,
             backHeight: document.getElementById('catalog-back-btn').getBoundingClientRect().height,
             storeTabHeight: document.getElementById('catalog-store-tab').getBoundingClientRect().height,
             collectionTabHeight: document.getElementById('catalog-collection-tab').getBoundingClientRect().height,
         }));
-        expect(mobile.scrollWidth).toBeLessThanOrEqual(mobile.viewport);
+        expect(mobile.scrollWidth, JSON.stringify(mobile.overflowing.slice(0, 12), null, 2))
+            .toBeLessThanOrEqual(mobile.viewport);
         expect(mobile.refreshHeight).toBeGreaterThanOrEqual(44);
         expect(mobile.backHeight).toBeGreaterThanOrEqual(44);
         expect(mobile.storeTabHeight).toBeGreaterThanOrEqual(44);

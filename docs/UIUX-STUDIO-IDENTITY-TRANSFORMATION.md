@@ -1,7 +1,7 @@
 # خطة إعادة بناء UI/UX — هوية Dwawer داخل «مِهْ»
 
 التاريخ: 2026-08-29
-الحالة: `Implementation In Progress — UIX-0/UIX-1 Complete`
+الحالة: `Implementation In Progress — UIX-0/UIX-1/UIX-2 Complete`
 النطاق: إعادة بناء تجربة العرض والتفاعل كاملة قبل التحقق البشري P1، مع قفل
 قلب اللعبة والبطاقات والآرت الحالي.
 
@@ -305,6 +305,8 @@ dialogs، focus، loading، skeleton، motion primitives، وStory/fixture مح�
 ### UIX-2 — الغلاف والرئيسية والدخول
 
 الفرع: `codex/uiux-u2-app-shell`
+
+الحالة: `Implemented` — الدليل التنفيذي في `docs/UIX-2-APP-SHELL.md`.
 
 المخرجات: splash، shell، الرئيسية، اختيار الملف، مركز اللعب، الدعوة، التعليمات،
 والإعدادات. المتجر مخفي عن أول جلسة كما تنص P1/P4.

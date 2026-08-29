@@ -148,7 +148,7 @@ test('two real browsers create, recover, start, and exchange online state', asyn
         await openPlayer(hostPage, 'المضيف', 0x484F5354);
         await openPlayer(clientPage, 'الضيف', 0x434C4945);
 
-        await hostPage.locator('#online-btn').click();
+        await hostPage.locator('#majalis-nav-btn').click();
         await hostPage.locator('#create-room-btn').click();
         await expectLobby(hostPage, ['المضيف']);
         const roomCode = await hostPage.locator('#lobby-room-code').textContent();
@@ -159,7 +159,7 @@ test('two real browsers create, recover, start, and exchange online state', asyn
         await cycleHostSignal(hostPage);
         await expectLobby(hostPage, ['المضيف']);
 
-        await clientPage.locator('#online-btn').click();
+        await clientPage.locator('#majalis-nav-btn').click();
         await clientPage.locator('#room-code-input').fill(roomCode);
         await clientPage.locator('#join-room-btn').click();
         await expectLobby(hostPage, ['المضيف', 'الضيف']);
@@ -256,7 +256,7 @@ test('four browsers join by invite link and play two matches on one connection',
 
     try {
         await openPlayer(pages[0], 'المضيف', 0x1001);
-        await pages[0].locator('#online-btn').click();
+        await pages[0].locator('#majalis-nav-btn').click();
         await pages[0].locator('#create-room-btn').click();
         await expectLobby(pages[0], ['المضيف']);
         const inviteUrl = await pages[0].evaluate(() => game._activeInviteUrl);

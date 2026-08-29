@@ -22,7 +22,7 @@ class MehGameProfileModule {
     bindSettingsEvents() {
         const open = () => { this.showScreen('settings-screen'); this.refreshSettingsUI(); };
         document.getElementById('menu-settings-btn').onclick = open;
-        document.getElementById('settings-back-btn').onclick = () => this.showScreen('main-menu');
+        document.getElementById('settings-back-btn').onclick = () => this.navigateBack('main-menu');
 
         document.querySelectorAll('.lang-btn').forEach(btn => {
             btn.onclick = () => {
@@ -79,13 +79,17 @@ class MehGameProfileModule {
             this.humanProfile = current;
             this.updateMenuChip();
         } else {
-            this.showScreen('profile-screen');
+            this.showScreen('profile-screen', { replaceHistory: true });
             this.renderProfileList();
         }
     }
 
     bindProfileEvents() {
         document.getElementById('players-btn').onclick = () => {
+            this.showScreen('profile-screen');
+            this.renderProfileList();
+        };
+        document.getElementById('current-player-chip').onclick = () => {
             this.showScreen('profile-screen');
             this.renderProfileList();
         };
@@ -96,7 +100,7 @@ class MehGameProfileModule {
         };
         document.getElementById('profile-back-btn').onclick = () => {
             document.getElementById('create-profile-form').classList.add('hidden');
-            this.showScreen('main-menu');
+            this.navigateBack('main-menu');
         };
         document.getElementById('save-profile-btn').onclick = () => {
             const name = document.getElementById('profile-name-input').value.trim();
@@ -105,7 +109,7 @@ class MehGameProfileModule {
             document.getElementById('profile-name-input').value = '';
             document.getElementById('create-profile-form').classList.add('hidden');
             this.updateMenuChip();
-            this.showScreen('main-menu');
+            this.showScreen('main-menu', { replaceHistory: true });
             this.showToast(I18n.t('welcome', { name }));
         };
     }
@@ -151,13 +155,15 @@ class MehGameProfileModule {
             chooseButton.type = 'button';
             chooseButton.className = 'profile-select';
             chooseButton.setAttribute('aria-label', `${I18n.t('select_profile')}: ${name}`);
-            const deleteButton = this._createTextElement('button', 'profile-del', '🗑️');
+            const deleteButton = this._createTextElement('button', 'profile-del', '×');
             deleteButton.type = 'button';
             deleteButton.title = 'delete';
             deleteButton.setAttribute('aria-label', `${I18n.t('delete_profile')}: ${name}`);
             chooseButton.appendChild(this._createTextElement('span', 'profile-avatar', avatar));
             chooseButton.appendChild(this._createTextElement('span', 'profile-name', name));
-            chooseButton.appendChild(this._createTextElement('span', 'profile-stats', `🏆 ${wins} · 🎮 ${games}`));
+            chooseButton.appendChild(this._createTextElement(
+                'span', 'profile-stats', `${I18n.t('wins')}: ${wins} · ${I18n.t('games')}: ${games}`,
+            ));
             item.appendChild(chooseButton);
             item.appendChild(deleteButton);
             deleteButton.onclick = (e) => {
@@ -173,7 +179,7 @@ class MehGameProfileModule {
                 Storage.setCurrentProfile(p.id);
                 this.humanProfile = p;
                 this.updateMenuChip();
-                this.showScreen('main-menu');
+                this.showScreen('main-menu', { replaceHistory: true });
                 this.showToast(I18n.t('welcome', { name: p.name }));
             };
             chooseButton.onclick = chooseProfile;
@@ -193,12 +199,13 @@ class MehGameProfileModule {
             chip.replaceChildren(
                 this._createTextElement('span', 'chip-avatar', `${avatar} `),
                 this._createTextElement('strong', 'chip-name', name),
-                this._createTextElement('span', 'chip-stats', `  🏆 ${wins} · 🎮 ${games}`),
+                this._createTextElement('span', 'chip-stats', `  ${I18n.t('wins')}: ${wins} · ${I18n.t('games')}: ${games}`),
             );
             chip.classList.remove('hidden');
         } else {
             chip.classList.add('hidden');
         }
+        if (typeof this._syncCatalogEntryVisibility === 'function') this._syncCatalogEntryVisibility();
     }
 
     // ============ الإيموجي ============

@@ -81,7 +81,7 @@ test('browser quick play is rendered from the authoritative service and blocks l
         await page.locator('#profile-name-input').fill('مختبر الخدمة');
         await page.locator('#avatar-picker .avatar-option').first().click();
         await page.locator('#save-profile-btn').click();
-        await page.locator('#online-btn').click();
+        await page.locator('#majalis-nav-btn').click();
         await expect(page.locator('#quick-play-btn')).toBeVisible();
         await page.locator('#quick-play-btn').click();
 
@@ -160,7 +160,7 @@ test('browser creates a consent-bound Majlis from results and regroups it from t
         await page.locator('#profile-name-input').fill('صاحب المجلس');
         await page.locator('#avatar-picker .avatar-option').first().click();
         await page.locator('#save-profile-btn').click();
-        await page.locator('#online-btn').click();
+        await page.locator('#majalis-nav-btn').click();
         await expect(page.locator('#recent-majalis')).toBeVisible();
         await page.locator('#create-room-btn').click();
         await expect(page.locator('#lobby-screen')).toHaveClass(/\bactive\b/);
@@ -203,7 +203,7 @@ test('browser creates a consent-bound Majlis from results and regroups it from t
 
         await page.locator('#end-menu-btn').click();
         await expect(page.locator('#main-menu')).toHaveClass(/\bactive\b/);
-        await page.locator('#online-btn').click();
+        await page.locator('#majalis-nav-btn').click();
         await expect(page.locator('.majlis-card')).toHaveCount(1);
         await expect(page.locator('.majlis-card')).toContainText('مجلس المختبر');
         await page.locator('.majlis-regroup-btn').click();
@@ -250,6 +250,12 @@ test('card store separates sale inventory from the classic collection and fits a
         await page.locator('#profile-name-input').fill('مختبر الكتالوج');
         await page.locator('#avatar-picker .avatar-option').first().click();
         await page.locator('#save-profile-btn').click();
+        await expect(page.locator('#catalog-btn')).toBeHidden();
+        await page.evaluate(() => {
+            Storage.recordResult(false);
+            game.humanProfile = Storage.getCurrentProfile();
+            game.updateMenuChip();
+        });
         await expect(page.locator('#catalog-btn')).toBeVisible();
         await page.locator('#catalog-btn').click();
         await expect(page.locator('#catalog-screen')).toHaveClass(/\bactive\b/);

@@ -11,7 +11,7 @@
     "check:syntax": "node tools/check-syntax.js",
     "validate": "npm run validate:html && npm run validate:css",
     "validate:html": "html-validate index.html tests/fixtures/responsive-harness.html prototypes/uiux-u0/index.html ui/fixture/index.html",
-    "validate:css": "stylelint style.css prototypes/uiux-u0/prototype.css ui/*.css ui/fixture/*.css",
+    "validate:css": "stylelint style.css prototypes/uiux-u0/prototype.css ui/*.css ui/screens/*.css ui/fixture/*.css",
     "check:assets": "node --test tests/assets.test.js",
     "report:telemetry": "node tools/telemetry-report.js",
     "test": "node --test",
@@ -38,7 +38,8 @@
     "test:p4:economy": "node tools/p4-economy-gate.js",
     "uiux:u0:manifests": "node tools/uiux-u0-manifests.js --write",
     "test:uiux-u0": "node --test tests/uiux-u0-contract.test.js",
-    "test:uiux-u1": "node --test tests/uiux-u1-design-system.test.js"
+    "test:uiux-u1": "node --test tests/uiux-u1-design-system.test.js",
+    "test:uiux-u2": "node --test tests/uiux-u2-app-shell.test.js && playwright test tests/e2e/uiux-u2.spec.js"
   },
   "engines": {
     "node": "^22.22.0 || >=24.8.0"

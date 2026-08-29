@@ -4,7 +4,7 @@ class MehGameOnlineModule {
     // ============ الأونلاين (المرحلة 1: الاتصال + الردهة) ============
     bindOnlineEvents() {
         const g = (id) => document.getElementById(id);
-        g('online-btn').onclick = () => {
+        const openOnline = () => {
             if (!this._authoritativeServiceAvailable() && !Net.available()) { this.showToast(I18n.t('no_peerjs')); return; }
             this.showScreen('online-screen');
             this.showOnlineStatus('');
@@ -12,7 +12,11 @@ class MehGameOnlineModule {
             this._recordMajlisExperimentExposure('p3_recent_majalis', 'recent_majalis');
             void this._loadRecentMajalis();
         };
-        g('online-back-btn').onclick = () => this._leaveOnlineSession('main-menu');
+        g('online-btn').onclick = openOnline;
+        g('online-back-btn').onclick = () => {
+            this._leaveOnlineSession();
+            this.navigateBack('play-center-screen');
+        };
         g('create-room-btn').onclick = () => this.createRoom();
         g('quick-play-btn').onclick = () => this._createAuthoritativeRoom('quick');
         g('quick-play-btn').classList.toggle('hidden', !this._authoritativeServiceAvailable());

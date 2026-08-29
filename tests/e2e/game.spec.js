@@ -106,7 +106,7 @@ test('a desktop player can start, inspect a playable card, draw, and return afte
     await page.setViewportSize({ width: 1280, height: 720 });
     await openApp(page);
 
-    await page.getByRole('button', { name: '🎮 العب' }).click();
+    await page.getByRole('button', { name: /العب الآن/ }).click();
     await expectGameReady(page);
 
     const playableCard = page.locator('#human-hand .card.playable').first();
@@ -129,14 +129,14 @@ test('a desktop player can start, inspect a playable card, draw, and return afte
 
     await page.locator('#end-menu-btn').click();
     await expect(page.locator('#main-menu')).toHaveClass(/\bactive\b/);
-    await expect(page.getByRole('button', { name: '🎮 العب' })).toBeVisible();
+    await expect(page.getByRole('button', { name: /العب الآن/ })).toBeVisible();
 });
 
 test('the core turn can be completed with the keyboard', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 720 });
     await openApp(page);
 
-    await page.getByRole('button', { name: '🎮 العب' }).press('Enter');
+    await page.getByRole('button', { name: /العب الآن/ }).press('Enter');
     await expectGameReady(page);
     const actionHasFocus = await page.evaluate(() => document.activeElement.matches(
         '#draw-pile, #human-hand .card.playable',
@@ -155,7 +155,7 @@ for (const viewport of [
     test(`${viewport.name} keeps every critical game control inside the viewport`, async ({ page }) => {
         await page.setViewportSize({ width: viewport.width, height: viewport.height });
         await openApp(page);
-        await page.getByRole('button', { name: '🎮 العب' }).click();
+        await page.getByRole('button', { name: /العب الآن/ }).click();
         await expectGameReady(page);
 
         const layout = await page.evaluate(selectors => {

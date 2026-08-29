@@ -11,6 +11,9 @@
     <link rel="stylesheet" href="ui/tokens.css">
     <link rel="stylesheet" href="ui/foundations.css">
     <link rel="stylesheet" href="ui/components.css">
+    <link rel="stylesheet" href="ui/shell.css">
+    <link rel="stylesheet" href="ui/screens/home.css">
+    <link rel="stylesheet" href="ui/screens/entry.css">
     <link rel="stylesheet" href="ui/motion.css">
     <link rel="stylesheet" href="ui/accessibility.css">
 </head>
@@ -18,71 +21,198 @@
     <a class="ui-skip-link" href="#app" data-i18n="skip_to_content">تخطَّ إلى المحتوى</a>
     <div id="app">
         <!-- ===== شاشة البداية (Splash) ===== -->
-        <div id="splash"><div class="splash-logo">مِهْ</div></div>
+        <div id="splash" class="ui-splash" role="status" aria-label="مِهْ">
+            <div class="ui-splash__studio" aria-hidden="true">
+                <img src="assets/brand/dwawer-mark-color.png" alt="">
+                <img src="assets/brand/dwawer-wordmark-color.png" alt="">
+            </div>
+            <div class="ui-splash__game" aria-hidden="true">
+                <span>مِهْ</span>
+                <small data-i18n="subtitle">لعبة ورقية بطابع بحريني</small>
+            </div>
+        </div>
 
         <!-- ===== شاشة الأعضاء (تظهر أولاً) ===== -->
-        <div id="profile-screen" class="screen">
-            <div class="instructions-panel profile-panel">
-                <h2 data-i18n="profile_title">👤 الأعضاء</h2>
+        <div id="profile-screen" class="screen app-screen app-screen--paper">
+            <section class="app-panel profile-panel" aria-labelledby="profile-title">
+                <header class="screen-heading">
+                    <span class="screen-heading__icon" aria-hidden="true">
+                        <svg class="ui-icon"><use href="assets/ui/icons.svg#icon-profile"></use></svg>
+                    </span>
+                    <div>
+                        <p class="screen-eyebrow" data-i18n="profile_eyebrow">من يجلس معنا؟</p>
+                        <h1 id="profile-title" class="ui-title" data-i18n="profile_title">الأعضاء</h1>
+                    </div>
+                </header>
                 <p class="profile-hint" data-i18n="select_profile">اختر عضواً للعب</p>
                 <div id="profile-list" class="profile-list"></div>
-                <button id="show-create-profile" class="btn secondary-btn" type="button" data-i18n="create_profile">➕ عضو جديد</button>
+                <button id="show-create-profile" class="btn secondary-btn" type="button">
+                    <svg class="ui-icon" aria-hidden="true"><use href="assets/ui/icons.svg#icon-plus"></use></svg>
+                    <span data-i18n="create_profile">عضو جديد</span>
+                </button>
 
                 <!-- نموذج إنشاء عضو -->
-                <div id="create-profile-form" class="create-profile-form hidden">
+                <div id="create-profile-form" class="create-profile-form ui-surface ui-surface--quiet hidden">
+                    <label class="ui-field__label" for="profile-name-input" data-i18n="profile_name_label">اسمك على الطاولة</label>
                     <input id="profile-name-input" class="profile-input" type="text" maxlength="16"
                            data-i18n-attr="placeholder:enter_name" placeholder="اكتب اسمك">
-                    <p class="avatar-label" data-i18n="choose_avatar">اختر صورتك</p>
-                    <div id="avatar-picker" class="avatar-picker"></div>
-                    <button id="save-profile-btn" class="btn primary-btn" type="button" data-i18n="save">حفظ</button>
+                    <p id="choose-avatar-label" class="avatar-label" data-i18n="choose_avatar">اختر صورتك</p>
+                    <div id="avatar-picker" class="avatar-picker" role="group" aria-labelledby="choose-avatar-label"></div>
+                    <button id="save-profile-btn" class="btn primary-btn" type="button">
+                        <svg class="ui-icon" aria-hidden="true"><use href="assets/ui/icons.svg#icon-check"></use></svg>
+                        <span data-i18n="save">حفظ</span>
+                    </button>
                 </div>
 
-                <button id="profile-back-btn" class="btn secondary-btn" type="button" data-i18n="back">🔙 رجوع</button>
-            </div>
+                <button id="profile-back-btn" class="btn secondary-btn" type="button">
+                    <svg class="ui-icon" aria-hidden="true"><use href="assets/ui/icons.svg#icon-back"></use></svg>
+                    <span data-i18n="back">رجوع</span>
+                </button>
+            </section>
         </div>
 
         <!-- ===== القائمة الرئيسية ===== -->
-        <div id="main-menu" class="screen active">
-            <div class="particles" id="particles"></div>
-            <button id="menu-settings-btn" class="corner-btn" type="button" title="settings" aria-label="الإعدادات" data-i18n-attr="aria-label:settings">⚙️</button>
-            <div class="menu-content">
-                <div class="logo-container">
-                    <div class="logo-icon"><img class="logo-image" src="assets/cards/card-back.webp" alt="Card Back"></div>
-                    <h1 class="game-title">مِهْ</h1>
-                    <p class="game-subtitle" data-i18n="subtitle">لعبة ورقية بطابع بحريني</p>
-                </div>
-                <div id="current-player-chip" class="current-player-chip hidden"></div>
-                <div class="menu-buttons">
-                    <button id="play-btn" class="btn primary-btn" type="button">
-                        <span>🎮</span> <span data-i18n="play">العب</span>
-                    </button>
-                    <button id="online-btn" class="btn primary-btn" type="button">
-                        <span>🌐</span> <span data-i18n="online_play">أونلاين</span>
-                    </button>
-                    <button id="catalog-btn" class="btn secondary-btn hidden" type="button">
-                        <span>🏪</span> <span data-i18n="card_catalog">متجر البطاقات</span>
-                    </button>
-                    <button id="instructions-btn" class="btn secondary-btn" type="button">
-                        <span>📖</span> <span data-i18n="instructions">التعليمات</span>
-                    </button>
-                    <button id="players-btn" class="btn secondary-btn" type="button">
-                        <span>👤</span> <span data-i18n="profiles">الأعضاء</span>
+        <div id="main-menu" class="screen app-screen home-screen active">
+            <div class="home-paper" aria-hidden="true"></div>
+            <header class="home-app-bar">
+                <a class="home-brand" href="#home-content" aria-label="مِهْ من Dwawer">
+                    <img src="assets/brand/dwawer-wordmark-color.png" alt="Dwawer">
+                    <span>مِهْ</span>
+                </a>
+                <div class="home-account">
+                    <button id="current-player-chip" class="current-player-chip hidden" type="button"
+                            aria-label="الأعضاء" data-i18n-attr="aria-label:profiles"></button>
+                    <button id="menu-settings-btn" class="ui-icon-button" type="button" aria-label="الإعدادات" data-i18n-attr="aria-label:settings">
+                        <svg class="ui-icon" aria-hidden="true"><use href="assets/ui/icons.svg#icon-settings"></use></svg>
                     </button>
                 </div>
-            </div>
+            </header>
+
+            <main id="home-content" class="home-composition">
+                <div class="home-copy">
+                    <p class="home-eyebrow" data-i18n="home_eyebrow">مجلس، بطاقة، وقرار</p>
+                    <h1 class="home-title" data-i18n="home_headline">خلّ آخر بطاقة تقول مِهْ</h1>
+                    <p class="home-subtitle" data-i18n="home_subtitle">لعبة بطاقات اجتماعية سريعة؛ اقرأ المجلس، غيّر الإيقاع، واخرج من يدك أولاً.</p>
+                    <div class="home-actions">
+                        <button id="play-btn" class="ui-button ui-button--primary home-play" type="button">
+                            <svg class="ui-icon ui-icon--fill" aria-hidden="true"><use href="assets/ui/icons.svg#icon-play"></use></svg>
+                            <span>
+                                <strong data-i18n="play_now">العب الآن</strong>
+                                <small data-i18n="play_local_hint">ابدأ جولة محلية فوراً</small>
+                            </span>
+                        </button>
+                        <button id="play-options-btn" class="ui-button ui-button--secondary" type="button">
+                            <span data-i18n="play_options">خيارات اللعب</span>
+                            <svg class="ui-icon home-action-arrow" aria-hidden="true"><use href="assets/ui/icons.svg#icon-arrow"></use></svg>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="home-hero" aria-hidden="true">
+                    <img class="home-people" src="assets/brand/dwawer-people-focus.png" alt="">
+                    <div class="home-orbit"></div>
+                    <img class="home-card home-card--back" src="assets/cards/card-back.webp" alt="">
+                    <img class="home-card home-card--face" src="assets/cards/black-meh.webp" alt="">
+                </div>
+
+                <aside class="home-social-card ui-surface" aria-label="اللعب مع الأصدقاء">
+                    <span class="screen-heading__icon" aria-hidden="true">
+                        <svg class="ui-icon"><use href="assets/ui/icons.svg#icon-people"></use></svg>
+                    </span>
+                    <div>
+                        <strong data-i18n="home_social_title">اللعبة أحلى مع مجلسك</strong>
+                        <small data-i18n="home_social_text">أنشئ طاولة أو عد إلى مجلس وافقت عليه.</small>
+                    </div>
+                    <button id="home-social-btn" class="ui-icon-button" type="button" data-i18n-attr="aria-label:open_play_options" aria-label="افتح خيارات اللعب">
+                        <svg class="ui-icon home-action-arrow" aria-hidden="true"><use href="assets/ui/icons.svg#icon-arrow"></use></svg>
+                    </button>
+                </aside>
+            </main>
+
+            <nav class="app-bottom-nav" aria-label="التنقل الرئيسي" data-i18n-attr="aria-label:main_navigation">
+                <button id="home-nav-btn" class="app-nav-item active" type="button" aria-current="page">
+                    <svg class="ui-icon" aria-hidden="true"><use href="assets/ui/icons.svg#icon-home"></use></svg>
+                    <span data-i18n="home">الرئيسية</span>
+                </button>
+                <button id="majalis-nav-btn" class="app-nav-item" type="button">
+                    <svg class="ui-icon" aria-hidden="true"><use href="assets/ui/icons.svg#icon-people"></use></svg>
+                    <span data-i18n="majalis">المجالس</span>
+                </button>
+                <button id="catalog-btn" class="app-nav-item hidden" type="button">
+                    <svg class="ui-icon" aria-hidden="true"><use href="assets/ui/icons.svg#icon-cards"></use></svg>
+                    <span data-i18n="cards">البطاقات</span>
+                </button>
+            </nav>
+        </div>
+
+        <!-- ===== مركز اللعب ===== -->
+        <div id="play-center-screen" class="screen app-screen app-screen--paper">
+            <section class="app-panel play-center-panel" aria-labelledby="play-center-title">
+                <header class="screen-heading">
+                    <span class="screen-heading__icon" aria-hidden="true">
+                        <svg class="ui-icon ui-icon--fill"><use href="assets/ui/icons.svg#icon-play"></use></svg>
+                    </span>
+                    <div>
+                        <p class="screen-eyebrow" data-i18n="play_center_eyebrow">اختر شكل المجلس</p>
+                        <h1 id="play-center-title" class="ui-title" data-i18n="play_center_title">كيف تبغي تلعب؟</h1>
+                    </div>
+                </header>
+                <div class="play-mode-grid">
+                    <button id="local-play-btn" class="play-mode-card ui-surface ui-motion-lift" type="button">
+                        <span class="play-mode-card__icon" aria-hidden="true">
+                            <svg class="ui-icon"><use href="assets/ui/icons.svg#icon-cards"></use></svg>
+                        </span>
+                        <strong data-i18n="local_game">جولة محلية</strong>
+                        <small data-i18n="local_game_desc">أنت وثلاثة خصوم على هذا الجهاز.</small>
+                    </button>
+                    <button id="online-btn" class="play-mode-card ui-surface ui-motion-lift" type="button">
+                        <span class="play-mode-card__icon" aria-hidden="true">
+                            <svg class="ui-icon"><use href="assets/ui/icons.svg#icon-online"></use></svg>
+                        </span>
+                        <strong data-i18n="online_play">أونلاين</strong>
+                        <small data-i18n="online_game_desc">أنشئ مجلساً، العب سريعاً، أو ادخل برمز.</small>
+                    </button>
+                    <button id="instructions-btn" class="play-mode-card ui-surface ui-motion-lift" type="button">
+                        <span class="play-mode-card__icon" aria-hidden="true">
+                            <svg class="ui-icon"><use href="assets/ui/icons.svg#icon-book"></use></svg>
+                        </span>
+                        <strong data-i18n="instructions">التعليمات</strong>
+                        <small data-i18n="instructions_desc">راجع الأساس والبطاقات الخاصة قبل الجولة.</small>
+                    </button>
+                    <button id="players-btn" class="play-mode-card ui-surface ui-motion-lift" type="button">
+                        <span class="play-mode-card__icon" aria-hidden="true">
+                            <svg class="ui-icon"><use href="assets/ui/icons.svg#icon-profile"></use></svg>
+                        </span>
+                        <strong data-i18n="profiles">الأعضاء</strong>
+                        <small data-i18n="profiles_desc">غيّر اللاعب الحالي أو أنشئ عضواً.</small>
+                    </button>
+                </div>
+                <button id="play-center-back-btn" class="btn secondary-btn" type="button">
+                    <svg class="ui-icon" aria-hidden="true"><use href="assets/ui/icons.svg#icon-back"></use></svg>
+                    <span data-i18n="back">رجوع</span>
+                </button>
+            </section>
         </div>
 
         <!-- ===== شاشة التعليمات ===== -->
-        <div id="instructions-screen" class="screen">
-            <div class="instructions-panel">
-                <h2 data-i18n="instructions_title">📖 تعليمات اللعبة</h2>
+        <div id="instructions-screen" class="screen app-screen app-screen--paper">
+            <section class="app-panel instructions-panel" aria-labelledby="instructions-title">
+                <header class="screen-heading">
+                    <span class="screen-heading__icon" aria-hidden="true">
+                        <svg class="ui-icon"><use href="assets/ui/icons.svg#icon-book"></use></svg>
+                    </span>
+                    <div>
+                        <p class="screen-eyebrow" data-i18n="instructions_eyebrow">القاعدة في دقيقة</p>
+                        <h1 id="instructions-title" class="ui-title" data-i18n="instructions_title">تعليمات اللعبة</h1>
+                    </div>
+                </header>
                 <div class="instructions-scroll">
                     <div class="rule-section">
-                        <h3 data-i18n="goal_title">🎯 هدف اللعبة</h3>
+                        <h2 data-i18n="goal_title">هدف اللعبة</h2>
                         <p data-i18n="goal_text" data-i18n-html>التخلص من جميع بطاقاتك قبل اللاعبين الآخرين عبر مطابقة <strong>الألوان</strong> أو <strong>الشخصيات</strong>.</p>
                     </div>
                     <div class="rule-section">
-                        <h3 data-i18n="colors_title">🎨 الألوان</h3>
+                        <h2 data-i18n="colors_title">الألوان</h2>
                         <div class="color-legend">
                             <span class="color-dot orange"></span> <span data-i18n="orange">برتقالي</span>
                             <span class="color-dot gray"></span> <span data-i18n="gray">رمادي</span>
@@ -91,78 +221,103 @@
                         </div>
                     </div>
                     <div class="rule-section">
-                        <h3 data-i18n="special_cards_title">🃏 البطاقات المميزة</h3>
+                        <h2 data-i18n="special_cards_title">البطاقات المميزة</h2>
                         <div class="card-rules" id="special-cards-list"></div>
                     </div>
                     <div class="rule-section">
-                        <h3 data-i18n="power_cards_title">⚡ بطاقات القوى الخارقة</h3>
+                        <h2 data-i18n="power_cards_title">بطاقات القوى الخارقة</h2>
                         <div class="card-rules" id="power-cards-list"></div>
                     </div>
                 </div>
-                <button id="back-btn" class="btn secondary-btn" type="button" data-i18n="back">🔙 رجوع</button>
-            </div>
+                <button id="back-btn" class="btn secondary-btn" type="button">
+                    <svg class="ui-icon" aria-hidden="true"><use href="assets/ui/icons.svg#icon-back"></use></svg>
+                    <span data-i18n="back">رجوع</span>
+                </button>
+            </section>
         </div>
 
         <!-- ===== شاشة الإعدادات ===== -->
-        <div id="settings-screen" class="screen">
-            <div class="instructions-panel settings-panel">
-                <h2 data-i18n="settings_title">⚙️ الإعدادات</h2>
+        <div id="settings-screen" class="screen app-screen app-screen--paper">
+            <section class="app-panel settings-panel" aria-labelledby="settings-title">
+                <header class="screen-heading">
+                    <span class="screen-heading__icon" aria-hidden="true">
+                        <svg class="ui-icon"><use href="assets/ui/icons.svg#icon-settings"></use></svg>
+                    </span>
+                    <div>
+                        <p class="screen-eyebrow" data-i18n="settings_eyebrow">اللعبة على طريقتك</p>
+                        <h1 id="settings-title" class="ui-title" data-i18n="settings_title">الإعدادات</h1>
+                    </div>
+                </header>
                 <div class="settings-scroll">
                     <div class="setting-row">
-                        <label data-i18n="lang_label">🌐 اللغة</label>
+                        <label data-i18n="lang_label">اللغة</label>
                         <div class="lang-toggle">
                             <button class="lang-btn" type="button" data-lang="ar">العربية</button>
                             <button class="lang-btn" type="button" data-lang="en">English</button>
                         </div>
                     </div>
                     <div class="setting-row toggle-row" data-setting="colorblind" role="switch" tabindex="0" aria-checked="false">
-                        <div><label data-i18n="colorblind_label">👁️ مراعاة عمى الألوان</label>
+                        <div><label data-i18n="colorblind_label">مراعاة عمى الألوان</label>
                              <small data-i18n="colorblind_desc"></small></div>
                         <div class="switch"><span class="knob"></span></div>
                     </div>
                     <div class="setting-row toggle-row" data-setting="batterySaver" role="switch" tabindex="0" aria-checked="false">
-                        <div><label data-i18n="battery_label">🔋 وضع توفير البطارية</label>
+                        <div><label data-i18n="battery_label">وضع توفير البطارية</label>
                              <small data-i18n="battery_desc"></small></div>
                         <div class="switch"><span class="knob"></span></div>
                     </div>
                     <div class="setting-row toggle-row" data-setting="wakeLock" role="switch" tabindex="0" aria-checked="false">
-                        <div><label data-i18n="wakelock_label">☀️ منع نوم الشاشة</label>
+                        <div><label data-i18n="wakelock_label">منع نوم الشاشة</label>
                              <small data-i18n="wakelock_desc"></small></div>
                         <div class="switch"><span class="knob"></span></div>
                     </div>
                     <div class="setting-row toggle-row" data-setting="confirmPlay" role="switch" tabindex="0" aria-checked="false">
-                        <div><label data-i18n="confirm_label">✋ تأكيد قبل رمي البطاقة</label>
+                        <div><label data-i18n="confirm_label">تأكيد قبل رمي البطاقة</label>
                              <small data-i18n="confirm_desc"></small></div>
                         <div class="switch"><span class="knob"></span></div>
                     </div>
                     <div class="setting-row toggle-row" data-setting="sound" role="switch" tabindex="0" aria-checked="false">
-                        <div><label data-i18n="sound_label">🔊 المؤثرات الصوتية</label>
+                        <div><label data-i18n="sound_label">المؤثرات الصوتية</label>
                              <small data-i18n="sound_desc"></small></div>
                         <div class="switch"><span class="knob"></span></div>
                     </div>
                     <div class="setting-row toggle-row" data-setting="haptics" role="switch" tabindex="0" aria-checked="false">
-                        <div><label data-i18n="haptics_label">📳 الاهتزاز</label>
+                        <div><label data-i18n="haptics_label">الاهتزاز</label>
                              <small data-i18n="haptics_desc">تنبيه اختياري للدور والعقوبات مع بديل بصري دائم</small></div>
                         <div class="switch"><span class="knob"></span></div>
                     </div>
                 </div>
-                <button id="settings-back-btn" class="btn primary-btn" type="button" data-i18n="done">تم</button>
-            </div>
+                <button id="settings-back-btn" class="btn primary-btn" type="button">
+                    <svg class="ui-icon" aria-hidden="true"><use href="assets/ui/icons.svg#icon-check"></use></svg>
+                    <span data-i18n="done">تم</span>
+                </button>
+            </section>
         </div>
 
         <!-- ===== دخول مباشر من رابط دعوة ===== -->
-        <div id="invite-screen" class="screen">
-            <div class="instructions-panel online-panel invite-panel">
-                <div class="invite-mark" aria-hidden="true">🪑</div>
-                <h2 data-i18n="invite_title">دعوة إلى طاولة مِهْ</h2>
+        <div id="invite-screen" class="screen app-screen app-screen--paper">
+            <section class="app-panel online-panel invite-panel" aria-labelledby="invite-title">
+                <div class="invite-identity" aria-hidden="true">
+                    <img src="assets/brand/dwawer-circle-four.png" alt="">
+                    <span><svg class="ui-icon"><use href="assets/ui/icons.svg#icon-invite"></use></svg></span>
+                </div>
+                <p class="screen-eyebrow" data-i18n="invite_eyebrow">مقعدك محجوز</p>
+                <h1 id="invite-title" class="ui-title" data-i18n="invite_title">دعوة إلى طاولة مِهْ</h1>
                 <p data-i18n="invite_context">صديقك حجز لك مقعدًا. ادخل مباشرة إلى الطاولة.</p>
                 <p id="invite-profile-summary" class="invite-profile-summary"></p>
+                <label id="invite-guest-name-label" class="ui-field__label" for="invite-guest-name" data-i18n="profile_name_label">اسمك على الطاولة</label>
                 <input id="invite-guest-name" class="profile-input" type="text" maxlength="24"
                        data-i18n-attr="placeholder:invite_guest_name" placeholder="اسمك على الطاولة" autocomplete="nickname">
                 <p id="invite-status" class="online-status" role="status" aria-live="polite"></p>
-                <button id="invite-join-btn" class="btn primary-btn" type="button" data-i18n="invite_take_seat">اجلس على الطاولة</button>
-                <button id="invite-back-btn" class="btn secondary-btn" type="button" data-i18n="main_menu">القائمة الرئيسية</button>
-            </div>
+                <button id="invite-join-btn" class="btn primary-btn" type="button">
+                    <svg class="ui-icon" aria-hidden="true"><use href="assets/ui/icons.svg#icon-invite"></use></svg>
+                    <span data-i18n="invite_take_seat">اجلس على الطاولة</span>
+                </button>
+                <button id="invite-back-btn" class="btn secondary-btn" type="button">
+                    <svg class="ui-icon" aria-hidden="true"><use href="assets/ui/icons.svg#icon-home"></use></svg>
+                    <span data-i18n="main_menu">القائمة الرئيسية</span>
+                </button>
+            </section>
         </div>
 
         <!-- ===== متجر البطاقات وتاماشي ===== -->
@@ -210,18 +365,36 @@
         </div>
 
         <!-- ===== شاشة الأونلاين (إنشاء/دخول غرفة) ===== -->
-        <div id="online-screen" class="screen">
-            <div class="instructions-panel online-panel">
-                <h2 data-i18n="online_title">🌐 اللعب أونلاين</h2>
+        <div id="online-screen" class="screen app-screen app-screen--paper">
+            <section class="app-panel online-panel" aria-labelledby="online-title">
+                <header class="screen-heading">
+                    <span class="screen-heading__icon" aria-hidden="true">
+                        <svg class="ui-icon"><use href="assets/ui/icons.svg#icon-online"></use></svg>
+                    </span>
+                    <div>
+                        <p class="screen-eyebrow" data-i18n="online_eyebrow">اجمع المجلس</p>
+                        <h1 id="online-title" class="ui-title" data-i18n="online_title">اللعب أونلاين</h1>
+                    </div>
+                </header>
                 <p class="profile-hint" data-i18n="online_hint">العب مع أصدقائك بكود غرفة</p>
 
-                <button id="create-room-btn" class="btn primary-btn" type="button"><span data-i18n="create_room">➕ إنشاء غرفة</span></button>
-                <button id="quick-play-btn" class="btn secondary-btn hidden" type="button"><span data-i18n="quick_play">⚡ لعب سريع</span></button>
+                <div class="online-primary-actions">
+                    <button id="create-room-btn" class="btn primary-btn" type="button">
+                        <svg class="ui-icon" aria-hidden="true"><use href="assets/ui/icons.svg#icon-plus"></use></svg>
+                        <span data-i18n="create_room">إنشاء غرفة</span>
+                    </button>
+                    <button id="quick-play-btn" class="btn secondary-btn hidden" type="button">
+                        <svg class="ui-icon ui-icon--fill" aria-hidden="true"><use href="assets/ui/icons.svg#icon-play"></use></svg>
+                        <span data-i18n="quick_play">لعب سريع</span>
+                    </button>
+                </div>
 
                 <section id="recent-majalis" class="recent-majalis hidden" aria-labelledby="recent-majalis-title">
                     <div class="majlis-section-heading">
                         <h3 id="recent-majalis-title" data-i18n="recent_majalis">مجالسك الأخيرة</h3>
-                        <button id="refresh-majalis-btn" class="compact-action" type="button" data-i18n-attr="aria-label:refresh_majalis" aria-label="تحديث المجالس">↻</button>
+                        <button id="refresh-majalis-btn" class="ui-icon-button compact-action" type="button" data-i18n-attr="aria-label:refresh_majalis" aria-label="تحديث المجالس">
+                            <svg class="ui-icon" aria-hidden="true"><use href="assets/ui/icons.svg#icon-refresh"></use></svg>
+                        </button>
                     </div>
                     <p class="majlis-consent-note" data-i18n="majlis_consent_note">لا نستخدم جهات الاتصال. يظهر هنا فقط مجلس وافقت على الانضمام إليه.</p>
                     <div id="recent-majalis-list" class="recent-majalis-list" aria-live="polite"></div>
@@ -229,13 +402,22 @@
 
                 <div class="online-divider"><span data-i18n="or">أو</span></div>
 
-                <input id="room-code-input" class="profile-input room-code-input" type="text" maxlength="5"
-                       data-i18n-attr="placeholder:enter_room_code" placeholder="اكتب كود الغرفة" autocomplete="off">
-                <button id="join-room-btn" class="btn secondary-btn" type="button"><span data-i18n="join_room">🚪 دخول غرفة</span></button>
+                <div class="room-join-card ui-surface ui-surface--quiet">
+                    <label class="ui-field__label" for="room-code-input" data-i18n="room_code_label">عندك رمز؟</label>
+                    <input id="room-code-input" class="profile-input room-code-input" type="text" maxlength="5"
+                           data-i18n-attr="placeholder:enter_room_code" placeholder="اكتب كود الغرفة" autocomplete="off">
+                    <button id="join-room-btn" class="btn secondary-btn" type="button">
+                        <svg class="ui-icon" aria-hidden="true"><use href="assets/ui/icons.svg#icon-invite"></use></svg>
+                        <span data-i18n="join_room">دخول غرفة</span>
+                    </button>
+                </div>
 
-                <p id="online-status" class="online-status"></p>
-                <button id="online-back-btn" class="btn secondary-btn" type="button" data-i18n="back">🔙 رجوع</button>
-            </div>
+                <p id="online-status" class="online-status" role="status" aria-live="polite"></p>
+                <button id="online-back-btn" class="btn secondary-btn" type="button">
+                    <svg class="ui-icon" aria-hidden="true"><use href="assets/ui/icons.svg#icon-back"></use></svg>
+                    <span data-i18n="back">رجوع</span>
+                </button>
+            </section>
         </div>
 
         <!-- ===== شاشة الردهة (اللاعبون قبل البدء) ===== -->

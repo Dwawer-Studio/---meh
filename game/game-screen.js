@@ -60,9 +60,17 @@ class MehGameScreenModule {
     }
 
     bindMenuEvents() {
+        this._initializeScreenHistory();
         document.getElementById('play-btn').addEventListener('click', () => this.startGame());
+        document.getElementById('local-play-btn').addEventListener('click', () => this.startGame());
+        const openPlayCenter = () => this.showScreen('play-center-screen');
+        document.getElementById('play-options-btn').addEventListener('click', openPlayCenter);
+        document.getElementById('home-social-btn').addEventListener('click', openPlayCenter);
+        document.getElementById('play-center-back-btn').addEventListener('click', () => this.navigateBack('main-menu'));
         document.getElementById('instructions-btn').addEventListener('click', () => this.showScreen('instructions-screen'));
-        document.getElementById('back-btn').addEventListener('click', () => this.showScreen('main-menu'));
+        document.getElementById('back-btn').addEventListener('click', () => this.navigateBack('play-center-screen'));
+        document.getElementById('home-nav-btn').addEventListener('click', () => this.showScreen('main-menu', { replaceHistory: true }));
+        document.getElementById('majalis-nav-btn').addEventListener('click', () => document.getElementById('online-btn').click());
         document.getElementById('restart-btn').addEventListener('click', () => {
             const tablePhase = this.tableSession ? this.tableSession.phase : this.tableSnapshot && this.tableSnapshot.phase;
             if (tablePhase === TABLE_PHASES.RESULTS) {
@@ -82,17 +90,57 @@ class MehGameScreenModule {
         });
     }
 
-    showScreen(id) {
+    _initializeScreenHistory() {
+        this._screenDepth = 0;
+        this._screenFocus = new Map();
+        if (!window.history || typeof window.history.replaceState !== 'function') return;
+        const initial = document.querySelector('.screen.active');
+        window.history.replaceState({ mehScreen: initial ? initial.id : 'main-menu', mehDepth: 0 }, '', window.location.href);
+        window.addEventListener('popstate', event => {
+            const state = event.state && event.state.mehScreen ? event.state : { mehScreen: 'main-menu', mehDepth: 0 };
+            this._screenDepth = Number.isSafeInteger(state.mehDepth) ? Math.max(0, state.mehDepth) : 0;
+            this.showScreen(state.mehScreen, { fromHistory: true, restoreFocus: true });
+        });
+    }
+
+    _captureScreenFocus(screen) {
+        if (!screen || !this._screenFocus) return;
+        const active = document.activeElement;
+        if (active && active !== document.body && screen.contains(active)) this._screenFocus.set(screen.id, active);
+    }
+
+    navigateBack(fallbackId = 'main-menu') {
+        if (window.history && typeof window.history.back === 'function' && this._screenDepth > 0) {
+            window.history.back();
+            return;
+        }
+        this.showScreen(fallbackId, { replaceHistory: true });
+    }
+
+    showScreen(id, navigation = {}) {
         const target = document.getElementById(id);
         if (!target) return;
-        document.querySelectorAll('.screen').forEach(screen => {
+        const screens = [...document.querySelectorAll('.screen')];
+        const current = screens.find(screen => screen.classList.contains('active')) || null;
+        if (current && current !== target) this._captureScreenFocus(current);
+        screens.forEach(screen => {
             const isActive = screen === target;
             screen.classList.toggle('active', isActive);
             screen.inert = !isActive;
             screen.toggleAttribute('inert', !isActive);
             screen.setAttribute('aria-hidden', String(!isActive));
         });
-        this.focusScreen(target);
+        if (!navigation.fromHistory && current !== target && window.history) {
+            if (navigation.replaceHistory && typeof window.history.replaceState === 'function') {
+                window.history.replaceState({ mehScreen: id, mehDepth: this._screenDepth || 0 }, '', window.location.href);
+            } else if (typeof window.history.pushState === 'function') {
+                this._screenDepth = (this._screenDepth || 0) + 1;
+                window.history.pushState({ mehScreen: id, mehDepth: this._screenDepth }, '', window.location.href);
+            }
+        }
+        const restored = navigation.restoreFocus && this._screenFocus && this._screenFocus.get(id);
+        if (restored && restored.isConnected && !restored.disabled && target.contains(restored)) restored.focus();
+        else this.focusScreen(target);
         this._trackProductEvent('entry.viewed', { screenId: id });
     }
 

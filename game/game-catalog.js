@@ -16,11 +16,8 @@ class MehGameCatalogModule {
             if (element) element.addEventListener(event, handler);
         };
         const button = get('catalog-btn');
-        const enabled = this._productFeatureEnabled('card_catalog')
-            && this._productFeatureEnabled('tamashi_wallet')
-            && this._authoritativeServiceAvailable();
         if (button) {
-            button.classList.toggle('hidden', !enabled);
+            this._syncCatalogEntryVisibility();
             button.addEventListener('click', () => this._openCardCatalog());
         }
         on('catalog-back-btn', 'click', () => this.showScreen('main-menu'));
@@ -32,6 +29,20 @@ class MehGameCatalogModule {
         on('friendly-card-select', 'change', () => this._syncFriendlyReplacementOptions());
         on('friendly-recipe-apply', 'click', () => this._applyFriendlyContribution());
         on('friendly-recipe-clear', 'click', () => this._clearFriendlyContribution());
+    }
+
+    _syncCatalogEntryVisibility() {
+        const button = document.getElementById('catalog-btn');
+        if (!button) return false;
+        const profile = Storage.getCurrentProfile();
+        const games = profile && profile.stats && Number.isSafeInteger(profile.stats.games)
+            ? profile.stats.games : 0;
+        const visible = games > 0
+            && this._productFeatureEnabled('card_catalog')
+            && this._productFeatureEnabled('tamashi_wallet')
+            && this._authoritativeServiceAvailable();
+        button.classList.toggle('hidden', !visible);
+        return visible;
     }
 
     async _openCardCatalog() {

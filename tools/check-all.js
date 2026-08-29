@@ -20,7 +20,7 @@ function runNode(args, label) {
 
 runNode(['tools/check-syntax.js'], 'JavaScript syntax');
 runNode(['node_modules/html-validate/bin/html-validate.mjs', 'index.html', 'prototypes/uiux-u0/index.html', 'ui/fixture/index.html'], 'HTML standards validation');
-runNode(['node_modules/stylelint/bin/stylelint.mjs', 'style.css', 'prototypes/uiux-u0/prototype.css', 'ui/*.css', 'ui/fixture/*.css'], 'CSS standards validation');
+runNode(['node_modules/stylelint/bin/stylelint.mjs', 'style.css', 'prototypes/uiux-u0/prototype.css', 'ui/*.css', 'ui/screens/*.css', 'ui/fixture/*.css'], 'CSS standards validation');
 runNode(['--test'], 'Baseline tests');
 runNode(['node_modules/@playwright/test/cli.js', 'test'], 'Browser end-to-end tests');
 console.log('\nAll repository checks passed.');

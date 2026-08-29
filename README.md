@@ -91,7 +91,8 @@ npm run check
 و`npm run test:reliability` و`npm run test:rules` و`npm run test:quality`
 و`npm run test:responsive` و`npm run test:architecture` و`npm run test:smoke`
 و`npm run test:workflows` و`npm run test:final` و`npm run test:e2e`
-و`npm run check:assets`. بوابات P2 المنفصلة هي `npm run test:p2`،
+و`npm run check:assets`، وبوابتا واجهة UIX الحاليتان هما `npm run test:uiux-u1`
+و`npm run test:uiux-u2`. بوابات P2 المنفصلة هي `npm run test:p2`،
 و`npm run test:p2:replay`، و`npm run test:p2:load`،
 و`npm run test:p2:network-load`، و`npm run test:p2:recovery`. وبوابتا P3 هما
 `npm run test:p3` و`npm run test:p3:load`. وبوابات P4 هي
@@ -140,6 +141,8 @@ npm run check:clean
 
 وتنفيذ نظام التصميم التقني المشترك UIX-1 موثق في
 `docs/UIX-1-DESIGN-SYSTEM.md`، ومعرض مكوناته المحلي في `ui/fixture/index.html`.
+وتنفيذ غلاف التطبيق والرئيسية ومسارات الدخول UIX-2 موثق في
+`docs/UIX-2-APP-SHELL.md`.
 والاختبارات البشرية والميدانية المؤجلة بقرار مالك المنتج مجمعة في
 `docs/DEFERRED-VALIDATION-REGISTER.md`.
 

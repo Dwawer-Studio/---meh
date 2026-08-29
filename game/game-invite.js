@@ -5,7 +5,7 @@ class MehGameInviteModule {
         document.getElementById('invite-join-btn').onclick = () => this._joinFromInvite();
         document.getElementById('invite-back-btn').onclick = () => {
             this._pendingInvite = null;
-            this.showScreen('main-menu');
+            this.navigateBack('main-menu');
         };
         document.getElementById('copy-invite-btn').onclick = () => this._copyInviteLink();
         document.getElementById('share-invite-btn').onclick = () => this._shareInviteLink();
@@ -30,12 +30,14 @@ class MehGameInviteModule {
             : null;
         const profile = document.getElementById('invite-profile-summary');
         const input = document.getElementById('invite-guest-name');
+        const inputLabel = document.getElementById('invite-guest-name-label');
         profile.textContent = name ? I18n.t('invite_join_as', { name }) : I18n.t('invite_guest_prompt');
         input.classList.toggle('hidden', !!name);
+        if (inputLabel) inputLabel.classList.toggle('hidden', !!name);
         input.value = '';
         document.getElementById('invite-join-btn').disabled = !valid;
         this._setInviteStatus(valid ? I18n.t('invite_seat_check') : I18n.t('invite_invalid'), !valid);
-        this.showScreen('invite-screen');
+        this.showScreen('invite-screen', { replaceHistory: true });
         return valid;
     }
 

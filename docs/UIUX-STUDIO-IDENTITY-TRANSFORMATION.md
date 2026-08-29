@@ -318,6 +318,9 @@ dialogs، focus، loading، skeleton، motion primitives، وStory/fixture مح�
 
 الفرع: `codex/uiux-u3-game-table`
 
+الحالة: `Implemented / Human Validation Deferred` — الدليل التنفيذي في
+`docs/UIX-3-GAME-TABLE.md`.
+
 هذه أعلى شريحة خطورة. المخرجات: composition منفصل portrait/landscape، مقاعد،
 يد، piles، اتجاه، turn state، playable/selected/disabled، القرارات، العقوبات،
 وسجل الحركة السياقي.

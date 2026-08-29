@@ -40,10 +40,10 @@ class MehGameRendererModule {
             img.src = card.svgFile;
             img.style.width = '100%';
             img.style.height = '100%';
-            img.style.objectFit = 'cover';
-            img.style.borderRadius = '11px';
+            img.style.objectFit = 'contain';
+            img.style.borderRadius = 'inherit';
             img.style.pointerEvents = 'none';
-            img.style.transform = 'scale(1.045)';   // قصّ الإطار المدمج المتضارب داخل الصورة
+            img.style.transform = 'none';
 
             img.onerror = () => {
                 img.onerror = null;
@@ -93,6 +93,53 @@ class MehGameRendererModule {
         div.appendChild(sym);
     }
 
+    _updateTablePresentation() {
+        const screen = document.getElementById('game-screen');
+        if (!screen || !this.currentPlayer) return;
+
+        const isLocalTurn = this.currentPlayerIndex === 0 && this.humanCanPlay
+            && !this.isAwaitingColor && !this.actionInProgress;
+        screen.dataset.turnIndex = String(this.currentPlayerIndex);
+        screen.classList.toggle('local-turn', isLocalTurn);
+        screen.classList.toggle('awaiting-decision', !!this.isAwaitingColor);
+        screen.classList.toggle('pending-penalty', Number(this.pendingDraws) > 0);
+
+        const context = document.getElementById('table-context-name');
+        if (context) {
+            const majlisName = this._activeMajlis && this._activeMajlis.displayName;
+            context.textContent = majlisName || I18n.t(this.online ? 'online_table' : 'local_table');
+        }
+
+        const roundLabel = document.getElementById('table-round-label');
+        if (roundLabel) {
+            const matchNumber = Number(
+                (this.tableSession && this.tableSession.matchNumber)
+                || (this.tableSnapshot && this.tableSnapshot.matchNumber)
+                || 1,
+            );
+            roundLabel.textContent = I18n.t('round_number', { n: Math.max(1, matchNumber) });
+        }
+
+        const actionLabel = document.getElementById('turn-action-label');
+        if (actionLabel) {
+            let actionKey = isLocalTurn ? 'table_action_choose' : 'table_action_wait';
+            const params = {};
+            if (isLocalTurn && Number(this.pendingDraws) > 0) {
+                actionKey = 'table_action_penalty';
+                params.n = this.pendingDraws;
+            }
+            actionLabel.textContent = I18n.t(actionKey, params);
+        }
+    }
+
+    _updateSeatAccessibility(area, player) {
+        if (!area || !player) return;
+        area.setAttribute('aria-label', I18n.t('seat_summary', {
+            name: player.name,
+            n: Array.isArray(player.hand) ? player.hand.length : 0,
+        }));
+    }
+
     updateUI() {
         const canDraw = this.currentPlayerIndex === 0 && this.humanCanPlay
             && !this.isAwaitingColor && !this.actionInProgress;
@@ -130,6 +177,7 @@ class MehGameRendererModule {
             if (area) {
                 const nm = area.querySelector('.player-name'); if (nm) nm.textContent = bot.name;
                 const av = area.querySelector('.player-avatar'); if (av) av.textContent = bot.avatar;
+                this._updateSeatAccessibility(area, bot);
             }
             const el = document.getElementById(bot.countId);
             if (el) el.innerText = bot.hand.length;
@@ -167,6 +215,7 @@ class MehGameRendererModule {
         if (hArea) {
             hArea.querySelector('.player-name').textContent = human.name;
             hArea.querySelector('.player-avatar').textContent = human.avatar;
+            this._updateSeatAccessibility(hArea, human);
             const hCount = document.getElementById('human-count');
             if (hCount) hCount.textContent = human.hand.length;
         }
@@ -182,7 +231,11 @@ class MehGameRendererModule {
 
         const n = human.hand.length;
         const mid = (n - 1) / 2;
-        const cardW = 115;
+        const isShortLandscape = window.innerHeight <= 520 && window.innerWidth > window.innerHeight;
+        const isDenseHand = n > 10;
+        const cardW = isShortLandscape ? 82 : (window.innerWidth <= 620 ? 94 : 116);
+        const handScroller = hc.parentElement;
+        if (handScroller) handScroller.classList.toggle('is-dense-hand', isDenseHand);
         // تداخل ديناميكي: يوزّع البطاقات على عرض متاح مع ضمان حد أدنى مرئي لكل بطاقة
         const avail = Math.min(window.innerWidth * 0.92, 1150);
         let overlap = -10;
@@ -201,11 +254,11 @@ class MehGameRendererModule {
 
             // قوس لطيف — الحواف ترتفع قليلاً للأعلى
             const offset = i - mid;
-            const rot = offset * step;
-            const ty = -Math.min(26, offset * offset * 0.7);
+            const rot = isDenseHand ? 0 : offset * step;
+            const ty = isDenseHand ? 0 : -Math.min(26, offset * offset * 0.7);
             el.style.setProperty('--rot', rot.toFixed(2) + 'deg');
             el.style.setProperty('--ty', ty.toFixed(1) + 'px');
-            el.style.marginInlineEnd = (i < n - 1 ? overlap : 0) + 'px';
+            el.style.marginInlineEnd = (i < n - 1 ? (isDenseHand ? -32 : overlap) : 0) + 'px';
             el.style.zIndex = i;
 
             if (i === this.selectedCardIndex) el.classList.add('selected');
@@ -257,6 +310,7 @@ class MehGameRendererModule {
 
         // أونلاين: المضيف يبثّ الحالة لكل العملاء بعد كل تحديث
         if (this.online && this.isHost) this.broadcastGameState();
+        this._updateTablePresentation();
     }
 
     showGameMessage(text) {

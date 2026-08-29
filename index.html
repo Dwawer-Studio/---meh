@@ -14,6 +14,7 @@
     <link rel="stylesheet" href="ui/shell.css">
     <link rel="stylesheet" href="ui/screens/home.css">
     <link rel="stylesheet" href="ui/screens/entry.css">
+    <link rel="stylesheet" href="ui/screens/table.css">
     <link rel="stylesheet" href="ui/motion.css">
     <link rel="stylesheet" href="ui/accessibility.css">
 </head>
@@ -74,7 +75,7 @@
         <!-- ===== القائمة الرئيسية ===== -->
         <div id="main-menu" class="screen app-screen home-screen active">
             <div class="home-paper" aria-hidden="true"></div>
-            <header class="home-app-bar">
+            <header class="home-app-bar" aria-label="التنقل الرئيسي" data-i18n-attr="aria-label:main_navigation">
                 <a class="home-brand" href="#home-content" aria-label="مِهْ من Dwawer">
                     <img src="assets/brand/dwawer-wordmark-color.png" alt="Dwawer">
                     <span>مِهْ</span>
@@ -471,33 +472,56 @@
         </div>
 
         <!-- ===== شاشة اللعبة ===== -->
-        <div id="game-screen" class="screen">
+        <div id="game-screen" class="screen game-table-screen">
+            <header class="table-bar" aria-labelledby="table-context-name">
+                <div class="table-brand">
+                    <img src="assets/brand/dwawer-mark-paper.png" alt="" aria-hidden="true">
+                    <span>مِهْ</span>
+                </div>
+                <p class="table-context">
+                    <strong id="table-context-name" data-i18n="local_table">طاولة محلية</strong>
+                    <span id="table-round-label">الجولة 1</span>
+                </p>
+                <div class="table-tools">
+                    <button id="journal-toggle-btn" class="table-tool journal-toggle-btn" type="button"
+                            aria-label="سجل الحركة" data-i18n-attr="aria-label:action_journal">
+                        <svg class="ui-icon" aria-hidden="true"><use href="assets/ui/icons.svg#icon-history"></use></svg>
+                    </button>
+                </div>
+            </header>
+
             <!-- اللاعب العلوي -->
-            <div class="player-area bot-area top-player" id="player-bot-2">
+            <div class="player-area bot-area top-player" id="player-bot-2" role="group">
                 <div class="player-info">
                     <span class="player-avatar">🤖</span>
-                    <span class="player-name">نورة</span>
-                    <span class="player-count" id="bot-2-count">7</span>
+                    <span class="player-copy">
+                        <strong class="player-name">نورة</strong>
+                        <small class="player-meta"><span class="player-count" id="bot-2-count">7</span> <span data-i18n="cards_count">بطاقات</span></small>
+                    </span>
                 </div>
                 <div class="hand bot-hand" id="bot-2-hand"></div>
             </div>
 
             <!-- اللاعب الأيسر -->
-            <div class="player-area bot-area left-player" id="player-bot-1">
+            <div class="player-area bot-area left-player" id="player-bot-1" role="group">
                 <div class="player-info">
                     <span class="player-avatar">🤖</span>
-                    <span class="player-name">أحمد</span>
-                    <span class="player-count" id="bot-1-count">7</span>
+                    <span class="player-copy">
+                        <strong class="player-name">أحمد</strong>
+                        <small class="player-meta"><span class="player-count" id="bot-1-count">7</span> <span data-i18n="cards_count">بطاقات</span></small>
+                    </span>
                 </div>
                 <div class="hand bot-hand" id="bot-1-hand"></div>
             </div>
 
             <!-- اللاعب الأيمن -->
-            <div class="player-area bot-area right-player" id="player-bot-3">
+            <div class="player-area bot-area right-player" id="player-bot-3" role="group">
                 <div class="player-info">
                     <span class="player-avatar">🤖</span>
-                    <span class="player-name">خالد</span>
-                    <span class="player-count" id="bot-3-count">7</span>
+                    <span class="player-copy">
+                        <strong class="player-name">خالد</strong>
+                        <small class="player-meta"><span class="player-count" id="bot-3-count">7</span> <span data-i18n="cards_count">بطاقات</span></small>
+                    </span>
                 </div>
                 <div class="hand bot-hand" id="bot-3-hand"></div>
             </div>
@@ -507,14 +531,26 @@
                 <!-- بساط الطاولة المركزي مع الشعار -->
                 <div class="table-emblem"><span class="table-emblem-logo">مِهْ</span></div>
                 <!-- مؤشّر اتجاه اللعب (سهمان يدوران) -->
-                <div class="dir-ring" id="dir-ring"><span class="dir-arrow a1">➤</span><span class="dir-arrow a2">➤</span></div>
-                <div class="table-content">
-                    <button id="draw-pile" class="pile card back" type="button" aria-label="اسحب بطاقة" data-i18n-attr="aria-label:draw_card" disabled>
-                        <span class="card-back-text">مِهْ</span>
-                    </button>
-                    <div id="discard-pile" class="pile"></div>
+                <div class="dir-ring" id="dir-ring" role="img" aria-label="اتجاه اللعب" data-i18n-attr="aria-label:turn_direction">
+                    <span class="dir-arrow a1" aria-hidden="true"></span>
+                    <span class="dir-arrow a2" aria-hidden="true"></span>
                 </div>
-                <div id="turn-indicator" aria-live="polite" aria-atomic="true"><span data-i18n="turn">دور:</span> <span id="current-player-name">أنت</span></div>
+                <div class="table-content">
+                    <div class="pile-slot pile-slot--draw">
+                        <button id="draw-pile" class="pile card back" type="button" aria-label="اسحب بطاقة" data-i18n-attr="aria-label:draw_card" disabled>
+                            <span class="card-back-text">مِهْ</span>
+                        </button>
+                        <span class="pile-caption" data-i18n="draw_pile_label">السحب</span>
+                    </div>
+                    <div class="pile-slot pile-slot--discard">
+                        <div id="discard-pile" class="pile" role="img" aria-label="كومة اللعب" data-i18n-attr="aria-label:discard_pile_label"></div>
+                        <span class="pile-caption" data-i18n="discard_pile_label">المرمى</span>
+                    </div>
+                </div>
+                <div id="turn-indicator" aria-live="polite" aria-atomic="true">
+                    <span><span data-i18n="turn">دور:</span> <span id="current-player-name">أنت</span></span>
+                    <strong id="turn-action-label" data-i18n="table_action_choose">اختر بطاقة أو اسحب</strong>
+                </div>
                 <div id="turn-timer" class="hidden" role="timer" aria-live="polite">
                     <span id="turn-timer-label">10</span>
                     <div id="turn-timer-bar"></div>
@@ -557,29 +593,37 @@
             </div>
 
             <!-- اللاعب البشري -->
-            <div class="player-area human-area bottom-player" id="player-human">
+            <div class="player-area human-area bottom-player" id="player-human" role="group">
                 <div class="player-info">
                     <span class="player-avatar">😎</span>
-                    <span class="player-name">أنت</span>
-                    <span class="player-count" id="human-count">7</span>
+                    <span class="player-copy">
+                        <strong class="player-name">أنت</strong>
+                        <small class="player-meta"><span class="player-count" id="human-count">7</span> <span data-i18n="cards_count">بطاقات</span></small>
+                    </span>
                 </div>
                 <div class="human-hand-scroll">
-                    <div class="hand human-hand" id="human-hand"></div>
+                    <div class="hand human-hand" id="human-hand" role="group" aria-label="يدك" data-i18n-attr="aria-label:your_hand"></div>
                 </div>
             </div>
 
             <!-- شريط تأكيد رمي البطاقة -->
             <div id="confirm-bar" class="confirm-bar hidden">
-                <button id="confirm-play-btn" class="btn primary-btn" type="button" data-i18n="confirm_play">✓ ارمِ</button>
-                <button id="cancel-play-btn" class="btn secondary-btn" type="button" data-i18n="cancel">✗ إلغاء</button>
+                <button id="confirm-play-btn" class="btn primary-btn" type="button">
+                    <span data-i18n="confirm_play">العب البطاقة</span>
+                    <svg class="ui-icon" aria-hidden="true"><use href="assets/ui/icons.svg#icon-arrow"></use></svg>
+                </button>
+                <button id="cancel-play-btn" class="btn secondary-btn" type="button">
+                    <svg class="ui-icon" aria-hidden="true"><use href="assets/ui/icons.svg#icon-close"></use></svg>
+                    <span data-i18n="cancel">إلغاء</span>
+                </button>
             </div>
-
-            <button id="journal-toggle-btn" class="journal-toggle-btn" type="button" data-i18n="action_journal">سجل الحركة</button>
             <section id="action-journal" class="action-journal hidden" role="dialog" aria-modal="false"
                      aria-labelledby="action-journal-title" aria-hidden="true" inert>
                 <div class="journal-header">
                     <h2 id="action-journal-title" data-i18n="action_journal">سجل الحركة</h2>
-                    <button id="journal-close-btn" type="button" data-i18n-attr="aria-label:journal_close" aria-label="إغلاق سجل الحركة">✕</button>
+                    <button id="journal-close-btn" type="button" data-i18n-attr="aria-label:journal_close" aria-label="إغلاق سجل الحركة">
+                        <svg class="ui-icon" aria-hidden="true"><use href="assets/ui/icons.svg#icon-close"></use></svg>
+                    </button>
                 </div>
                 <p id="action-reason" class="action-reason"></p>
                 <ol id="action-journal-list"></ol>
@@ -590,11 +634,15 @@
             <div id="emoji-bar" class="emoji-bar hidden"></div>
 
             <div id="quick-chat-control" class="quick-chat-control hidden">
-                <button id="quick-chat-toggle" class="quick-chat-toggle" type="button" data-i18n-attr="aria-label:quick_chat" aria-label="دردشة سريعة">💬</button>
+                <button id="quick-chat-toggle" class="quick-chat-toggle" type="button" data-i18n-attr="aria-label:quick_chat" aria-label="دردشة سريعة">
+                    <svg class="ui-icon" aria-hidden="true"><use href="assets/ui/icons.svg#icon-people"></use></svg>
+                </button>
                 <div id="quick-chat-panel" class="quick-chat-panel hidden" role="dialog" aria-modal="false" aria-labelledby="quick-chat-title" aria-hidden="true" inert>
                     <div class="quick-chat-heading">
                         <h2 id="quick-chat-title" data-i18n="quick_chat">دردشة سريعة</h2>
-                        <button id="quick-chat-close" type="button" data-i18n-attr="aria-label:close" aria-label="إغلاق">×</button>
+                        <button id="quick-chat-close" type="button" data-i18n-attr="aria-label:close" aria-label="إغلاق">
+                            <svg class="ui-icon" aria-hidden="true"><use href="assets/ui/icons.svg#icon-close"></use></svg>
+                        </button>
                     </div>
                     <div id="quick-chat-phrases" class="quick-chat-phrases"></div>
                     <h3 data-i18n="table_safety">أمان الطاولة</h3>

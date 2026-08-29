@@ -1,0 +1,62 @@
+.ui-v2 :where(button, [role="button"], a, input, select, textarea) {
+  min-inline-size: var(--ui-target-min);
+}
+
+.ui-v2 :where(button, [role="button"], a, input, select) {
+  min-block-size: var(--ui-target-min);
+}
+
+.ui-v2 [data-ui-visually-hidden],
+.ui-v2 .ui-visually-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  clip-path: inset(50%) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+.ui-v2[data-ui-text-scale="200"] {
+  font-size: 200%;
+}
+
+.ui-v2[data-ui-text-scale="200"] :where(.ui-dialog, .modal-box) {
+  width: min(100%, 40rem);
+}
+
+.ui-v2 .ui-skip-link {
+  position: fixed;
+  z-index: 5000;
+  inset-block-start: var(--ui-space-2);
+  inset-inline-start: var(--ui-space-2);
+  translate: 0 -160%;
+  padding: var(--ui-space-3) var(--ui-space-4);
+  border: var(--ui-stroke-standard) solid var(--ui-brand-ink);
+  border-radius: var(--ui-radius-sm);
+  color: #fff;
+  background: var(--ui-brand-signal-deep);
+}
+
+.ui-v2 .ui-skip-link:focus {
+  translate: 0 0;
+}
+
+@media (forced-colors: active) {
+  .ui-v2 :where(.ui-button, .btn, .ui-surface, .ui-input, .ui-tab, .catalog-tab) {
+    border: 2px solid ButtonText;
+    box-shadow: none;
+    forced-color-adjust: auto;
+  }
+
+  .ui-v2 :where(.ui-button, .btn, .ui-tab, .catalog-tab):focus-visible {
+    outline: 3px solid Highlight;
+  }
+}
+
+@media (max-width: 420px) {
+  .ui-v2 .ui-dialog__actions > * {
+    flex: 1 1 100%;
+  }
+}

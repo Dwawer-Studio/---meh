@@ -1,7 +1,7 @@
 # خطة إعادة بناء UI/UX — هوية Dwawer داخل «مِهْ»
 
 التاريخ: 2026-08-29
-الحالة: `Research Complete / Implementation Not Started`
+الحالة: `Implementation In Progress — UIX-0/UIX-1 Complete`
 النطاق: إعادة بناء تجربة العرض والتفاعل كاملة قبل التحقق البشري P1، مع قفل
 قلب اللعبة والبطاقات والآرت الحالي.
 
@@ -292,6 +292,8 @@ ui/responsive.css
 ### UIX-1 — الأساس التقني والهوية
 
 الفرع: `codex/uiux-u1-design-system`
+
+الحالة: `Implemented` — الدليل التنفيذي في `docs/UIX-1-DESIGN-SYSTEM.md`.
 
 المخرجات: tokens، الخط المحلي، SVG icons، الأسطح، الأزرار، الحقول، tabs،
 dialogs، focus، loading، skeleton، motion primitives، وStory/fixture محلي

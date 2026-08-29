@@ -5,6 +5,10 @@
 /Cards/
 /backups/
 
+# Reviewed UI system sprite; other SVG sources remain excluded.
+!assets/ui/
+!assets/ui/icons.svg
+
 # ===== ملفات مؤقتة وميتاداتا =====
 kkk/
 kkk_*.txt

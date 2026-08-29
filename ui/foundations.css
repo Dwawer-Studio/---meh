@@ -1,0 +1,111 @@
+.ui-v2 {
+  /* Temporary adapters keep untouched screens readable while UIX-2–UIX-5 replace them. */
+  --gold: var(--ui-brand-signal);
+  --gold-2: var(--ui-brand-signal-deep);
+  --text: #fff;
+  --text-muted: rgb(255 255 255 / 76%);
+  --table-bg: radial-gradient(circle at 50% 24%, #242a28 0%, var(--ui-brand-ink) 68%);
+  --glass: rgb(4 7 7 / 68%);
+  --glass-strong: rgb(4 7 7 / 88%);
+  --glass-border: rgb(255 255 255 / 20%);
+  --shadow-soft: var(--ui-shadow-float);
+  --shadow-card: 0 12px 28px rgb(4 7 7 / 42%);
+  --orange: var(--ui-game-orange);
+  --purple: var(--ui-game-purple);
+  --gray: var(--ui-game-gray);
+  background: var(--ui-brand-ink);
+  font-family: var(--ui-font-family);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+.ui-v2,
+.ui-v2 :where(*) {
+  box-sizing: border-box;
+  font-family: var(--ui-font-family);
+}
+
+.ui-v2 :where(*::before, *::after) {
+  box-sizing: border-box;
+}
+
+:where(.ui-v2 button, .ui-v2 input, .ui-v2 select, .ui-v2 textarea) {
+  font: inherit;
+}
+
+:where(.ui-v2 button, .ui-v2 [role="button"], .ui-v2 a, .ui-v2 input, .ui-v2 select, .ui-v2 textarea) {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ui-v2 ::selection {
+  color: #fff;
+  background: var(--ui-brand-signal-deep);
+}
+
+.ui-v2 :where(h1, h2, h3, p) {
+  text-wrap: pretty;
+}
+
+.ui-v2 :where(button, [role="button"]):not(:disabled) {
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.ui-v2 :where(button, input, select, textarea, [tabindex]):focus-visible {
+  outline: var(--ui-stroke-focus) solid var(--ui-brand-signal);
+  outline-offset: 3px;
+}
+
+.ui-v2 :where(button, input, select, textarea):disabled,
+.ui-v2 [aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
+.ui-v2 .ui-icon {
+  width: 1.5rem;
+  height: 1.5rem;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentcolor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+  pointer-events: none;
+}
+
+.ui-v2 .ui-icon--fill {
+  fill: currentcolor;
+  stroke: none;
+}
+
+.ui-v2 .ui-display {
+  margin: 0;
+  font-size: var(--ui-type-display);
+  font-weight: 600;
+  letter-spacing: -.04em;
+  line-height: var(--ui-leading-display);
+}
+
+.ui-v2 .ui-title {
+  margin: 0;
+  font-size: var(--ui-type-title);
+  font-weight: 600;
+  line-height: var(--ui-leading-title);
+}
+
+.ui-v2 .ui-body {
+  font-size: var(--ui-type-body);
+  line-height: var(--ui-leading-body);
+}
+
+.ui-v2 .ui-label {
+  font-size: var(--ui-type-label);
+  font-weight: 600;
+  line-height: var(--ui-leading-compact);
+}
+
+.ui-v2 .ui-meta {
+  font-size: var(--ui-type-meta);
+  line-height: var(--ui-leading-compact);
+}

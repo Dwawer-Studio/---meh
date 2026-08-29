@@ -10,6 +10,7 @@ const I18n = {
 
     dict: {
         ar: {
+            skip_to_content: 'تخطَّ إلى المحتوى',
             // القائمة
             subtitle: 'لعبة ورقية بطابع بحريني',
             play: 'العب',
@@ -302,6 +303,7 @@ const I18n = {
             m_plus: '+{n}',
         },
         en: {
+            skip_to_content: 'Skip to content',
             subtitle: 'A Bahraini-style card game',
             play: 'Play',
             instructions: 'Instructions',

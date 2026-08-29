@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light">
+    <title>مِهْ — UIX-1 component fixture</title>
+    <link rel="stylesheet" href="../tokens.css">
+    <link rel="stylesheet" href="../foundations.css">
+    <link rel="stylesheet" href="../components.css">
+    <link rel="stylesheet" href="../motion.css">
+    <link rel="stylesheet" href="../accessibility.css">
+    <link rel="stylesheet" href="fixture.css">
+</head>
+<body class="ui-v2 fixture" data-ui-system="living-circle">
+    <a class="ui-skip-link" href="#fixture-main" data-copy="skip">تخطَّ إلى المحتوى</a>
+    <header class="fixture-toolbar ui-surface ui-surface--ink">
+        <div class="fixture-brand">
+            <img src="../../assets/brand/dwawer-wordmark-color.png" alt="Dwawer">
+            <span>UIX-1</span>
+        </div>
+        <div class="fixture-controls" role="group" aria-label="Fixture controls">
+            <button class="ui-button ui-button--quiet" id="locale-toggle" type="button">EN</button>
+            <button class="ui-button ui-button--quiet" id="scale-toggle" type="button">200%</button>
+            <button class="ui-button ui-button--quiet" id="motion-toggle" type="button" data-copy="reduceMotion">تقليل الحركة</button>
+        </div>
+    </header>
+
+    <main id="fixture-main" class="fixture-main" tabindex="-1">
+        <section class="fixture-intro" aria-labelledby="fixture-title">
+            <p class="fixture-eyebrow" data-copy="eyebrow">الدائرة الحيّة / نظام الإنتاج</p>
+            <h1 id="fixture-title" class="ui-display" data-copy="title">لغة واحدة لكل شاشة</h1>
+            <p class="ui-body" data-copy="intro">هذه المكونات هي نفسها التي يحمّلها التطبيق، وليست رسماً منفصلاً عنه.</p>
+        </section>
+
+        <section class="fixture-grid" aria-label="Component states">
+            <article class="fixture-card ui-surface ui-motion-enter">
+                <h2 class="ui-title" data-copy="actions">الأفعال</h2>
+                <div class="fixture-row">
+                    <button class="ui-button ui-button--primary ui-motion-ack" type="button">
+                        <svg class="ui-icon ui-icon--fill" aria-hidden="true"><use href="../../assets/ui/icons.svg#icon-play"></use></svg>
+                        <span data-copy="play">العب الآن</span>
+                    </button>
+                    <button class="ui-button ui-button--secondary" type="button">
+                        <svg class="ui-icon" aria-hidden="true"><use href="../../assets/ui/icons.svg#icon-people"></use></svg>
+                        <span data-copy="majalis">المجالس</span>
+                    </button>
+                    <button class="ui-button ui-button--secondary" type="button" disabled data-copy="unavailable">غير متاح</button>
+                    <button class="ui-icon-button" type="button" data-copy-aria="settings" aria-label="الإعدادات">
+                        <svg class="ui-icon" aria-hidden="true"><use href="../../assets/ui/icons.svg#icon-settings"></use></svg>
+                    </button>
+                </div>
+            </article>
+
+            <article class="fixture-card ui-surface ui-motion-enter">
+                <h2 class="ui-title" data-copy="fields">الحقول</h2>
+                <div class="fixture-fields">
+                    <label class="ui-field">
+                        <span class="ui-field__label" data-copy="nameLabel">اسم اللاعب</span>
+                        <input class="ui-input" type="text" autocomplete="off" data-copy-placeholder="namePlaceholder" placeholder="مثال: نور">
+                        <span class="ui-field__hint" data-copy="nameHint">يظهر لأعضاء المجلس فقط</span>
+                    </label>
+                    <label class="ui-field">
+                        <span class="ui-field__label" data-copy="codeLabel">رمز المجلس</span>
+                        <input class="ui-input" type="text" value="MEH-204" aria-invalid="true" aria-describedby="code-error">
+                        <span id="code-error" class="ui-field__error" data-copy="codeError">تحقق من الرمز وحاول مرة أخرى</span>
+                    </label>
+                </div>
+            </article>
+
+            <article class="fixture-card ui-surface ui-motion-enter">
+                <h2 class="ui-title" data-copy="navigation">التنقل والحالة</h2>
+                <div class="ui-tabs" role="tablist" aria-label="Card sections">
+                    <button id="tab-collection" class="ui-tab" type="button" role="tab" aria-selected="true" aria-controls="panel-collection" data-copy="collection">مجموعتي</button>
+                    <button id="tab-store" class="ui-tab" type="button" role="tab" aria-selected="false" aria-controls="panel-store" tabindex="-1" data-copy="store">المتجر</button>
+                </div>
+                <div id="panel-collection" class="fixture-tab-panel" role="tabpanel" aria-labelledby="tab-collection">
+                    <span class="ui-badge ui-badge--tamashi">
+                        <svg class="ui-icon" aria-hidden="true"><use href="../../assets/ui/icons.svg#icon-tamashi"></use></svg>
+                        <span data-copy="balance">240 تاماشي</span>
+                    </span>
+                    <span class="ui-badge" data-copy="owned">22 / 22 مملوكة</span>
+                </div>
+                <div id="panel-store" class="fixture-tab-panel" role="tabpanel" aria-labelledby="tab-store" hidden>
+                    <div class="ui-empty-state">
+                        <svg class="ui-icon" aria-hidden="true"><use href="../../assets/ui/icons.svg#icon-store"></use></svg>
+                        <strong data-copy="storeEmpty">لا توجد توسعة متاحة الآن</strong>
+                    </div>
+                </div>
+            </article>
+
+            <article class="fixture-card ui-surface ui-motion-enter">
+                <h2 class="ui-title" data-copy="feedback">التغذية الراجعة</h2>
+                <div class="fixture-stack">
+                    <div class="ui-status ui-status--success" role="status">
+                        <svg class="ui-icon" aria-hidden="true"><use href="../../assets/ui/icons.svg#icon-check"></use></svg>
+                        <span data-copy="success">تم حفظ إعداداتك</span>
+                    </div>
+                    <div class="ui-status ui-status--warning" role="status">
+                        <svg class="ui-icon" aria-hidden="true"><use href="../../assets/ui/icons.svg#icon-info"></use></svg>
+                        <span data-copy="warning">الاتصال ضعيف، لعبتك محفوظة</span>
+                    </div>
+                    <div class="ui-loading-label" role="status">
+                        <span class="ui-spinner" aria-hidden="true"></span>
+                        <span data-copy="loading">نجهّز الطاولة…</span>
+                    </div>
+                    <div class="fixture-skeleton" role="status" aria-label="Loading preview" aria-busy="true">
+                        <span class="ui-skeleton"></span>
+                        <span class="ui-skeleton"></span>
+                    </div>
+                </div>
+            </article>
+
+            <article class="fixture-card ui-surface ui-motion-enter fixture-card--wide">
+                <h2 class="ui-title" data-copy="surfaces">الأسطح والحوار</h2>
+                <div class="fixture-row fixture-surfaces">
+                    <div class="ui-surface ui-surface--quiet fixture-swatch"><strong data-copy="paper">ورق هادئ</strong><small>#E7DED1</small></div>
+                    <div class="ui-surface fixture-swatch"><strong data-copy="bright">ورق مرتفع</strong><small>#FFFDF8</small></div>
+                    <div class="ui-surface ui-surface--ink fixture-swatch"><strong data-copy="ink">حبر</strong><small>#040707</small></div>
+                </div>
+                <button id="dialog-open" class="ui-button ui-button--secondary" type="button" data-copy="openDialog">افتح مثال الحوار</button>
+            </article>
+        </section>
+    </main>
+
+    <div id="dialog-backdrop" class="ui-dialog-backdrop" hidden>
+        <section class="ui-dialog" role="dialog" aria-modal="true" aria-labelledby="dialog-title">
+            <header class="ui-dialog__header">
+                <h2 id="dialog-title" class="ui-title" data-copy="dialogTitle">اترك المجلس؟</h2>
+                <button id="dialog-close" class="ui-icon-button" type="button" data-copy-aria="close" aria-label="إغلاق">
+                    <svg class="ui-icon" aria-hidden="true"><use href="../../assets/ui/icons.svg#icon-close"></use></svg>
+                </button>
+            </header>
+            <p class="ui-body" data-copy="dialogBody">ستعود إلى الرئيسية، ويمكنك الانضمام من الدعوة مرة أخرى.</p>
+            <div class="ui-dialog__actions">
+                <button id="dialog-cancel" class="ui-button ui-button--secondary" type="button" data-copy="stay">ابقَ هنا</button>
+                <button class="ui-button ui-button--danger" type="button" data-copy="leave">غادر</button>
+            </div>
+        </section>
+    </div>
+
+    <script src="fixture.js"></script>
+</body>
+</html>

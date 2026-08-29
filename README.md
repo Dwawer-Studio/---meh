@@ -137,6 +137,9 @@ npm run check:clean
 فموثق في `docs/UIUX-STUDIO-IDENTITY-TRANSFORMATION.md`.
 وتنفيذ شريحة الدستور البصري والنماذج المرجعية UIX-0 موثق في
 `docs/UIX-0-VISUAL-CONTRACT.md`.
+
+وتنفيذ نظام التصميم التقني المشترك UIX-1 موثق في
+`docs/UIX-1-DESIGN-SYSTEM.md`، ومعرض مكوناته المحلي في `ui/fixture/index.html`.
 والاختبارات البشرية والميدانية المؤجلة بقرار مالك المنتج مجمعة في
 `docs/DEFERRED-VALIDATION-REGISTER.md`.
 

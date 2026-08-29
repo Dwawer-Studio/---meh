@@ -1,0 +1,94 @@
+@font-face {
+  font-family: "Meh UI";
+  src: url("../assets/fonts/ibm-plex-sans-arabic/IBMPlexSansArabic-Regular.woff2") format("woff2");
+  font-display: swap;
+  font-style: normal;
+  font-weight: 400;
+}
+
+@font-face {
+  font-family: "Meh UI";
+  src: url("../assets/fonts/ibm-plex-sans-arabic/IBMPlexSansArabic-SemiBold.woff2") format("woff2");
+  font-display: swap;
+  font-style: normal;
+  font-weight: 600 900;
+}
+
+:root {
+  color-scheme: light;
+
+  /* Dwawer identity */
+  --ui-brand-signal: #ee3633;
+  --ui-brand-signal-deep: #b9212b;
+  --ui-brand-ink: #040707;
+  --ui-brand-ink-soft: #303634;
+  --ui-brand-ink-muted: #606764;
+
+  /* Paper surfaces */
+  --ui-surface-paper: #f7f2e9;
+  --ui-surface-paper-bright: #fffdf8;
+  --ui-surface-paper-muted: #e7ded1;
+  --ui-surface-ink: #040707;
+  --ui-surface-ink-raised: #151918;
+  --ui-surface-scrim: rgb(4 7 7 / 72%);
+
+  /* Semantic roles */
+  --ui-economy-tamashi: #3b716c;
+  --ui-status-success: #216b4d;
+  --ui-status-warning: #8c5100;
+  --ui-status-danger: #a9232d;
+  --ui-status-info: #275c7a;
+  --ui-control-disabled: #c9c1b6;
+
+  /* Gameplay colors: rules only */
+  --ui-game-orange: #e76d25;
+  --ui-game-purple: #6746af;
+  --ui-game-gray: #687177;
+  --ui-game-black: #121414;
+
+  /* Typography */
+  --ui-font-family: "Meh UI", "Segoe UI", Arial, sans-serif;
+  --ui-type-display: clamp(2.1rem, 7vw, 3.25rem);
+  --ui-type-title: 1.3rem;
+  --ui-type-body: 1rem;
+  --ui-type-label: .78rem;
+  --ui-type-meta: .68rem;
+  --ui-leading-display: 1.03;
+  --ui-leading-title: 1.15;
+  --ui-leading-body: 1.55;
+  --ui-leading-compact: 1.25;
+
+  /* Four-pixel rhythm */
+  --ui-space-1: 4px;
+  --ui-space-2: 8px;
+  --ui-space-3: 12px;
+  --ui-space-4: 16px;
+  --ui-space-5: 20px;
+  --ui-space-6: 24px;
+  --ui-space-8: 32px;
+  --ui-space-10: 40px;
+  --ui-space-12: 48px;
+
+  /* Geometry */
+  --ui-radius-sm: 12px;
+  --ui-radius-md: 22px;
+  --ui-radius-lg: 34px;
+  --ui-stroke-quiet: 1px;
+  --ui-stroke-standard: 2px;
+  --ui-stroke-focus: 3px;
+  --ui-target-min: 44px;
+  --ui-target-primary: 48px;
+
+  /* Elevation is short and physical, never casino glow */
+  --ui-shadow-paper: 0 4px 0 var(--ui-brand-ink);
+  --ui-shadow-paper-raised: 0 8px 0 var(--ui-brand-ink);
+  --ui-shadow-float: 0 18px 42px rgb(4 7 7 / 22%);
+
+  /* Motion */
+  --ui-ease-out: cubic-bezier(.2, .8, .2, 1);
+  --ui-ease-settle: cubic-bezier(.16, 1, .3, 1);
+  --ui-duration-ack: 80ms;
+  --ui-duration-micro: 180ms;
+  --ui-duration-screen: 340ms;
+  --ui-duration-blocking-max: 450ms;
+}

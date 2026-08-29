@@ -1,0 +1,192 @@
+html {
+  min-width: 320px;
+  min-height: 100%;
+  background: var(--ui-surface-paper);
+}
+
+body.fixture {
+  min-height: 100dvh;
+  margin: 0;
+  overflow-x: hidden;
+  color: var(--ui-brand-ink);
+  background:
+    radial-gradient(circle at 12% 10%, rgb(238 54 51 / 10%) 0 2px, transparent 2.5px) 0 0 / 28px 28px,
+    var(--ui-surface-paper);
+}
+
+.fixture-toolbar {
+  position: sticky;
+  z-index: 20;
+  inset-block-start: 0;
+  min-height: 68px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ui-space-4);
+  padding: var(--ui-space-2) clamp(12px, 4vw, 32px);
+  border: 0;
+  border-radius: 0;
+}
+
+.fixture-brand,
+.fixture-controls,
+.fixture-row,
+.fixture-tab-panel {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-3);
+}
+
+.fixture-brand img {
+  width: auto;
+  height: 40px;
+  object-fit: contain;
+}
+
+.fixture-brand span {
+  font-weight: 600;
+}
+
+.fixture-toolbar .ui-button {
+  min-height: var(--ui-target-min);
+  padding: var(--ui-space-2) var(--ui-space-3);
+  color: #fff;
+}
+
+.fixture-main {
+  width: min(1120px, calc(100% - 32px));
+  margin-inline: auto;
+  padding: clamp(28px, 7vw, 76px) 0 64px;
+}
+
+.fixture-intro {
+  max-width: 680px;
+  margin-block-end: var(--ui-space-8);
+}
+
+.fixture-intro .ui-body {
+  max-width: 56ch;
+  color: var(--ui-brand-ink-soft);
+}
+
+.fixture-eyebrow {
+  margin: 0 0 var(--ui-space-2);
+  color: var(--ui-brand-signal-deep);
+  font-size: var(--ui-type-label);
+  font-weight: 600;
+}
+
+.fixture-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--ui-space-5);
+}
+
+.fixture-card {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: var(--ui-space-5);
+  padding: clamp(20px, 4vw, 28px);
+}
+
+.fixture-card--wide {
+  grid-column: 1 / -1;
+}
+
+.fixture-row {
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.fixture-fields,
+.fixture-stack {
+  display: grid;
+  gap: var(--ui-space-4);
+}
+
+.fixture-tab-panel {
+  min-height: 84px;
+  flex-wrap: wrap;
+  padding: var(--ui-space-3);
+  border: var(--ui-stroke-quiet) solid var(--ui-surface-paper-muted);
+  border-radius: var(--ui-radius-sm);
+}
+
+.fixture-skeleton {
+  display: grid;
+  gap: var(--ui-space-2);
+}
+
+.fixture-skeleton .ui-skeleton:first-child {
+  width: 72%;
+}
+
+.fixture-skeleton .ui-skeleton:last-child {
+  width: 48%;
+}
+
+.fixture-surfaces {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  width: 100%;
+}
+
+.fixture-swatch {
+  min-height: 110px;
+  display: grid;
+  align-content: space-between;
+  padding: var(--ui-space-4);
+}
+
+.fixture-swatch small {
+  direction: ltr;
+  opacity: .72;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+@media (max-width: 720px) {
+  .fixture-toolbar {
+    align-items: flex-start;
+  }
+
+  .fixture-controls {
+    justify-content: flex-end;
+    flex-wrap: wrap;
+  }
+
+  .fixture-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .fixture-card--wide {
+    grid-column: auto;
+  }
+
+  .fixture-surfaces {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 430px) {
+  .fixture-toolbar {
+    position: relative;
+    flex-direction: column;
+  }
+
+  .fixture-controls {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .fixture-controls .ui-button {
+    flex: 1 1 auto;
+  }
+
+  .fixture-main {
+    width: min(100% - 24px, 1120px);
+  }
+}

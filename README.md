@@ -92,7 +92,7 @@ npm run check
 و`npm run test:responsive` و`npm run test:architecture` و`npm run test:smoke`
 و`npm run test:workflows` و`npm run test:final` و`npm run test:e2e`
 و`npm run check:assets`، وبوابتا واجهة UIX الحاليتان هما `npm run test:uiux-u1`
-و`npm run test:uiux-u2` و`npm run test:uiux-u3`. بوابات P2 المنفصلة هي `npm run test:p2`،
+و`npm run test:uiux-u2` و`npm run test:uiux-u3` و`npm run test:uiux-u4`. بوابات P2 المنفصلة هي `npm run test:p2`،
 و`npm run test:p2:replay`، و`npm run test:p2:load`،
 و`npm run test:p2:network-load`، و`npm run test:p2:recovery`. وبوابتا P3 هما
 `npm run test:p3` و`npm run test:p3:load`. وبوابات P4 هي
@@ -144,6 +144,8 @@ npm run check:clean
 وتنفيذ غلاف التطبيق والرئيسية ومسارات الدخول UIX-2 موثق في
 `docs/UIX-2-APP-SHELL.md`.
 وتنفيذ طاولة اللعب والبطاقة UIX-3 موثق في `docs/UIX-3-GAME-TABLE.md`.
+وتنفيذ الردهة والمجلس والنتائج UIX-4 موثق في
+`docs/UIX-4-SOCIAL-SESSION.md`.
 والاختبارات البشرية والميدانية المؤجلة بقرار مالك المنتج مجمعة في
 `docs/DEFERRED-VALIDATION-REGISTER.md`.
 

@@ -896,6 +896,7 @@ class MehGameRuleModule {
         UI.winnerText.innerText = humanWon
             ? I18n.t('you_win')
             : I18n.t('bot_win', { name: winner.name });
+        this._updateResultPresentation(humanWon, winner.name);
 
         if (this.online) {
             this.online = false;
@@ -903,15 +904,7 @@ class MehGameRuleModule {
         }
 
         // إحصائيات العضو
-        const statsEl = document.getElementById('end-stats');
-        if (statsEl) {
-            if (this.humanProfile && !this.humanProfile.guest) {
-                const s = this.humanProfile.stats || { wins: 0, losses: 0, games: 0 };
-                statsEl.textContent = `🏆 ${s.wins} ${I18n.t('wins')} · ❌ ${s.losses} ${I18n.t('losses')} · 🎮 ${s.games} ${I18n.t('games')}`;
-            } else {
-                statsEl.textContent = '';
-            }
-        }
+        this._renderPersonalRecord();
         if (persistentTable) this._renderTableResults();
         else {
             const restart = document.getElementById('restart-btn');

@@ -97,16 +97,36 @@ class MehGameTableModule {
             score.classList.toggle('hidden', !this._productFeatureEnabled('session_score'));
         }
         if (score && this._productFeatureEnabled('session_score')) {
-            score.replaceChildren(...snapshot.seats.map(seat =>
-                this._createTextElement('div', 'session-score-seat', `${seat.avatar} ${seat.displayName} · ${seat.score}`)));
+            const rankedSeats = snapshot.seats.slice().sort((left, right) => right.score - left.score);
+            score.replaceChildren(...rankedSeats.map((seat, index) => {
+                const row = document.createElement('div');
+                row.className = `session-score-seat ${index === 0 ? 'is-leader' : ''}`.trim();
+                row.append(
+                    this._createTextElement('span', 'session-score-rank', String(index + 1)),
+                    this._createTextElement('span', 'session-score-player', `${seat.avatar} ${seat.displayName} · `),
+                    this._createTextElement('strong', 'session-score-value', String(seat.score)),
+                );
+                return row;
+            }));
+            const hint = document.getElementById('session-score-hint');
+            if (hint) hint.textContent = I18n.t('session_score_after', { count: Math.max(1, snapshot.matchNumber) });
+            const board = document.getElementById('result-board');
+            if (board) board.classList.remove('hidden');
         }
         if (readiness) {
             readiness.replaceChildren(...snapshot.seats.filter(seat => seat.kind === 'human').map(seat =>
                 this._createTextElement(
                     'div',
                     `ready-seat ${seat.ready ? 'is-ready' : ''}`,
-                    `${seat.ready ? '✓' : '…'} ${seat.displayName}`,
+                    seat.displayName,
                 )));
+            const humanSeats = snapshot.seats.filter(seat => seat.kind === 'human');
+            const readyCount = humanSeats.filter(seat => seat.ready).length;
+            const title = document.getElementById('rematch-title');
+            if (title) title.textContent = I18n.t('players_ready', {
+                ready: readyCount,
+                total: humanSeats.length,
+            });
         }
         const primary = document.getElementById('restart-btn');
         if (primary && snapshot.phase === TABLE_PHASES.RESULTS) {
@@ -208,6 +228,24 @@ class MehGameTableModule {
         this.tableSession = null;
         this.tableSnapshot = null;
         this._localReady = false;
+    }
+
+    async _shareResult() {
+        const winner = document.getElementById('winner-text');
+        const subtitle = document.getElementById('result-subtitle');
+        const text = [winner && winner.textContent, subtitle && subtitle.textContent].filter(Boolean).join(' — ');
+        if (!text) return false;
+        if (navigator.share) {
+            try {
+                await navigator.share({ title: I18n.t('result_share_title'), text });
+                return true;
+            } catch (error) {
+                if (error && error.name === 'AbortError') return false;
+            }
+        }
+        const copied = await this._copyText(text);
+        this.showToast(I18n.t(copied ? 'result_share_copied' : 'result_share_failed'));
+        return copied;
     }
 }
 

@@ -15,6 +15,7 @@
     <link rel="stylesheet" href="ui/screens/home.css">
     <link rel="stylesheet" href="ui/screens/entry.css">
     <link rel="stylesheet" href="ui/screens/table.css">
+    <link rel="stylesheet" href="ui/screens/social.css">
     <link rel="stylesheet" href="ui/motion.css">
     <link rel="stylesheet" href="ui/accessibility.css">
 </head>
@@ -422,53 +423,95 @@
         </div>
 
         <!-- ===== شاشة الردهة (اللاعبون قبل البدء) ===== -->
-        <div id="lobby-screen" class="screen">
-            <div class="instructions-panel online-panel">
-                <h2 data-i18n="lobby_title">🛋️ الردهة</h2>
-                <div class="room-code-box">
-                    <span data-i18n="room_code">كود الغرفة</span>
-                    <strong id="lobby-room-code">-----</strong>
-                    <button id="copy-code-btn" class="copy-code-btn" type="button" title="copy" aria-label="نسخ كود الغرفة" data-i18n-attr="aria-label:copy_code">📋</button>
-                </div>
-                <p class="profile-hint" data-i18n="lobby_hint">شارك الكود مع أصدقائك لينضمّوا</p>
-                <div id="invite-actions" class="invite-actions hidden">
-                    <button id="share-invite-btn" class="btn primary-btn" type="button" data-i18n="invite_share">مشاركة الدعوة</button>
-                    <button id="whatsapp-invite-btn" class="btn secondary-btn" type="button" data-i18n="invite_whatsapp">واتساب</button>
-                    <button id="copy-invite-btn" class="btn secondary-btn" type="button" data-i18n="invite_copy">نسخ الرابط</button>
-                    <button id="qr-invite-btn" class="btn secondary-btn" type="button" data-i18n="invite_qr">QR</button>
-                </div>
-                <div id="invite-qr-wrap" class="invite-qr-wrap hidden">
-                    <img id="invite-qr-image" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs="
-                         alt="رمز QR لدعوة الطاولة" data-i18n-attr="alt:invite_qr_alt">
-                </div>
-                <label id="turn-time-setting" class="turn-time-setting">
-                    <span data-i18n="turn_time_label">وقت الدور</span>
-                    <select id="turn-time-select">
-                        <option value="10">10s</option>
-                        <option value="15">15s</option>
-                        <option value="20">20s</option>
-                    </select>
-                </label>
-                <div id="lobby-players" class="lobby-players"></div>
-                <section id="friendly-recipe" class="friendly-recipe hidden" aria-labelledby="friendly-recipe-title">
-                    <h3 id="friendly-recipe-title" data-i18n="friendly_recipe">وصفة الرزمة المشتركة</h3>
-                    <p data-i18n="friendly_recipe_note">كل مساهمة تستبدل بطاقة مماثلة، ثم تصبح البطاقة الجديدة متاحة للجميع في الرزمة.</p>
-                    <div id="friendly-recipe-summary" class="friendly-recipe-summary" aria-live="polite"></div>
-                    <div id="friendly-recipe-controls" class="friendly-recipe-controls hidden">
-                        <label><span data-i18n="contribute_card">بطاقتك</span>
-                            <select id="friendly-card-select"></select>
-                        </label>
-                        <label><span data-i18n="replace_card">تستبدل</span>
-                            <select id="friendly-replacement-select"></select>
-                        </label>
-                        <button id="friendly-recipe-apply" class="btn secondary-btn" type="button" data-i18n="apply_contribution">اعتمد المساهمة</button>
-                        <button id="friendly-recipe-clear" class="compact-action" type="button" data-i18n="clear_contribution">أزل مساهمتي</button>
+        <div id="lobby-screen" class="screen app-screen social-screen lobby-screen">
+            <section class="lobby-shell" aria-labelledby="lobby-title">
+                <header class="social-app-bar">
+                    <div class="social-brand">
+                        <img src="assets/brand/dwawer-mark-paper.png" alt="" aria-hidden="true">
+                        <span>مِهْ</span>
                     </div>
-                </section>
-                <button id="lobby-start-btn" class="btn primary-btn hidden" type="button" data-i18n="start_game">▶️ ابدأ اللعبة</button>
-                <p id="lobby-wait" class="online-status" data-i18n="waiting_host">بانتظار أن يبدأ المضيف...</p>
-                <button id="lobby-leave-btn" class="btn secondary-btn" type="button" data-i18n="leave">🚪 خروج</button>
-            </div>
+                    <div class="social-heading">
+                        <p data-i18n="lobby_eyebrow">الطاولة بانتظار مجلسها</p>
+                        <h1 id="lobby-title" data-i18n="lobby_title">الردهة</h1>
+                    </div>
+                    <button id="lobby-leave-btn" class="ui-icon-button social-exit" type="button" aria-label="خروج" data-i18n-attr="aria-label:leave">
+                        <svg class="ui-icon" aria-hidden="true"><use href="assets/ui/icons.svg#icon-exit"></use></svg>
+                    </button>
+                </header>
+
+                <div class="lobby-layout">
+                    <section class="lobby-invite-card ui-surface" aria-labelledby="lobby-invite-title">
+                        <p class="screen-eyebrow" data-i18n="lobby_invite_eyebrow">دعوتك الخاصة</p>
+                        <h2 id="lobby-invite-title" data-i18n="lobby_invite_title">شارك مقعد الطاولة</h2>
+                        <div class="room-code-box">
+                            <span data-i18n="room_code">كود الغرفة</span>
+                            <strong id="lobby-room-code">-----</strong>
+                            <button id="copy-code-btn" class="copy-code-btn" type="button" aria-label="نسخ كود الغرفة" data-i18n-attr="aria-label:copy_code">
+                                <svg class="ui-icon" aria-hidden="true"><use href="assets/ui/icons.svg#icon-copy"></use></svg>
+                            </button>
+                        </div>
+                        <p class="profile-hint" data-i18n="lobby_hint">شارك الكود مع أصدقائك لينضمّوا</p>
+                        <div id="invite-actions" class="invite-actions hidden">
+                            <button id="share-invite-btn" class="btn primary-btn" type="button">
+                                <svg class="ui-icon" aria-hidden="true"><use href="assets/ui/icons.svg#icon-share"></use></svg>
+                                <span data-i18n="invite_share">مشاركة الدعوة</span>
+                            </button>
+                            <button id="whatsapp-invite-btn" class="btn secondary-btn" type="button" data-i18n="invite_whatsapp">واتساب</button>
+                            <button id="copy-invite-btn" class="btn secondary-btn" type="button">
+                                <svg class="ui-icon" aria-hidden="true"><use href="assets/ui/icons.svg#icon-copy"></use></svg>
+                                <span data-i18n="invite_copy">نسخ الرابط</span>
+                            </button>
+                            <button id="qr-invite-btn" class="btn secondary-btn" type="button">
+                                <svg class="ui-icon" aria-hidden="true"><use href="assets/ui/icons.svg#icon-qr"></use></svg>
+                                <span data-i18n="invite_qr">إظهار QR</span>
+                            </button>
+                        </div>
+                        <div id="invite-qr-wrap" class="invite-qr-wrap hidden">
+                            <img id="invite-qr-image" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs="
+                                 alt="رمز QR لدعوة الطاولة" data-i18n-attr="alt:invite_qr_alt">
+                        </div>
+                    </section>
+
+                    <section class="lobby-table-card" aria-labelledby="lobby-seats-title">
+                        <div class="lobby-section-heading">
+                            <div>
+                                <p class="screen-eyebrow" data-i18n="lobby_seats_eyebrow">المجلس الآن</p>
+                                <h2 id="lobby-seats-title" data-i18n="lobby_seats_title">مقاعد الطاولة</h2>
+                            </div>
+                            <p id="lobby-seat-status" class="lobby-seat-status" aria-live="polite"></p>
+                        </div>
+                        <label id="turn-time-setting" class="turn-time-setting">
+                            <span data-i18n="turn_time_label">وقت الدور</span>
+                            <select id="turn-time-select">
+                                <option value="10">10s</option>
+                                <option value="15">15s</option>
+                                <option value="20">20s</option>
+                            </select>
+                        </label>
+                        <ul id="lobby-players" class="lobby-players"></ul>
+                        <section id="friendly-recipe" class="friendly-recipe hidden" aria-labelledby="friendly-recipe-title">
+                            <h3 id="friendly-recipe-title" data-i18n="friendly_recipe">وصفة الرزمة المشتركة</h3>
+                            <p data-i18n="friendly_recipe_note">كل مساهمة تستبدل بطاقة مماثلة، ثم تصبح البطاقة الجديدة متاحة للجميع في الرزمة.</p>
+                            <div id="friendly-recipe-summary" class="friendly-recipe-summary" aria-live="polite"></div>
+                            <div id="friendly-recipe-controls" class="friendly-recipe-controls hidden">
+                                <label><span data-i18n="contribute_card">بطاقتك</span>
+                                    <select id="friendly-card-select"></select>
+                                </label>
+                                <label><span data-i18n="replace_card">تستبدل</span>
+                                    <select id="friendly-replacement-select"></select>
+                                </label>
+                                <button id="friendly-recipe-apply" class="btn secondary-btn" type="button" data-i18n="apply_contribution">اعتمد المساهمة</button>
+                                <button id="friendly-recipe-clear" class="compact-action" type="button" data-i18n="clear_contribution">أزل مساهمتي</button>
+                            </div>
+                        </section>
+                    </section>
+                </div>
+
+                <footer class="lobby-actions">
+                    <p id="lobby-wait" class="online-status" data-i18n="waiting_host">بانتظار أن يبدأ المضيف...</p>
+                    <button id="lobby-start-btn" class="btn primary-btn hidden" type="button" data-i18n="start_game">ابدأ اللعبة</button>
+                </footer>
+            </section>
         </div>
 
         <!-- ===== شاشة اللعبة ===== -->
@@ -667,14 +710,54 @@
         </div>
 
         <!-- ===== شاشة النهاية ===== -->
-        <div id="end-screen" class="screen">
+        <div id="end-screen" class="screen app-screen social-screen results-screen">
             <div class="end-content">
-                <div class="trophy">🏆</div>
-                <h1 id="winner-text">مبروك فزت!</h1>
-                <div id="session-score" class="session-score" role="group" aria-label="نتيجة الجلسة" data-i18n-attr="aria-label:session_score"></div>
-                <div id="table-ready-list" class="table-ready-list" aria-live="polite"></div>
-                <p id="rematch-status" class="online-status" role="status" aria-live="polite"></p>
-                <div id="end-stats" class="end-stats"></div>
+                <header class="results-app-bar" aria-label="إجراءات النتيجة" data-i18n-attr="aria-label:result_actions">
+                    <div class="social-brand social-brand--ink">
+                        <img src="assets/brand/dwawer-mark-ink.png" alt="" aria-hidden="true">
+                        <span>مِهْ</span>
+                    </div>
+                    <div class="result-utilities">
+                        <button id="share-result-btn" class="result-utility" type="button">
+                            <svg class="ui-icon" aria-hidden="true"><use href="assets/ui/icons.svg#icon-share"></use></svg>
+                            <span data-i18n="share_result">شارك النتيجة</span>
+                        </button>
+                        <button id="end-menu-btn" class="result-utility" type="button">
+                            <svg class="ui-icon" aria-hidden="true"><use href="assets/ui/icons.svg#icon-home"></use></svg>
+                            <span data-i18n="main_menu">القائمة الرئيسية</span>
+                        </button>
+                    </div>
+                </header>
+
+                <section class="result-hero" aria-labelledby="winner-text">
+                    <div class="result-seal" aria-hidden="true">
+                        <span id="result-mark">م</span>
+                    </div>
+                    <div class="result-copy">
+                        <p class="screen-eyebrow" data-i18n="round_complete">خلصت الجولة</p>
+                        <h1 id="winner-text">مبروك فزت!</h1>
+                        <p id="result-subtitle" data-i18n="result_subtitle">آخر بطاقة حسمت المجلس.</p>
+                        <div id="end-stats" class="end-stats"></div>
+                    </div>
+                </section>
+
+                <div class="results-layout">
+                    <section id="result-board" class="result-board ui-surface" aria-labelledby="session-score-title">
+                        <div class="result-section-heading">
+                            <h2 id="session-score-title" data-i18n="session_standings">حصيلة المجلس</h2>
+                            <span id="session-score-hint" data-i18n="session_score_hint">حصيلة هذه الطاولة</span>
+                        </div>
+                        <div id="session-score" class="session-score" role="group" aria-label="نتيجة الجلسة" data-i18n-attr="aria-label:session_score"></div>
+                    </section>
+                    <section id="result-rematch" class="result-rematch ui-surface" aria-labelledby="rematch-title">
+                        <div>
+                            <h2 id="rematch-title" data-i18n="rematch_title">نكمل المجلس؟</h2>
+                            <div id="table-ready-list" class="table-ready-list" aria-live="polite"></div>
+                            <p id="rematch-status" class="online-status" role="status" aria-live="polite"></p>
+                        </div>
+                        <button id="restart-btn" class="btn primary-btn" type="button" data-i18n="play_again">العب مرة ثانية</button>
+                    </section>
+                </div>
                 <section id="majlis-result-panel" class="majlis-result-panel hidden" aria-labelledby="majlis-result-title">
                     <h2 id="majlis-result-title" data-i18n="majlis_title">المجلس</h2>
                     <p id="majlis-result-status" class="majlis-result-status" aria-live="polite"></p>
@@ -708,8 +791,6 @@
                         <button id="majlis-schedule-btn" class="btn secondary-btn" type="button" data-i18n="majlis_schedule">ثبّت الموعد</button>
                     </div>
                 </section>
-                <button id="restart-btn" class="btn primary-btn" type="button" data-i18n="play_again">🔄 العب مرة ثانية</button>
-                <button id="end-menu-btn" class="btn secondary-btn" type="button" data-i18n="main_menu">🏠 القائمة الرئيسية</button>
             </div>
         </div>
 

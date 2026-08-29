@@ -71,6 +71,7 @@ class MehGameScreenModule {
         document.getElementById('back-btn').addEventListener('click', () => this.navigateBack('play-center-screen'));
         document.getElementById('home-nav-btn').addEventListener('click', () => this.showScreen('main-menu', { replaceHistory: true }));
         document.getElementById('majalis-nav-btn').addEventListener('click', () => document.getElementById('online-btn').click());
+        document.getElementById('share-result-btn').addEventListener('click', () => this._shareResult());
         document.getElementById('restart-btn').addEventListener('click', () => {
             const tablePhase = this.tableSession ? this.tableSession.phase : this.tableSnapshot && this.tableSnapshot.phase;
             if (tablePhase === TABLE_PHASES.RESULTS) {

@@ -140,6 +140,36 @@ class MehGameRendererModule {
         }));
     }
 
+    _updateResultPresentation(humanWon, winnerName) {
+        const screen = document.getElementById('end-screen');
+        if (!screen) return;
+        screen.dataset.outcome = humanWon ? 'win' : 'loss';
+
+        const resolvedName = String(winnerName || (humanWon && this.humanProfile && this.humanProfile.name) || '').trim();
+        const mark = document.getElementById('result-mark');
+        if (mark) mark.textContent = Array.from(resolvedName)[0] || 'م';
+
+        const subtitle = document.getElementById('result-subtitle');
+        if (subtitle) subtitle.textContent = I18n.t(humanWon ? 'result_win_subtitle' : 'result_loss_subtitle');
+
+        const hasTable = !!(this.tableSession || this.tableSnapshot);
+        const board = document.getElementById('result-board');
+        if (board) board.classList.toggle('hidden', !hasTable);
+        const rematchTitle = document.getElementById('rematch-title');
+        if (rematchTitle && !hasTable) rematchTitle.textContent = I18n.t('rematch_title');
+    }
+
+    _renderPersonalRecord() {
+        const stats = document.getElementById('end-stats');
+        if (!stats) return;
+        if (!this.humanProfile || this.humanProfile.guest) {
+            stats.textContent = '';
+            return;
+        }
+        const record = this.humanProfile.stats || { wins: 0, losses: 0, games: 0 };
+        stats.textContent = I18n.t('personal_record_summary', record);
+    }
+
     updateUI() {
         const canDraw = this.currentPlayerIndex === 0 && this.humanCanPlay
             && !this.isAwaitingColor && !this.actionInProgress;

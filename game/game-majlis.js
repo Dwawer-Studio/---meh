@@ -16,6 +16,7 @@ class MehGameMajlisModule {
         this._majlisSeats = [];
         this._mutedSeatIds = new Set();
         this._quickChatLocked = false;
+        this._quickChatLastFocus = null;
         this._majlisReminderTimer = null;
         this._majlisExperimentExposures = new Set();
         this._majlisTrackedSessions = new Set();
@@ -33,6 +34,12 @@ class MehGameMajlisModule {
         on('majlis-schedule-btn', () => this._scheduleCurrentMajlis());
         on('quick-chat-toggle', () => this._setQuickChatOpen(true));
         on('quick-chat-close', () => this._setQuickChatOpen(false));
+        const quickChatPanel = document.getElementById('quick-chat-panel');
+        if (quickChatPanel) quickChatPanel.addEventListener('keydown', event => {
+            if (event.key !== 'Escape') return;
+            event.preventDefault();
+            this._setQuickChatOpen(false);
+        });
         this._renderQuickChatPhrases();
     }
 
@@ -442,7 +449,18 @@ class MehGameMajlisModule {
         panel.inert = !open;
         panel.toggleAttribute('inert', !open);
         panel.setAttribute('aria-hidden', String(!open));
-        if (open) this._renderTableSafety();
+        if (open) {
+            this._quickChatLastFocus = document.activeElement;
+            this._renderTableSafety();
+            const close = document.getElementById('quick-chat-close');
+            if (close) close.focus();
+            return;
+        }
+        const fallback = document.getElementById('quick-chat-toggle');
+        const restore = this._quickChatLastFocus && this._quickChatLastFocus.isConnected
+            ? this._quickChatLastFocus : fallback;
+        this._quickChatLastFocus = null;
+        if (restore) restore.focus();
     }
 
     _renderTableSafety() {

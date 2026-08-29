@@ -571,19 +571,30 @@ class MehGameOnlineModule {
         if (!wrap) return;
         wrap.replaceChildren();
         (this.lobbyPlayers || []).forEach(p => {
-            const div = document.createElement('div');
-            div.className = 'lobby-player';
-            div.appendChild(this._createTextElement('span', 'lp-avatar', p.avatar || '😎'));
-            div.appendChild(this._createTextElement('span', 'lp-name', p.name || ''));
+            const seat = document.createElement('li');
+            seat.className = 'lobby-player';
+            seat.setAttribute('aria-label', I18n.t('lobby_seat_summary', {
+                name: p.name || '',
+                role: p.host ? I18n.t('host_label') : I18n.t('guest'),
+            }));
+            seat.appendChild(this._createTextElement('span', 'lp-avatar', p.avatar || '😎'));
+            seat.appendChild(this._createTextElement('span', 'lp-name', p.name || ''));
             if (p.host) {
-                div.appendChild(this._createTextElement(
+                seat.appendChild(this._createTextElement(
                     'span',
                     'lp-host',
-                    `👑 ${I18n.lang === 'ar' ? 'المضيف' : 'Host'}`,
+                    I18n.t('host_label'),
                 ));
             }
-            wrap.appendChild(div);
+            wrap.appendChild(seat);
         });
+        const occupied = Math.min(4, (this.lobbyPlayers || []).length);
+        for (let index = occupied; index < 4; index++) {
+            const emptySeat = this._createTextElement('li', 'lobby-seat-empty', I18n.t('open_seat'));
+            wrap.appendChild(emptySeat);
+        }
+        const status = document.getElementById('lobby-seat-status');
+        if (status) status.textContent = I18n.t('lobby_seats_status', { count: occupied });
     }
 
     // ============ المرحلة 2: نواة اللعب الجماعي ============
@@ -1112,7 +1123,8 @@ class MehGameOnlineModule {
         Sound.play(msg.youWon ? 'win' : 'lose');
         if (msg.youWon) this.launchConfetti();
         UI.winnerText.innerText = msg.youWon ? I18n.t('you_win') : I18n.t('bot_win', { name: msg.winnerName });
-        const st = document.getElementById('end-stats'); if (st) st.replaceChildren();
+        this._updateResultPresentation(!!msg.youWon, msg.winnerName);
+        this._renderPersonalRecord();
         if (msg.keepTable) this._renderTableResults();
         this.showScreen('end-screen');
         if (!msg.keepTable) Net.close();

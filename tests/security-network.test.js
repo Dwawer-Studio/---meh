@@ -76,7 +76,8 @@ test('SEC-01: lobby player data is rendered with text nodes, never innerHTML', (
 
     game.renderLobby();
 
-    assert.equal(lobby.children.length, 1);
+    assert.equal(lobby.children.length, 4);
+    assert.equal(lobby.children.filter(child => child.className === 'lobby-player').length, 1);
     assert.equal(lobby.children[0].children[0].textContent, '<svg onload=alert(1)>');
     assert.equal(lobby.children[0].children[1].textContent, '<img src=x onerror=alert(1)>');
 });

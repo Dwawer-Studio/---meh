@@ -337,6 +337,9 @@ dialogs، focus، loading، skeleton، motion primitives، وStory/fixture مح�
 
 الفرع: `codex/uiux-u4-social-session`
 
+الحالة: `Implemented / Human Validation Deferred` — الدليل التنفيذي في
+`docs/UIX-4-SOCIAL-SESSION.md`.
+
 المخرجات: الردهة والمقاعد والجاهزية، الدعوة/QR، quick chat، الكتم/البلاغ،
 المجلس العائد، حصيلة الجلسة، والإعادة داخل الطاولة.
 

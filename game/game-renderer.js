@@ -17,12 +17,16 @@ class MehGameRendererModule {
         if (playable && !isHidden) cls += ' playable';
         if (!playable && !isHidden && !this.currentPlayer.isBot) cls += ' disabled';
         div.className = cls;
+        if (isHumanCard) {
+            div.classList.add('inspectable');
+            div.dataset.cardId = card.id;
+        }
 
         if (!isHidden && card) {
             if (isHumanCard) {
-                div.disabled = !playable;
-                div.setAttribute('aria-label', I18n.cardName(card));
-                div.setAttribute('aria-pressed', String(index === this.selectedCardIndex));
+                div.disabled = false;
+                div.setAttribute('aria-label', `${I18n.cardName(card)}، ${I18n.colorName(card.color)} — ${I18n.t('inspect_card')}`);
+                div.setAttribute('aria-pressed', String(card.id === this._inspectedCardId));
             }
             const img = document.createElement('img');
             img.alt = '';
@@ -35,38 +39,34 @@ class MehGameRendererModule {
             img.style.transform = 'none';
 
             img.onerror = () => {
-                img.onerror = null;
-                img.style.display = 'none';
-                const wheel = document.createElement('div');
-                wheel.className = 'card-wheel';
-                wheel.appendChild(this._createTextElement('span', 'card-emoji', card.emoji));
-                const label = this._createTextElement('div', 'card-label', I18n.cardName(card));
-                div.replaceChildren(wheel, label);
-                this._addColorSymbol(div, card);
+                div.classList.add('art-load-failed');
+                img.style.visibility = 'hidden';
+                if (!div.querySelector('.art-error-label')) {
+                    div.appendChild(this._createTextElement('span', 'art-error-label',
+                        `${I18n.cardName(card)} — ${I18n.t('art_unavailable')}`));
+                }
+            };
+            img.onload = () => {
+                div.classList.remove('art-load-failed');
+                img.style.visibility = '';
+                const error = div.querySelector('.art-error-label');
+                if (error) error.remove();
             };
 
             div.appendChild(img);
             this._addColorSymbol(div, card);
 
-            if (playable && index !== -1) {
+            if (index !== -1) {
                 div.onclick = () => {
-                    if (!this.humanCanPlay || this.isAwaitingColor || this.actionInProgress) return;
-                    if (this.online && !this.isHost) {
-                        // العميل: أرسل للمضيف بدل اللعب محلياً
-                        if (this.settings.confirmPlay && this.selectedCardIndex !== index) { this.selectCard(index); return; }
-                        this.humanCanPlay = false; this.selectedCardIndex = -1; this.hideConfirmBar();
-                        Net.send({ t: 'play', cardId: card.id });
+                    if (this._cardDecision || !playable || this.settings.confirmPlay !== false) {
+                        if (this._inspectedCardId === card.id && playable && !this._cardDecision) this.confirmSelectedCard();
+                        else this.inspectCard(card.id);
                         return;
                     }
-                    if (this.settings.confirmPlay) {
-                        // الضغطة الأولى تعاين، والثانية على نفس البطاقة ترميها
-                        if (this.selectedCardIndex === index) this.confirmSelectedCard();
-                        else this.selectCard(index);
-                    } else {
-                        this.humanCanPlay = false;
-                        this.actionInProgress = true;
-                        this.playCard(this.currentPlayer, index);
-                    }
+                    // Even quick-play commits by stable card ID and rechecks the live turn.
+                    this._inspectedCardId = card.id;
+                    this.selectedCardIndex = this.players[0].hand.findIndex(item => item.id === card.id);
+                    this.confirmSelectedCard();
                 };
             }
         }
@@ -255,7 +255,7 @@ class MehGameRendererModule {
         const isHumanTurn = this.currentPlayerIndex === 0 && !this.isAwaitingColor
             && !this.skipNextMap[human.id];
 
-        human.hand.sort((a, b) => {
+        const displayHand = human.hand.slice().sort((a, b) => {
             const co = { orange: 1, gray: 2, purple: 3, black: 4 };
             if (a.color !== b.color) return (co[a.color] || 9) - (co[b.color] || 9);
             return a.name.localeCompare(b.name, 'ar');
@@ -264,8 +264,10 @@ class MehGameRendererModule {
         const n = human.hand.length;
         const mid = (n - 1) / 2;
         const isShortLandscape = window.innerHeight <= 520 && window.innerWidth > window.innerHeight;
-        const isDenseHand = n > 10;
         const cardW = isShortLandscape ? 82 : (window.innerWidth <= 620 ? 94 : 116);
+        // Once a fan would hide card centers, use the existing scrollable hand.
+        // Every card keeps its full artwork and a direct, non-overlapping tap target.
+        const isDenseHand = n * cardW > window.innerWidth - 120;
         const handScroller = hc.parentElement;
         if (handScroller) handScroller.classList.toggle('is-dense-hand', isDenseHand);
         // تداخل ديناميكي: يوزّع البطاقات على عرض متاح مع ضمان حد أدنى مرئي لكل بطاقة
@@ -281,12 +283,14 @@ class MehGameRendererModule {
         }
         const step = Math.min(3, 40 / Math.max(n, 1));        // ميل لطيف جداً
 
-        human.hand.forEach((card, i) => {
+        displayHand.forEach((card, i) => {
             let playable = false;
             if (isHumanTurn && !this.actionInProgress) {
                 playable = this.isCardPlayableNow(card);
             }
-            const el = this.createCardElement(card, false, playable, i);
+            if (this._cardDecision) playable = this._cardDecision.ids.includes(card.id);
+            const handIndex = human.hand.findIndex(item => item.id === card.id);
+            const el = this.createCardElement(card, false, playable, handIndex);
 
             // قوس لطيف — الحواف ترتفع قليلاً للأعلى
             const offset = i - mid;
@@ -294,10 +298,10 @@ class MehGameRendererModule {
             const ty = isDenseHand ? 0 : -Math.min(26, offset * offset * 0.7);
             el.style.setProperty('--rot', rot.toFixed(2) + 'deg');
             el.style.setProperty('--ty', ty.toFixed(1) + 'px');
-            el.style.marginInlineEnd = (i < n - 1 ? (isDenseHand ? -32 : overlap) : 0) + 'px';
+            el.style.marginInlineEnd = (i < n - 1 ? (isDenseHand ? 8 : overlap) : 0) + 'px';
             el.style.zIndex = i;
 
-            if (i === this.selectedCardIndex) el.classList.add('selected');
+            if (card.id === this._inspectedCardId) el.classList.add('selected');
 
             hc.appendChild(el);
         });
@@ -318,7 +322,7 @@ class MehGameRendererModule {
         });
 
         // إخفاء شريط التأكيد إن لم تعد هناك بطاقة مختارة أو ليس دور اللاعب
-        if (this.selectedCardIndex < 0 || !isHumanTurn) this.hideConfirmBar();
+        this._renderCardInspector();
 
         // مؤقّت الدور المرئي (أونلاين): يبدأ مرة واحدة عند بدء دوري
         const myTurn = this.online && this.humanCanPlay;
@@ -347,6 +351,8 @@ class MehGameRendererModule {
         // أونلاين: المضيف يبثّ الحالة لكل العملاء بعد كل تحديث
         if (this.online && this.isHost) this.broadcastGameState();
         this._updateTablePresentation();
+        this._renderDecisionContext();
+        this._renderTacticalStatus();
     }
 
     showGameMessage(text) {

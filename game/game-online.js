@@ -333,7 +333,7 @@ class MehGameOnlineModule {
         } else if (msg.t === 'journal') {
             const text = this._safeText(msg.text, 160);
             const reason = this._safeText(msg.reason, 240);
-            if (!text || !reason || !['play', 'draw', 'effect', 'system'].includes(msg.kind)) return false;
+            if (!text || !reason || !['play', 'draw', 'effect', 'system', 'penalty', 'skip', 'decision'].includes(msg.kind)) return false;
             this._recordActionJournal(text, reason, msg.kind, false);
         } else if (msg.t === 'rejected') {
             if (this._joinRejected) return true;
@@ -698,7 +698,9 @@ class MehGameOnlineModule {
             const title = this._safeText(msg.title, 120);
             const opt1 = this._safeText(msg.opt1, 80);
             const opt2 = this._safeText(msg.opt2, 80);
-            return title && opt1 && opt2 ? { kind: 'choice', promptId: msg.promptId, title, opt1, opt2 } : null;
+            const warning = msg.warning ? this._safeText(msg.warning, 160) : '';
+            if (msg.warning && !warning) return null;
+            return title && opt1 && opt2 ? { kind: 'choice', promptId: msg.promptId, title, opt1, opt2, warning } : null;
         }
         if (msg.kind === 'target') {
             if (!Array.isArray(msg.options) || msg.options.length < 1 || msg.options.length > 3) return null;
@@ -710,9 +712,11 @@ class MehGameOnlineModule {
                 const name = this._safePlayerName(option.name);
                 if (!name) return null;
                 seen.add(option.idx);
-                options.push({ idx: option.idx, name });
+                const count = option.count;
+                if (count !== undefined && (!Number.isSafeInteger(count) || count < 0 || count > 60)) return null;
+                options.push({ idx: option.idx, name, count });
             }
-            return { kind: 'target', promptId: msg.promptId, options };
+            return { kind: 'target', promptId: msg.promptId, options, title: this._safeText(msg.title, 120) };
         }
         if (msg.kind === 'card') {
             if (!Array.isArray(msg.options) || msg.options.length < 1 || msg.options.length > 60) return null;
@@ -728,7 +732,9 @@ class MehGameOnlineModule {
                 seen.add(option.id);
                 options.push({ id: option.id, name });
             }
-            return { kind: 'card', promptId: msg.promptId, title, options };
+            const targetName = msg.targetName ? this._safePlayerName(msg.targetName) : '';
+            if (msg.targetName && !targetName) return null;
+            return { kind: 'card', promptId: msg.promptId, title, options, targetName };
         }
         return null;
     }
@@ -737,7 +743,22 @@ class MehGameOnlineModule {
     showRemotePrompt(msg) {
         const prompt = this._normalizeRemotePrompt(msg);
         if (!prompt) return false;
-        const send = (value) => Net.send({ t: 'choice', promptId: prompt.promptId, value });
+        if (!this.players || !this.players[0] || !this.discardPile) return false;
+        if (prompt.kind === 'card' && prompt.options.some(option =>
+            !this.players[0].hand.some(card => card && card.id === option.id))) return false;
+        this.hideConfirmBar();
+        this._resolvingCard = this.topCard;
+        this._beginDecisionContext(this.players[0], prompt.kind, prompt);
+        this._clientPromptId = prompt.promptId;
+        const send = (value) => {
+            if (this._clientPromptId !== prompt.promptId) return;
+            this._clientPromptId = null;
+            this._decisionContext = null;
+            this._cardDecision = null;
+            this.hideConfirmBar();
+            this._renderDecisionContext();
+            Net.send({ t: 'choice', promptId: prompt.promptId, value });
+        };
         if (prompt.kind === 'color') {
             this.isAwaitingColor = false;
             this.setDialogOpen(UI.colorPicker, true);
@@ -749,29 +770,24 @@ class MehGameOnlineModule {
                 };
             });
         } else if (prompt.kind === 'choice') {
-            this.showChoiceModal(prompt.title, prompt.opt1, prompt.opt2, () => send(0), () => send(1));
+            this.showChoiceModal([prompt.title, prompt.warning].filter(Boolean).join(' '),
+                prompt.opt1, prompt.opt2, () => send(0), () => send(1));
         } else if (prompt.kind === 'target') {
             const heading = UI.playerPicker && UI.playerPicker.querySelector('h3');
-            if (heading) heading.textContent = I18n.t('choose_player');
+            if (heading) heading.textContent = this._decisionContext.title;
             UI.playerPickerList.replaceChildren();
             prompt.options.forEach(o => {
                 const btn = document.createElement('button');
-                btn.type = 'button'; btn.className = 'picker-btn'; btn.textContent = o.name;
+                btn.type = 'button'; btn.className = 'picker-btn';
+                btn.textContent = Number.isSafeInteger(o.count) ? I18n.t('decision_count', { name: o.name, n: o.count }) : o.name;
                 btn.onclick = () => { this.setDialogOpen(UI.playerPicker, false); send(o.idx); };
                 UI.playerPickerList.appendChild(btn);
             });
             this.setDialogOpen(UI.playerPicker, true);
         } else if (prompt.kind === 'card') {
-            const heading = UI.playerPicker && UI.playerPicker.querySelector('h3');
-            if (heading) heading.textContent = prompt.title;
-            UI.playerPickerList.replaceChildren();
-            prompt.options.forEach(option => {
-                const btn = document.createElement('button');
-                btn.type = 'button'; btn.className = 'picker-btn'; btn.textContent = option.name;
-                btn.onclick = () => { this.setDialogOpen(UI.playerPicker, false); send(option.id); };
-                UI.playerPickerList.appendChild(btn);
-            });
-            this.setDialogOpen(UI.playerPicker, true);
+            this._cardDecision = { ids: prompt.options.map(option => option.id), targetName: prompt.targetName, resolve: send };
+            this.updateUI();
+            this.focusTurnAction();
         }
         return true;
     }
@@ -869,6 +885,14 @@ class MehGameOnlineModule {
             skipped.push(index);
         }
 
+        const shields = state.shields === undefined ? [] : state.shields;
+        if (!Array.isArray(shields) || shields.length > playerCount
+            || new Set(shields).size !== shields.length
+            || shields.some(index => !Number.isSafeInteger(index) || index < 0 || index >= playerCount)) return null;
+        if (state.powersDisabled !== undefined && typeof state.powersDisabled !== 'boolean') return null;
+        const sugarOwner = state.sugarOwner === undefined ? -1 : state.sugarOwner;
+        if (!Number.isSafeInteger(sugarOwner) || sugarOwner < -1 || sugarOwner >= playerCount) return null;
+
         return {
             me: { name: meName, avatar: meAvatar },
             hand,
@@ -880,6 +904,9 @@ class MehGameOnlineModule {
             current: state.current,
             pending: state.pending,
             skipped,
+            shields: shields.slice(),
+            powersDisabled: state.powersDisabled === true,
+            sugarOwner,
             canPlay: state.canPlay,
         };
     }
@@ -1001,6 +1028,10 @@ class MehGameOnlineModule {
                 activeColor: this.activeColor, direction: this.direction,
                 current: rot(this.currentPlayerIndex), pending: this.pendingDraws,
                 skipped,
+                powersDisabled: this.superpowersDisabled === true,
+                sugarOwner: this.players.some(player => player.id === this._sugarOwnerId)
+                    ? rot(this.players.findIndex(player => player.id === this._sugarOwnerId)) : -1,
+                shields: this.players.map((player, index) => this.drawImmune[player.id] ? rot(index) : -1).filter(index => index >= 0),
                 canPlay: (this.currentPlayerIndex === k) && me.isRemote && !!this.awaitingRemote && !this.actionInProgress,
             });
         });
@@ -1032,7 +1063,18 @@ class MehGameOnlineModule {
         this.pendingDraws = s.pending;
         this.skipNextMap = {};
         (s.skipped || []).forEach(idx => { if (players[idx]) this.skipNextMap[players[idx].id] = true; });
+        this.superpowersDisabled = s.powersDisabled;
+        this._sugarOwnerId = players[s.sugarOwner] ? players[s.sugarOwner].id : null;
+        this.drawImmune = {};
+        (s.shields || []).forEach(index => { this.drawImmune[players[index].id] = true; });
         this.humanCanPlay = !!s.canPlay;
+        if (this._clientPromptId && (s.current !== 0 || s.canPlay)) {
+            this._clientPromptId = null;
+            this._decisionContext = null;
+            this._cardDecision = null;
+            [UI.playerPicker, UI.colorPicker, UI.choiceModal].filter(Boolean).forEach(panel => this.setDialogOpen(panel, false));
+            this.hideConfirmBar();
+        }
         this.actionInProgress = false;
         this.isAwaitingColor = false;
         if (this.selectedCardIndex >= (this.players[0].hand.length)) this.selectedCardIndex = -1;

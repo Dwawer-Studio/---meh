@@ -4,6 +4,8 @@ class MehGameGuidanceModule {
     _initializeGuidance() {
         this._guidanceSeen = new Set();
         this._actionJournal = [];
+        this._journalSequence = 0;
+        this._lastSkipReason = {};
         this._latestActionReason = '';
         const journalButton = document.getElementById('journal-toggle-btn');
         if (journalButton) journalButton.classList.toggle('hidden', !this._productFeatureEnabled('action_journal'));
@@ -13,6 +15,8 @@ class MehGameGuidanceModule {
         document.getElementById('context-tip-why').onclick = () => this._openActionJournal();
         document.getElementById('journal-toggle-btn').onclick = () => this._openActionJournal();
         document.getElementById('journal-close-btn').onclick = () => this._closeActionJournal();
+        const latest = document.getElementById('last-table-action');
+        if (latest) latest.onclick = () => this._openActionJournal();
     }
 
     _showGuidance(key, message, reason) {
@@ -48,7 +52,8 @@ class MehGameGuidanceModule {
         if (!this._productFeatureEnabled('action_journal')) return false;
         if (typeof text !== 'string' || !text.trim()) return false;
         if (!Array.isArray(this._actionJournal)) this._actionJournal = [];
-        const entry = { sequence: this._actionJournal.length + 1, text: text.trim(), reason: reason || text, kind };
+        const entry = { sequence: this._journalSequence = (this._journalSequence || 0) + 1,
+            text: text.trim(), reason: reason || text, kind };
         this._actionJournal.push(entry);
         if (this._actionJournal.length > 20) this._actionJournal.shift();
         this._latestActionReason = entry.reason;
@@ -63,10 +68,22 @@ class MehGameGuidanceModule {
         const list = document.getElementById('action-journal-list');
         const reason = document.getElementById('action-reason');
         if (list) {
-            list.replaceChildren(...this._actionJournal.slice().reverse().map(entry =>
-                this._createTextElement('li', `journal-entry journal-${entry.kind}`, entry.text)));
+            list.replaceChildren(...this._actionJournal.slice().reverse().map(entry => {
+                const item = this._createTextElement('li', `journal-entry journal-${entry.kind}`, '');
+                const detail = document.createElement('details');
+                detail.appendChild(this._createTextElement('summary', '', entry.text));
+                detail.appendChild(this._createTextElement('p', '', entry.reason));
+                item.appendChild(detail);
+                return item;
+            }));
         }
         if (reason) reason.textContent = this._latestActionReason || I18n.t('journal_no_reason');
+        const latest = document.getElementById('last-table-action');
+        if (latest) {
+            const entry = this._actionJournal[this._actionJournal.length - 1];
+            latest.textContent = entry ? entry.text : '';
+            latest.classList.toggle('hidden', !entry);
+        }
     }
 
     _openActionJournal() {
@@ -77,6 +94,44 @@ class MehGameGuidanceModule {
         journal.inert = false;
         journal.setAttribute('aria-hidden', 'false');
         document.getElementById('journal-close-btn').focus();
+    }
+
+    _consumeServiceJournal(match, seats) {
+        const marker = this._serviceJournalCursor;
+        const after = marker && marker.matchId === match.matchId ? marker.version : -1;
+        const players = seats.map(seat => ({ id: seat.seatId, name: seat.displayName }));
+        const named = id => (players.find(player => player.id === id) || {}).name || I18n.t('guest');
+        for (const group of match.journal || []) {
+            if (group.version <= after) continue;
+            const definition = group.card && MEH_CATALOG_MANIFEST.definitions.find(item => item.definitionId === group.card.definitionId);
+            const card = definition && { name: definition.nameAr, type: definition.type, color: group.card.color };
+            const cause = card ? I18n.t('journal_played', { name: named(group.actorId), card: I18n.cardName(card) }) : '';
+            const effect = card ? CardInsight.describe(card, { ...group.before, players,
+                actorIndex: players.findIndex(player => player.id === group.actorId), discardComplete: false },
+            (key, params) => I18n.t(key, params)).description : '';
+            for (const event of group.events) {
+                const name = named(event.seatId);
+                if (event.type === 'card.committed') this._recordActionJournal(cause, effect || cause, 'play', false);
+                else if (event.type === 'effect.applied' || event.type === 'effect.suppressed') {
+                    this._recordActionJournal(I18n.t('journal_effect', { card: card ? I18n.cardName(card) : '', effect }), cause, 'effect', false);
+                } else if (event.type === 'cards.drawn') {
+                    this._recordActionJournal(I18n.t('journal_draw_count', { name, n: event.count }), cause || I18n.t('draw_card'), 'draw', false);
+                } else if (event.type === 'draw.blocked') {
+                    this._recordActionJournal(I18n.t('phantom_shield', { name }), cause || I18n.t('insight_phantom'), 'effect', false);
+                } else if (event.type === 'turn.skipped') {
+                    this._recordActionJournal(I18n.t('journal_skipped', { name }), cause || I18n.t('skips_turn', { name }), 'skip', false);
+                } else if (event.type === 'powers.restored') {
+                    this._recordActionJournal(I18n.t('journal_powers_restored', { name }), I18n.t('insight_sugar'), 'effect', false);
+                } else if (event.type === 'cards.discarded') {
+                    this._recordActionJournal(I18n.t('discarded_n', { name, n: event.count }), cause, 'decision', false);
+                } else if (event.type === 'card.given') {
+                    this._recordActionJournal(I18n.t('gave_card', { name: named(group.actorId), target: name }), cause, 'decision', false);
+                } else if (event.type === 'color.chosen') {
+                    this._recordActionJournal(I18n.t('chose_color', { name, color: I18n.colorName(event.color) }), cause, 'decision', false);
+                }
+            }
+            this._serviceJournalCursor = { matchId: match.matchId, version: group.version };
+        }
     }
 
     _closeActionJournal() {

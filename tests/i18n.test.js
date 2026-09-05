@@ -4,9 +4,9 @@ const fs = require('node:fs');
 const path = require('node:path');
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { GAME_RUNTIME_SCRIPTS, ROOT, loadScript } = require('./helpers/load-script');
+const { GAME_RUNTIME_SCRIPTS, ROOT, loadScript, loadScripts } = require('./helpers/load-script');
 
-const { I18n } = loadScript('i18n.js', ['I18n']);
+const { I18n } = loadScripts(['i18n.js', 'ui/experience-copy.js'], ['I18n']);
 const { Deck } = loadScript('deck.js', ['Deck']);
 
 test('Arabic and English dictionaries contain the same keys', () => {

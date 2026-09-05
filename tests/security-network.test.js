@@ -106,8 +106,10 @@ test('SEC-01: card fallback never interpolates remote card fields into innerHTML
     const image = cardElement.children[0];
 
     assert.doesNotThrow(() => image.onerror());
-    assert.equal(cardElement.children[0].children[0].textContent, card.emoji);
-    assert.equal(cardElement.children[1].textContent, card.name);
+    assert.equal(cardElement.children[0], image, 'retain the original image for recovery');
+    const label = cardElement.children.find(child => child.className === 'art-error-label');
+    assert.ok(label.textContent.includes(card.name), 'untrusted names stay literal text');
+    assert.ok(!cardElement.children.some(child => child.textContent === card.emoji), 'do not replace artwork with emoji');
 });
 
 test('NET-01: an invalid remote play does not cancel the active turn timer', () => {
@@ -240,7 +242,7 @@ test('RULE-02: remote card prompts reject malformed or duplicate options', () =>
 
     assert.deepEqual(
         JSON.parse(JSON.stringify(game._normalizeRemotePrompt(valid))),
-        { kind: 'card', promptId: 4, title: valid.title, options: valid.options },
+        { kind: 'card', promptId: 4, title: valid.title, options: valid.options, targetName: '' },
     );
     assert.equal(game._normalizeRemotePrompt({
         ...valid,
@@ -272,6 +274,10 @@ test('RULE-02: a remote player can choose the exact card used by an effect', () 
         Net: { send(message) { sent.push(message); } },
     });
     const game = Object.create(MehGame.prototype);
+    game.players = [{ id: 'seat-0', hand: [{ id: 'card123' }, { id: 'card456' }] }];
+    game.discardPile = [{ name: 'بوشلاخ', type: 'boShlakh' }];
+    game.updateUI = () => {};
+    game.focusTurnAction = () => {};
 
     assert.equal(game.showRemotePrompt({
         t: 'prompt',
@@ -283,9 +289,11 @@ test('RULE-02: a remote player can choose the exact card used by an effect', () 
             { id: 'card456', name: 'بطاقة ثانية' },
         ],
     }), true);
-    assert.equal(pickerList.children.length, 2);
-
-    pickerList.children[1].onclick();
+    assert.deepEqual(Array.from(game._cardDecision.ids), ['card123', 'card456']);
+    assert.equal(game._decisionContext.kind, 'card');
+    game._inspectedCardId = 'card456';
+    game._confirmCardDecision();
+    assert.equal(game._cardDecision, null);
 
     assert.deepEqual(
         JSON.parse(JSON.stringify(sent)),
@@ -366,6 +374,14 @@ test('SEC-01: remote card state is rebuilt from the trusted local catalogue', ()
     assert.match(normalized.hand[0].svgFile, /^assets\/cards\//);
     assert.notEqual(normalized.hand[0].svgFile, state.hand[0].svgFile);
     assert.notEqual(normalized.top.emoji, state.top.emoji);
+    const effects = game._normalizeGameState({ ...state, shields: [0], powersDisabled: true, sugarOwner: 0 });
+    assert.deepEqual(Array.from(effects.shields), [0]);
+    assert.equal(effects.powersDisabled, true);
+    assert.equal(effects.sugarOwner, 0);
+    assert.equal(game._normalizeGameState({ ...state, shields: [4] }), null);
+    assert.equal(game._normalizeGameState({ ...state, shields: [0, 0] }), null);
+    assert.equal(game._normalizeGameState({ ...state, sugarOwner: 4 }), null);
+    assert.equal(game._normalizeGameState({ ...state, powersDisabled: 'yes' }), null);
 
     state.hand[0].name = '<img src=x onerror=alert(1)>';
     assert.equal(game._normalizeGameState(state), null);

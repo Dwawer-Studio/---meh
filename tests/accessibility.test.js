@@ -45,6 +45,7 @@ function createDocument() {
                 children: [],
                 className: '',
                 classList: makeClassList(),
+                dataset: {},
                 style: { setProperty() {} },
                 appendChild(child) { this.children.push(child); return child; },
                 replaceChildren(...children) { this.children = children; },
@@ -124,8 +125,8 @@ test('A11Y-01: a playable card is a named native button', () => {
     game.humanCanPlay = true;
     game.isAwaitingColor = false;
     game.actionInProgress = false;
-    let selected = -1;
-    game.selectCard = index => { selected = index; };
+    let selected = null;
+    game.inspectCard = id => { selected = id; };
 
     const element = game.createCardElement({
         id: 'card1', color: 'orange', name: 'بطاقة', emoji: '🃏', svgFile: 'card.webp',
@@ -135,24 +136,27 @@ test('A11Y-01: a playable card is a named native button', () => {
     assert.equal(element.type, 'button');
     assert.match(element.getAttribute('aria-label'), /بطاقة/);
     element.onclick();
-    assert.equal(selected, 2);
+    assert.equal(selected, 'card1');
 });
 
-test('A11Y-01: a temporarily unavailable human card stays a disabled button', () => {
+test('A11Y-01: an unavailable card remains keyboard-inspectable without committing a play', () => {
     const document = createDocument();
     const MehGame = loadAccessibleGame(document);
     const game = Object.create(MehGame.prototype);
     game.players = [{ id: 'human', isBot: false }];
     game.currentPlayerIndex = 0;
     game.selectedCardIndex = -1;
+    let inspected = null;
+    game.inspectCard = id => { inspected = id; };
 
     const element = game.createCardElement({
         id: 'card2', color: 'gray', name: 'غير متاحة', emoji: '🃏', svgFile: 'card.webp',
     }, false, false, 1);
 
     assert.equal(element.tagName, 'BUTTON');
-    assert.equal(element.disabled, true);
-    assert.equal(element.onclick, undefined);
+    assert.equal(element.disabled, false);
+    element.onclick();
+    assert.equal(inspected, 'card2');
 });
 
 test('A11Y-01: selecting a card moves focus to confirmation', () => {
@@ -165,6 +169,7 @@ test('A11Y-01: selecting a card moves focus to confirmation', () => {
     const game = Object.create(MehGame.prototype);
     game.updateUI = () => {};
     game.selectedCardIndex = -1;
+    game.players = [{ hand: [0, 1, 2, 3].map(index => ({ id: `card-${index}` })) }];
 
     game.selectCard(3);
 

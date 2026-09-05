@@ -40,6 +40,7 @@ test('UIX-7 removes the legacy stylesheet and temporary UI flag completely', () 
         'ui/screens/social.css',
         'ui/screens/catalog.css',
         'ui/motion.css',
+        'ui/experience.css',
         'ui/accessibility.css',
     ]);
 });

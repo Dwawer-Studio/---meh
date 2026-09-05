@@ -6,6 +6,8 @@ const vm = require('node:vm');
 
 const ROOT = path.resolve(__dirname, '..', '..');
 const GAME_RUNTIME_SCRIPTS = Object.freeze([
+    'ui/experience-copy.js',
+    'game/card-insight.js',
     'product/release-config.js',
     'product/experiment-assignment.js',
     'product/feature-flags.js',
@@ -15,6 +17,7 @@ const GAME_RUNTIME_SCRIPTS = Object.freeze([
     'game/game-invite.js',
     'game/game-table.js',
     'game/game-guidance.js',
+    'game/game-inspector.js',
     'game/game-config.js',
     'game/game-profile.js',
     'game/game-catalog.js',

@@ -127,6 +127,15 @@ class MehGameAuthoritativeModule {
 
         const match = payload.match;
         if (!match || viewerIndex < 0) return false;
+        if (this._abortAuthoritativeDecision && match.turnId !== this._decisionTurnId) {
+            this._abortAuthoritativeDecision();
+            this._abortAuthoritativeDecision = null;
+            this._decisionContext = null;
+            this._cardDecision = null;
+            this._colorCallback = null;
+            this.hideConfirmBar();
+            [UI.colorPicker, UI.playerPicker, UI.choiceModal].filter(Boolean).forEach(panel => this.setDialogOpen(panel, false));
+        }
         if (match.phase === 'ACTIVE' && this._authoritativeMatchId !== room.matchId) {
             this._authoritativeMatchId = room.matchId;
             this._authoritativeInMatch = true;
@@ -157,16 +166,21 @@ class MehGameAuthoritativeModule {
                 current: rotatedSeats.findIndex(seat => seat.seatId === match.currentPlayerId),
                 pending: match.pendingDraws,
                 skipped: match.skippedSeatIds.map(id => rotatedSeats.findIndex(seat => seat.seatId === id)).filter(index => index >= 0),
+                powersDisabled: match.superpowersDisabled === true,
+                sugarOwner: rotatedSeats.findIndex(seat => seat.seatId === match.sugarOwnerId),
+                shields: (match.immuneSeatIds || []).map(id => rotatedSeats.findIndex(seat => seat.seatId === id)).filter(index => index >= 0),
                 canPlay: match.currentPlayerId === viewerSeatId,
             };
             this.online = true;
             this.isHost = false;
             this.applyState(normalized);
+            this._consumeServiceJournal(match, seats);
             this._startTurnCountdownVisual(10);
             document.body.classList.add('turn-ticking');
             return true;
         }
         if (match.phase === 'COMPLETE' && this._authoritativeCompletedMatchId !== room.matchId) {
+            this._consumeServiceJournal(match, seats);
             this._authoritativeCompletedMatchId = room.matchId;
             this._authoritativeInMatch = false;
             const winnerSeat = seats.find(seat => seat.seatId === match.winnerId);
@@ -224,17 +238,22 @@ class MehGameAuthoritativeModule {
 
     async _submitAuthoritativePlay(card) {
         if (!card || !this._authoritativeClient || !this._authoritativeMatchView) return false;
+        const turnId = this._authoritativeMatchView.turnId;
+        this._decisionTurnId = turnId;
         this.humanCanPlay = false;
         this.actionInProgress = true;
         try {
             const decision = await this._authoritativeDecision(card);
-            await this._authoritativeClient.play(card.id, this._authoritativeMatchView.turnId, decision);
+            this._abortAuthoritativeDecision = null;
+            if (this._authoritativeMatchView.turnId !== turnId) throw new Error('STALE_TURN');
+            await this._authoritativeClient.play(card.id, turnId, decision);
             this._trackProductEvent('action.committed', { actor: 'self', action: 'play', definitionId: card.definitionId });
             return true;
         } catch (error) {
+            this._abortAuthoritativeDecision = null;
             this.actionInProgress = false;
-            this.humanCanPlay = true;
-            this.showToast(I18n.t('conn_error'));
+            this.humanCanPlay = this.currentPlayerIndex === 0;
+            this.showToast(I18n.t(error.message === 'STALE_TURN' ? 'decision_expired' : 'conn_error'));
             this.updateUI();
             return false;
         }
@@ -258,25 +277,31 @@ class MehGameAuthoritativeModule {
     }
 
     async _authoritativeDecision(card) {
+        this._resolvingCard = card;
         const actor = this.players[0];
         const powerTypes = ['chameleon', 'boShlakh', 'hamour', 'nokhtha', 'dramaQueen', 'sugar', 'umWajhain'];
         if (this.superpowersDisabled && powerTypes.includes(card.type)) return null;
-        const ask = (kind, data) => new Promise(resolve => this.requestEffectDecision(actor, kind, data, resolve));
+        const ask = (kind, data) => new Promise((resolve, reject) => {
+            this._abortAuthoritativeDecision = () => reject(new Error('STALE_TURN'));
+            this.requestEffectDecision(actor, kind, data, resolve);
+        });
         const targets = this.players.slice(1).map((player, index) => ({ idx: index + 1, name: player.name }));
         if (['meh', 'draw4Wild', 'wild'].includes(card.type)) {
             return { color: await ask('color', {}) };
         }
         if (card.type === 'bestOne') {
+            const target = this.players[this.nextPlayerIndex(0)];
             return { choice: await ask('choice', {
-                title: I18n.t('best_one_choice', { name: this.players[1].name }),
+                title: I18n.t('best_one_choice', { name: target.name }),
                 opt1: I18n.t('throw_two'), opt2: I18n.t('draw_two'),
+                targetId: target.id, discardCount: 2,
             }) };
         }
         if (card.type === 'chameleon') {
             const targetIndex = await ask('target', { options: targets });
             const remaining = actor.hand.filter(item => item && item.id !== card.id);
             const decision = { targetId: this._authoritativeSeatIds[targetIndex] };
-            if (remaining.length) decision.cardId = await this._authoritativePickCard(remaining);
+            if (remaining.length) decision.cardId = await this._authoritativePickCard(remaining, this.players[targetIndex].name);
             return decision;
         }
         if (card.type === 'boShlakh') {
@@ -288,29 +313,22 @@ class MehGameAuthoritativeModule {
             const choice = await ask('choice', {
                 title: I18n.t('um_choice', { name: this.players[targetIndex].name }),
                 opt1: I18n.t('um_discard'), opt2: I18n.t('um_draw'),
+                targetId: this.players[targetIndex].id, discardCount: 1,
             });
             return { targetId: this._authoritativeSeatIds[targetIndex], choice };
         }
         return null;
     }
 
-    _authoritativePickCard(cards) {
-        return new Promise(resolve => {
-            const heading = UI.playerPicker && UI.playerPicker.querySelector('h3');
-            if (heading) heading.textContent = I18n.t('choose_card');
-            UI.playerPickerList.replaceChildren();
-            cards.forEach(card => {
-                const button = document.createElement('button');
-                button.type = 'button';
-                button.className = 'picker-btn';
-                button.textContent = I18n.cardName(card);
-                button.onclick = () => {
-                    this.setDialogOpen(UI.playerPicker, false);
-                    resolve(card.id);
-                };
-                UI.playerPickerList.appendChild(button);
-            });
-            this.setDialogOpen(UI.playerPicker, true);
+    _authoritativePickCard(cards, targetName) {
+        return new Promise((resolve, reject) => {
+            this._abortAuthoritativeDecision = () => reject(new Error('STALE_TURN'));
+            this.requestEffectDecision(this.players[0], 'card', {
+                owner: this.players[0],
+                options: cards.map(card => ({ id: card.id, name: I18n.cardName(card) })),
+                title: I18n.t('choose_card'),
+                targetName,
+            }, resolve);
         });
     }
 

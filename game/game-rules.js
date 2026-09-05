@@ -2,6 +2,9 @@
 
 class MehGameRuleModule {
     startGame() {
+        this._decisionContext = null;
+        this._cardDecision = null;
+        this._resolvingCard = null;
         this._clearOnlineRuntime();
         this.online = false; this.isHost = false; this.awaitingRemote = false;
         Net.close();
@@ -11,6 +14,7 @@ class MehGameRuleModule {
         this.deck = new Deck();
         this.discardPile = [];
         this.pendingDraws = 0;
+        this._pendingDrawReason = '';
         this.direction = 1;
         this.currentPlayerIndex = 0;
         this.isAwaitingColor = false;
@@ -115,7 +119,8 @@ class MehGameRuleModule {
         if (!card) return false;
         return this.pendingDraws > 0
             ? this.canRespondToPendingDraw(card)
-            : card.isPlayable(this.topCard, this.activeColor);
+            : (typeof card.isPlayable === 'function' ? card.isPlayable(this.topCard, this.activeColor)
+                : card.color === 'black' || card.color === this.activeColor || (this.topCard && card.name === this.topCard.name));
     }
 
     updateSugarLockForTurn(player) {
@@ -146,7 +151,8 @@ class MehGameRuleModule {
         this.clearTurnTimer();
         this.selectedCardIndex = -1;
         this.humanCanPlay = false;
-        this.hideConfirmBar();
+        this._decisionContext = null;
+        this._resolvingCard = null;
         this.currentPlayerIndex = this.nextPlayerIndex();
         this.updateUI();
         this.playTurn();
@@ -171,6 +177,8 @@ class MehGameRuleModule {
             delete this.skipNextMap[player.id];
             Sound.play('skip');
             this.showToast(I18n.t('skips_turn', { name: player.name }));
+            this._recordActionJournal(I18n.t('journal_skipped', { name: player.name }),
+                this._lastSkipReason && this._lastSkipReason[player.id] || I18n.t('skips_turn', { name: player.name }), 'skip');
             setTimeout(() => this.advanceTurn(), 1000);
             return;
         }
@@ -184,6 +192,7 @@ class MehGameRuleModule {
                 this.showGameMessage(I18n.t('m_plus', { n: this.pendingDraws }));
                 this.drawMultiple(player, this.pendingDraws, () => {
                     this.pendingDraws = 0;
+                    this._pendingDrawReason = '';
                     this.advanceTurn();
                 });
                 return;
@@ -283,16 +292,16 @@ class MehGameRuleModule {
 
     // ===== تأكيد رمي البطاقة =====
     selectCard(index) {
-        this.selectedCardIndex = index;
-        Sound.play('card-lift');
-        this.updateUI();
-        UI.confirmBar.classList.remove('hidden');
-        const confirmButton = document.getElementById('confirm-play-btn');
-        if (confirmButton) confirmButton.focus();
+        const card = this.players[0] && this.players[0].hand[index];
+        if (card) this.inspectCard(card.id);
     }
     confirmSelectedCard() {
-        if (this.selectedCardIndex < 0 || !this.humanCanPlay) return;
-        const idx = this.selectedCardIndex;
+        if (this._cardDecision) { this._confirmCardDecision(); return; }
+        if ((!this._inspectedCardId && this.selectedCardIndex < 0) || !this.humanCanPlay || this.currentPlayerIndex !== 0) return;
+        const idx = this._inspectedCardId
+            ? this.players[0].hand.findIndex(card => card.id === this._inspectedCardId) : this.selectedCardIndex;
+        const selected = this.players[0] && this.players[0].hand[idx];
+        if (!selected || this.actionInProgress || this.isAwaitingColor || this._localPaused || !this.isCardPlayableNow(selected)) return;
         if (this._authoritativeClient) {
             const card = this.players[0] && this.players[0].hand[idx];
             this.selectedCardIndex = -1;
@@ -318,7 +327,11 @@ class MehGameRuleModule {
         this.focusTurnAction();
     }
     hideConfirmBar() {
-        if (UI.confirmBar) UI.confirmBar.classList.add('hidden');
+        this._inspectedCardId = null;
+        if (UI.confirmBar) {
+            UI.confirmBar.classList.add('hidden');
+            UI.confirmBar.setAttribute('aria-hidden', 'true');
+        }
     }
 
     // ===== DRAW ANIMATIONS =====
@@ -341,7 +354,7 @@ class MehGameRuleModule {
         area.appendChild(badge);
         setTimeout(() => badge.remove(), 2200);
 
-        const reason = this._latestActionReason || I18n.t('reason_counter');
+        const reason = this._pendingDrawReason || this._latestActionReason || I18n.t('reason_counter');
         const reasonBanner = document.createElement('div');
         reasonBanner.className = 'penalty-reason-banner';
         reasonBanner.setAttribute('role', 'status');
@@ -357,11 +370,14 @@ class MehGameRuleModule {
             delete this.drawImmune[player.id];
             this.showGameMessage('🦇');
             this.showToast(I18n.t('phantom_shield', { name: player.name }));
+            this._recordActionJournal(I18n.t('phantom_shield', { name: player.name }), I18n.t('insight_phantom'), 'effect');
             Sound.play('skip');
             setTimeout(() => callback && callback(), 400);
             return;
         }
         this.showDrawPenalty(player, count);
+        this._recordActionJournal(I18n.t('journal_penalty', { name: player.name, n: count }),
+            this._pendingDrawReason || this._latestActionReason || I18n.t('reason_counter'), 'penalty');
         Sound.play('penalty-double');
         UI.drawPile.classList.add('dealing');
 
@@ -394,8 +410,11 @@ class MehGameRuleModule {
         this.clearTurnTimer();
         let startRect = null;
         const container = document.getElementById(player.containerId);
-        if (container && container.children[cardIndex]) {
-            startRect = container.children[cardIndex].getBoundingClientRect();
+        const playedId = player.hand[cardIndex] && player.hand[cardIndex].id;
+        const sourceElement = container && ([...container.children].find(element => element.dataset && element.dataset.cardId === playedId)
+            || container.children[cardIndex]);
+        if (sourceElement) {
+            startRect = sourceElement.getBoundingClientRect();
         }
 
         const previousTop = this.topCard;
@@ -403,7 +422,7 @@ class MehGameRuleModule {
         const card = player.hand.splice(cardIndex, 1)[0];
         if (!card) return;
         this._recordActionJournal(
-            I18n.t('journal_played', { name: player.name, card: I18n.cardName(card.name) }),
+            I18n.t('journal_played', { name: player.name, card: I18n.cardName(card) }),
             this._cardPlayReason(card, previousTop, previousActiveColor),
             'play',
         );
@@ -434,10 +453,16 @@ class MehGameRuleModule {
     }
 
     processEffect(card, player) {
+        this._resolvingCard = card;
+        if (!this._lastSkipReason) this._lastSkipReason = {};
+        const skipReason = I18n.t('journal_played', { name: player.name, card: I18n.cardName(card) });
+        if (['draw2', 'draw4Wild', 'meh', 'counterAttack'].includes(card.type)) {
+            this._pendingDrawReason = [this.pendingDraws > 0 ? this._pendingDrawReason : '', skipReason]
+                .filter(Boolean).join(' ← ').slice(-230);
+        } else if (card.type === 'phantom') this._pendingDrawReason = '';
         if (card.type !== 'normal') {
-            const description = (typeof I18n.cardDesc === 'function' && I18n.cardDesc(card.name))
-                || I18n.t('reason_legal_action');
-            this._recordActionJournal(I18n.cardName(card.name), description, 'effect');
+            const description = this._cardInsight(card, this.players.indexOf(player)).description;
+            this._recordActionJournal(I18n.t('journal_effect', { card: I18n.cardName(card), effect: description }), description, 'effect');
         }
         if (player.hand.length === 1) this.showGameMessage(I18n.t('last_card'));
         if (player.hand.length === 0) { this.showGameMessage(I18n.t('m_meh_win')); }
@@ -457,6 +482,7 @@ class MehGameRuleModule {
                 this.showGameMessage(I18n.t('m_freeze'));
                 this.screenFx('skip');
                 this.skipNextMap[this.players[this.nextPlayerIndex()].id] = true;
+                this._lastSkipReason[this.players[this.nextPlayerIndex()].id] = skipReason;
                 this.updateUI();
                 this.finishTurn(card, player);
                 break;
@@ -498,6 +524,8 @@ class MehGameRuleModule {
                 const skip2 = this.nextPlayerIndex(skip1);
                 this.skipNextMap[this.players[skip1].id] = true;
                 this.skipNextMap[this.players[skip2].id] = true;
+                this._lastSkipReason[this.players[skip1].id] = skipReason;
+                this._lastSkipReason[this.players[skip2].id] = skipReason;
                 this.updateUI();
                 this.finishTurn(card, player);
                 break;
@@ -509,6 +537,7 @@ class MehGameRuleModule {
             case 'plato':
                 this.showGameMessage(I18n.t('m_plato'));
                 this.skipNextMap[player.id] = true;
+                this._lastSkipReason[player.id] = skipReason;
                 this.finishTurn(card, player);
                 break;
             case 'chameleon':
@@ -569,21 +598,43 @@ class MehGameRuleModule {
     }
 
     requestEffectDecision(player, kind, data, resolve) {
+        const applyDecision = resolve;
+        resolve = value => {
+            // Server decisions are intentions until acknowledged; its real events
+            // populate the journal. Local/PeerJS decisions commit here.
+            if (!this._authoritativeClient) this._journalEffectDecision(player, kind, data, value);
+            applyDecision(value);
+        };
         if (this.autoDecide(player)) {
             resolve(this._autoEffectDecision(player, kind, data));
             return;
         }
 
+        this.hideConfirmBar();
+        this._beginDecisionContext(player, kind, data);
+        const target = this.players.find(candidate => candidate.id === data.targetId);
+        const warning = target && target.hand.length <= (data.discardCount || 0)
+            ? I18n.t('decision_finish_warning', { name: target.name }) : '';
+        const finishDecision = resolve;
+        resolve = value => {
+            this._decisionContext = null;
+            this._cardDecision = null;
+            this._renderDecisionContext();
+            finishDecision(value);
+        };
+
         if (this.online && this.isHost && player.isRemote) {
-            const payload = {};
+            const payload = { title: this._decisionContext.title };
             if (kind === 'choice') {
                 payload.title = data.title;
                 payload.opt1 = data.opt1;
                 payload.opt2 = data.opt2;
+                payload.warning = warning;
             } else if (kind === 'target') {
-                payload.options = data.options.map(option => ({ idx: option.idx, name: option.name }));
+                payload.options = data.options.map(option => ({ idx: option.idx, name: option.name,
+                    count: this.players[option.idx].hand.length }));
             } else if (kind === 'card') {
-                payload.title = data.title;
+                payload.targetName = data.targetName || '';
                 payload.options = data.options.map(option => ({ id: option.id, name: option.name }));
             }
             this.promptRemote(kind, payload, resolve);
@@ -598,13 +649,14 @@ class MehGameRuleModule {
         }
         if (kind === 'target') {
             const heading = UI.playerPicker && UI.playerPicker.querySelector('h3');
-            if (heading) heading.textContent = I18n.t('choose_player');
+            if (heading) heading.textContent = this._decisionContext.title;
             UI.playerPickerList.replaceChildren();
             data.options.forEach(option => {
                 const btn = document.createElement('button');
                 btn.type = 'button';
                 btn.className = 'picker-btn';
-                btn.textContent = option.name;
+                const target = this.players[option.idx];
+                btn.textContent = I18n.t('decision_count', { name: option.name, n: target ? target.hand.length : 0 });
                 btn.onclick = () => {
                     this.setDialogOpen(UI.playerPicker, false);
                     resolve(option.idx);
@@ -615,26 +667,14 @@ class MehGameRuleModule {
             return;
         }
         if (kind === 'choice') {
-            this.showChoiceModal(data.title, data.opt1, data.opt2, () => resolve(0), () => resolve(1));
+            const title = [data.title, warning].filter(Boolean).join(' ');
+            this.showChoiceModal(title, data.opt1, data.opt2, () => resolve(0), () => resolve(1));
             return;
         }
         if (kind === 'card') {
-            const heading = UI.playerPicker && UI.playerPicker.querySelector('h3');
-            if (heading) heading.textContent = data.title;
-            const container = document.getElementById(data.owner.containerId);
-            if (!container) { resolve(data.options[0].id); return; }
-            const elements = container.querySelectorAll('.card');
-            elements.forEach((element, index) => {
-                const option = data.options[index];
-                if (!option) return;
-                element.classList.add('playable');
-                element.classList.remove('disabled');
-                element.disabled = false;
-                element.setAttribute('aria-label', `${I18n.t('choose_card')}: ${option.name}`);
-                element.onclick = () => resolve(option.id);
-            });
-            const firstCard = container.querySelector('.card.playable');
-            if (firstCard) firstCard.focus();
+            this._cardDecision = { ids: data.options.map(option => option.id), targetName: data.targetName, resolve };
+            this.updateUI();
+            this.focusTurnAction();
         }
     }
 
@@ -656,6 +696,20 @@ class MehGameRuleModule {
             return kind === 'target' ? option.idx : option.id;
         }
         return null;
+    }
+
+    _journalEffectDecision(player, kind, data, value) {
+        let choice = '';
+        if (kind === 'color') choice = I18n.colorName(value);
+        if (kind === 'choice') choice = value === 0 ? data.opt1 : data.opt2;
+        if (kind === 'target') choice = (this.players[value] || {}).name || '';
+        if (kind === 'card') {
+            // A donated card remains private. Only a discarded card is public.
+            choice = data.targetName ? I18n.t('gave_card', { name: player.name, target: data.targetName })
+                : (data.options.find(option => option.id === value) || {}).name || '';
+        }
+        if (choice) this._recordActionJournal(I18n.t('journal_decision', { name: player.name, choice }),
+            this._resolvingCard ? I18n.cardName(this._resolvingCard) : choice, 'decision');
     }
 
     handleWild(player, callback) {
@@ -692,6 +746,7 @@ class MehGameRuleModule {
             title: I18n.t('best_one_choice', { name: target.name }),
             opt1: I18n.t('throw_two'),
             opt2: I18n.t('draw_two'),
+            targetId: target.id, discardCount: 2,
             botChoice: 1,
         }, (choice) => {
             if (choice === 0) {
@@ -722,6 +777,7 @@ class MehGameRuleModule {
                     owner: player,
                     options,
                     title: I18n.t('pick_give'),
+                    targetName: target.name,
                 }, (cardId) => {
                     this._transferCard(player, target, cardId);
                     this.showToast(I18n.t('gave_card', { name: player.name, target: target.name }));
@@ -764,6 +820,7 @@ class MehGameRuleModule {
                 title: I18n.t('um_choice', { name: target.name }),
                 opt1: I18n.t('um_discard'),
                 opt2: I18n.t('um_draw'),
+                targetId: target.id, discardCount: 1,
                 botChoice: () => Math.random() > 0.5 ? 0 : 1,
             }, (choice) => {
                 if (choice === 0) {

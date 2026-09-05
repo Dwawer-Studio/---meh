@@ -19,6 +19,7 @@
     <link rel="stylesheet" href="ui/screens/social.css">
     <link rel="stylesheet" href="ui/screens/catalog.css">
     <link rel="stylesheet" href="ui/motion.css">
+    <link rel="stylesheet" href="ui/experience.css">
     <link rel="stylesheet" href="ui/accessibility.css">
 </head>
 <body>
@@ -765,14 +766,30 @@
             </div>
 
             <!-- شريط تأكيد رمي البطاقة -->
-            <div id="confirm-bar" class="confirm-bar hidden">
+            <div id="decision-context" class="decision-context hidden" role="status" aria-live="polite"></div>
+            <div id="table-state-summary" class="table-state-summary hidden" role="status"></div>
+            <button id="last-table-action" class="last-table-action hidden" type="button"
+                data-i18n-title="action_journal" title="سجل اللعب">سجل اللعب</button>
+            <div id="confirm-bar" class="confirm-bar card-inspector hidden" role="dialog" aria-modal="false" aria-labelledby="inspect-name">
+                <div class="inspector-art-wrap">
+                    <img id="inspect-art" src="assets/cards/card-back.webp" alt="" width="132" height="190">
+                    <button id="inspect-art-retry" class="hidden" type="button" data-i18n="art_retry">أعد تحميل الصورة</button>
+                </div>
+                <div class="inspector-copy">
+                    <span id="inspect-color" class="inspector-color"></span>
+                    <h2 id="inspect-name" data-i18n="inspect_card">افحص البطاقة</h2>
+                    <p class="inspector-eyebrow" data-i18n="inspect_now">أثرها الآن</p>
+                    <p id="inspect-effect"></p>
+                    <p id="inspect-cost"></p>
+                    <p id="inspect-legality" role="status"></p>
+                </div>
                 <button id="confirm-play-btn" class="btn primary-btn" type="button">
-                    <span data-i18n="confirm_play">العب البطاقة</span>
+                    <span id="inspect-confirm-label" data-i18n="confirm_play">العب البطاقة</span>
                     <svg class="ui-icon" aria-hidden="true"><use href="assets/ui/icons.svg#icon-arrow"></use></svg>
                 </button>
                 <button id="cancel-play-btn" class="btn secondary-btn" type="button">
                     <svg class="ui-icon" aria-hidden="true"><use href="assets/ui/icons.svg#icon-close"></use></svg>
-                    <span data-i18n="cancel">إلغاء</span>
+                    <span data-i18n="inspect_close">ارجع ليدك</span>
                 </button>
             </div>
             <section id="action-journal" class="action-journal hidden" role="dialog" aria-modal="false"
@@ -938,6 +955,8 @@
     <script src="deck.js"></script>
     <script src="vendor/qrcode-generator-1.4.4.js"></script>
     <script src="product/service-config.js"></script>
+    <script src="ui/experience-copy.js"></script>
+    <script src="game/card-insight.js"></script>
     <script src="product/release-config.js"></script>
     <script src="product/experiment-assignment.js"></script>
     <script src="product/feature-flags.js"></script>
@@ -947,6 +966,7 @@
     <script src="game/game-invite.js"></script>
     <script src="game/game-table.js"></script>
     <script src="game/game-guidance.js"></script>
+    <script src="game/game-inspector.js"></script>
     <script src="game/game-config.js"></script>
     <script src="game/game-profile.js"></script>
     <script src="game/game-catalog.js"></script>

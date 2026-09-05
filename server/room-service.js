@@ -270,7 +270,7 @@ class RoomService {
                 throw new RoomError(reduced.code);
             }
             this.reducer.assertCardConservation(reduced.state);
-            const view = this.reducer.publicView(reduced.state, seat.seatId);
+            const view = this._publicMatchView(reduced.state, seat.seatId);
             const ackBase = serverMessage('match.ack', {
                 ackRequestId: envelope.requestId,
                 stateVersion: reduced.state.stateVersion,
@@ -284,6 +284,7 @@ class RoomService {
                 resultFingerprint: this.reducer.fingerprint(reduced.state), ackBase,
                 nowIso: new Date(this.now()).toISOString(),
             });
+            this._notePublicJournal(current.room.matchState, reduced, action);
             this._metric('match.action_committed');
             let latest = await this.store.getRoom(roomId);
             const humanBroadcasts = this._views(latest.room, latest.seats);
@@ -316,6 +317,7 @@ class RoomService {
                 nowIso: new Date(this.now()).toISOString(),
             });
             let latest = await this.store.getRoom(roomId);
+            this._notePublicJournal(state, reduced, action);
             const timeoutBroadcast = {
                 serverSeq: committed.serverSeq,
                 views: this._views(latest.room, latest.seats),
@@ -464,6 +466,7 @@ class RoomService {
                 resultFingerprint: this.reducer.fingerprint(reduced.state),
                 nowIso: new Date(this.now()).toISOString(),
             });
+            this._notePublicJournal(state, reduced, action);
             current = await this.store.getRoom(current.room.roomId);
             broadcasts.push({ serverSeq: result.serverSeq, views: this._views(current.room, current.seats) });
         }
@@ -527,7 +530,7 @@ class RoomService {
 
     _oneView(room, seats, seat) {
         const payload = room.matchState
-            ? { room: this._publicRoom(room), seats: this._publicSeats(seats), match: this.reducer.publicView(room.matchState, seat.seatId) }
+            ? { room: this._publicRoom(room), seats: this._publicSeats(seats), match: this._publicMatchView(room.matchState, seat.seatId) }
             : { room: this._publicRoom(room), seats: this._publicSeats(seats), match: null };
         return serverMessage('room.snapshot', {
             serverSeq: room.serverSeq,
@@ -535,6 +538,18 @@ class RoomService {
             stateFingerprint: this.reducer.fingerprint(payload),
             payload,
         });
+    }
+
+    _publicMatchView(state, viewerId) {
+        // Only already-public persistent effects; never expose opponents' cards or deck order.
+        return { ...this.reducer.publicView(state, viewerId),
+            immuneSeatIds: [...state.immuneSeatIds], sugarOwnerId: state.sugarOwnerId,
+            journal: this.publicJournal ? this.publicJournal.recent(state.matchId) : [] };
+    }
+
+    _notePublicJournal(before, reduced, action) {
+        if (!this.publicJournal) this.publicJournal = new (require('./public-journal').PublicJournal)();
+        this.publicJournal.record(before, reduced, action);
     }
 
     _humanSeat(index, account, connectionSessionId, nowIso, lastClientSeq = 0) {

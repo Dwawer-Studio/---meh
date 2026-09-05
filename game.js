@@ -61,6 +61,7 @@ class MehGame {
         this.bindOnlineEvents();
         this.bindInviteEvents();
         this.bindGuidanceEvents();
+        this.bindInspectorEvents();
         this.renderInstructions();
         this.initProfile();
         this._initializeInviteEntry();
@@ -81,6 +82,7 @@ const MEH_GAME_METHOD_MODULES = Object.freeze([
     MehGameInviteMethods,
     MehGameTableMethods,
     MehGameGuidanceMethods,
+    MehGameInspectorMethods,
     MehGameProfileMethods,
     MehGameCatalogMethods,
     MehGameMajlisMethods,

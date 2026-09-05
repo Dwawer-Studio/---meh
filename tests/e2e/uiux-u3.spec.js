@@ -87,10 +87,14 @@ async function auditTable(page) {
             + '#human-hand .card, button:not(.hidden)',
         )].filter(visible).map(element => {
             const rect = element.getBoundingClientRect();
+            const scroller = element.closest('.human-hand-scroll.is-dense-hand');
+            const bounds = scroller && scroller.getBoundingClientRect();
             return {
                 id: element.id || element.className,
-                left: rect.left,
-                right: rect.right,
+                // A scroll rail intentionally contains offscreen cards. Audit its
+                // visible bounds here; the interaction tests scroll to real cards.
+                left: bounds ? Math.max(bounds.left, Math.min(bounds.right, rect.left)) : rect.left,
+                right: bounds ? Math.min(bounds.right, Math.max(bounds.left, rect.right)) : rect.right,
                 top: rect.top,
                 bottom: rect.bottom,
                 width: rect.width,
@@ -122,7 +126,13 @@ test('UIX-3 makes play, selection, confirmation and the action journal explicit'
     await expect(page.locator('#table-round-label')).toHaveText('الجولة 1');
     await expect(page.locator('#draw-pile')).toBeEnabled();
     await expect(page.locator('#human-hand .card.playable').first()).toBeEnabled();
-    await expect(page.locator('#human-hand .card.disabled').first()).toBeDisabled();
+    const unplayable = page.locator('#human-hand .card.disabled').first();
+    await expect(unplayable).toBeEnabled(); // Inspecting is not committing a play.
+    await unplayable.click();
+    await expect(page.locator('#inspect-effect')).not.toBeEmpty();
+    await expect(page.locator('#confirm-play-btn')).toBeDisabled();
+    await page.screenshot({ path: 'artifacts/fun-a-portrait-inspection.png' });
+    await page.locator('#cancel-play-btn').click();
 
     const playable = page.locator('#human-hand .card.playable').last();
     await playable.click();
@@ -136,6 +146,7 @@ test('UIX-3 makes play, selection, confirmation and the action journal explicit'
 
     await page.locator('#journal-toggle-btn').click();
     await expect(page.locator('#action-journal')).toBeVisible();
+    await page.screenshot({ path: 'artifacts/fun-a-portrait-journal.png' });
     await expect(page.locator('#journal-close-btn')).toBeFocused();
     await page.locator('#journal-close-btn').click();
     await expect(page.locator('#journal-toggle-btn')).toBeFocused();
@@ -187,6 +198,141 @@ test('UIX-3 renders every card definition through the production hand renderer',
     expect(denseState.scrollWidth).toBeGreaterThan(denseState.clientWidth);
     await page.locator('#human-hand .card').last().scrollIntoViewIfNeeded();
     await expect(page.locator('#human-hand .card').last()).toBeInViewport();
+});
+
+// Controlled positions exercise production rules, dictionary and DOM together.
+// Every fixture retains the full, unique 60-card pool; no alternate rules engine.
+async function positionForInsight(page, types, pending = 0) {
+    return page.evaluate(({ types, pending }) => {
+        const game = window.game;
+        const pool = [...game.deck.cards, ...game.discardPile, ...game.players.flatMap(player => player.hand)];
+        const take = (type, color = 'gray') => {
+            const index = pool.findIndex(card => card.type === type && card.color === color);
+            if (index < 0) throw new Error(`Missing fixture card ${type}/${color}`);
+            return pool.splice(index, 1)[0];
+        };
+        const hand = types.map(type => take(type, ['wild', 'meh', 'draw4Wild'].includes(type) ? 'black' : 'gray'));
+        const top = take('normal');
+        game.players[0].hand = hand;
+        for (const player of game.players.slice(1)) player.hand = pool.splice(0, 3);
+        game.deck.cards = pool;
+        game.discardPile = [top];
+        game.activeColor = 'gray'; game.direction = 1; game.pendingDraws = pending;
+        game.currentPlayerIndex = 0; game.humanCanPlay = true; game.actionInProgress = false;
+        game.isAwaitingColor = false; game.skipNextMap = {}; game.drawImmune = {};
+        game.superpowersDisabled = false; game._cardDecision = null; game._decisionContext = null;
+        game._actionJournal = []; game.hideConfirmBar(); game.updateUI();
+        return hand.map(card => ({ id: card.id, type: card.type }));
+    }, { types, pending });
+}
+
+test('FUN-A actual extra-card decision stays explicit and does not activate the discarded power', async ({ page }) => {
+    await page.setViewportSize({ width: 393, height: 852 });
+    await openTable(page, 'ar');
+    const hand = await positionForInsight(page, ['boShlakh', 'plato', 'normal']);
+    const before = await page.evaluate(() => window.game.players[0].hand.map(card => card.id));
+    await page.locator(`[data-card-id="${hand[0].id}"]`).click();
+    await expect(page.locator('#inspect-effect')).toContainText('لا تنفذ قوتها');
+    await page.locator('#confirm-play-btn').click();
+    await expect(page.locator('#decision-context')).toContainText('اختر بطاقة تتخلّص منها');
+    await page.locator(`[data-card-id="${hand[1].id}"]`).click();
+    await expect(page.locator('#inspect-effect')).toContainText('دون تشغيل قوتها');
+    await page.locator('#confirm-play-btn').click();
+    await expect(page.locator('#decision-context')).toBeHidden();
+    const after = await page.evaluate(() => ({
+        hand: window.game.players[0].hand.map(card => card.id), skipped: window.game.skipNextMap,
+        pool: [...window.game.deck.cards, ...window.game.discardPile, ...window.game.players.flatMap(player => player.hand)].map(card => card.id),
+    }));
+    expect(before).toEqual(hand.map(card => card.id)); // Rendering did not reorder the model.
+    expect(after.hand).toEqual([hand[2].id]);
+    expect(after.skipped).toEqual({});
+    expect(new Set(after.pool).size).toBe(60);
+    await page.locator('#journal-toggle-btn').click();
+    await expect(page.locator('#action-journal')).toContainText('بوشلاخ');
+    await expect(page.locator('#action-journal')).not.toContainText('undefined');
+});
+
+test('FUN-A a real counter explains the accumulated penalty and target in Arabic and English', async ({ page }) => {
+    for (const locale of ['ar', 'en']) {
+        await openTable(page, locale);
+        const hand = await positionForInsight(page, ['counterAttack', 'normal'], 4);
+        await page.locator(`[data-card-id="${hand[0].id}"]`).click();
+        await expect(page.locator('#inspect-effect')).toContainText('6');
+        await page.locator('#confirm-play-btn').click();
+        await expect.poll(() => page.evaluate(() => window.game.pendingDraws)).toBe(6);
+        expect(await page.evaluate(() => window.game.direction)).toBe(-1);
+        await page.locator('#journal-toggle-btn').click();
+        await expect(page.locator('#action-journal')).not.toContainText('undefined');
+        await expect(page.locator('#action-journal')).toContainText('6');
+    }
+});
+
+test('FUN-A the original artwork recovers after a failed image load without an emoji replacement', async ({ page }) => {
+    const pattern = '**/assets/cards/gray-plato.webp*';
+    await page.route(pattern, route => route.abort());
+    await openTable(page, 'en');
+    const hand = await positionForInsight(page, ['plato', 'normal']);
+    await page.locator(`[data-card-id="${hand[0].id}"]`).click();
+    await expect(page.locator('#inspect-art-retry')).toBeVisible();
+    await page.unroute(pattern);
+    await page.locator('#inspect-art-retry').click();
+    await expect.poll(() => page.locator('#inspect-art').evaluate(image => image.naturalWidth)).toBeGreaterThan(0);
+    await expect(page.locator('#inspect-art')).toHaveAttribute('src', /gray-plato\.webp/);
+    await expect(page.locator('#human-hand .card-emoji')).toHaveCount(0);
+});
+
+test('FUN-A Chameleon selects a named target then inspects the donated card without revealing it in the journal', async ({ page }) => {
+    await openTable(page, 'en');
+    const cards = await positionForInsight(page, ['chameleon', 'plato', 'normal']);
+    await page.locator(`[data-card-id="${cards[0].id}"]`).click();
+    await page.locator('#confirm-play-btn').click();
+    await expect(page.locator('#decision-context')).toContainText('target');
+    const target = page.locator('#player-picker-list button').first();
+    await expect(target).toContainText('3 cards');
+    await target.click();
+    await expect(page.locator('#decision-context')).toContainText('give');
+    await page.locator(`[data-card-id="${cards[1].id}"]`).click();
+    await expect(page.locator('#inspect-effect')).toContainText('without activating');
+    await page.locator('#confirm-play-btn').click();
+    const state = await page.evaluate(id => ({
+        mine: window.game.players[0].hand.length,
+        targetHasCard: window.game.players[1].hand.some(card => card.id === id),
+        skipped: window.game.skipNextMap,
+        journal: window.game._actionJournal.map(entry => entry.text).join(' '),
+    }), cards[1].id);
+    expect(state.mine).toBe(1);
+    expect(state.targetHasCard).toBe(true);
+    expect(state.skipped).toEqual({});
+    expect(state.journal).not.toContain('Plato');
+});
+
+test('FUN-A the Best One choice warns when discarding would give the opponent a win', async ({ page }) => {
+    await openTable(page, 'en');
+    const cards = await positionForInsight(page, ['bestOne', 'normal']);
+    await page.evaluate(() => {
+        const game = window.game;
+        game.deck.cards.push(...game.players[1].hand.splice(1));
+        game.updateUI();
+    });
+    await page.locator(`[data-card-id="${cards[0].id}"]`).click();
+    await page.locator('#confirm-play-btn').click();
+    await expect(page.locator('#choice-modal')).toContainText('let them win');
+    await page.locator('#choice-modal .choice-btn').last().click();
+    await expect.poll(() => page.evaluate(() => window.game.players[1].hand.length)).toBe(3);
+});
+
+test('FUN-A every wild decision keeps its prompt until a real color is selected', async ({ page }) => {
+    for (const type of ['wild', 'meh', 'draw4Wild']) {
+        await openTable(page, 'en');
+        const cards = await positionForInsight(page, [type, 'normal']);
+        await page.locator(`[data-card-id="${cards[0].id}"]`).click();
+        await page.locator('#confirm-play-btn').click();
+        await expect(page.locator('#decision-context')).toContainText('color');
+        await expect(page.locator('#color-picker')).toBeVisible();
+        await page.locator('.color-btn[data-color="orange"]').click();
+        await expect(page.locator('#decision-context')).toBeHidden();
+        expect(await page.evaluate(() => window.game.activeColor)).toBe('orange');
+    }
 });
 
 test('UIX-3 keeps English/LTR table state equivalent to Arabic/RTL', async ({ page }) => {

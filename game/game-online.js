@@ -147,6 +147,7 @@ class MehGameOnlineModule {
     }
 
     _clearOnlineRuntime() {
+        this._cancelTurnWork();
         this.clearTurnTimer();
         this._clearRemotePrompt();
         if (this._bcTimer) clearTimeout(this._bcTimer);
@@ -1149,7 +1150,7 @@ class MehGameOnlineModule {
             this.drawMultiple(this.currentPlayer, n, () => this.advanceTurn());
         } else {
             this.handleDrawCard(this.currentPlayer);
-            setTimeout(() => this.advanceTurn(), 500);
+            this._scheduleTurn(() => this.advanceTurn(), this._pace('drawn', 500));
         }
     }
 

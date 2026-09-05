@@ -61,7 +61,7 @@ class MehGameRuleModule {
         const totalSteps = perPlayer * this.players.length;
         let step = 0;
         const dealOne = () => {
-            if (step >= totalSteps) { setTimeout(done, 280); return; }
+            if (step >= totalSteps) { this._scheduleTurn(done, this._pace('dealt', 280)); return; }
             const p = this.players[step % this.players.length];
             const c = this.deck.draw();
             if (c) p.hand.push(c);
@@ -69,7 +69,7 @@ class MehGameRuleModule {
             Sound.play('draw');
             this.updateUI();              // العدّاد يزيد والورقة تظهر
             step++;
-            setTimeout(dealOne, 85);
+            this._scheduleTurn(dealOne, this._pace('deal', 85));
         };
         dealOne();
     }
@@ -179,7 +179,7 @@ class MehGameRuleModule {
             this.showToast(I18n.t('skips_turn', { name: player.name }));
             this._recordActionJournal(I18n.t('journal_skipped', { name: player.name }),
                 this._lastSkipReason && this._lastSkipReason[player.id] || I18n.t('skips_turn', { name: player.name }), 'skip');
-            setTimeout(() => this.advanceTurn(), 1000);
+            this._scheduleTurn(() => this.advanceTurn(), this._pace('skip', 1000));
             return;
         }
 
@@ -200,7 +200,7 @@ class MehGameRuleModule {
         }
 
         if (player.isBot) {
-            setTimeout(() => this.playBotTurn(), 1200);
+            this._scheduleTurn(() => this.playBotTurn(), this._pace('bot', 1200));
         } else if (this.online && player.isRemote) {
             // المضيف ينتظر حركة اللاعب البعيد (لا يلعب نيابةً عنه)
             this.awaitingRemote = true;
@@ -217,11 +217,11 @@ class MehGameRuleModule {
                 this.humanCanPlay = false;
                 this.actionInProgress = true;
                 this.showToast(I18n.t('no_card_draw'));
-                setTimeout(() => {
+                this._scheduleTurn(() => {
                     this._trackProductEvent('action.committed', { actor: 'self', action: 'draw' });
                     this.handleDrawCard(player);
-                    setTimeout(() => this.advanceTurn(), 600);
-                }, 1200);
+                    this._scheduleTurn(() => this.advanceTurn(), this._pace('drawn', 600));
+                }, this._pace('forcedNotice', 1200));
             } else {
                 this.startTurnTimer();
                 this.focusTurnAction();
@@ -232,28 +232,20 @@ class MehGameRuleModule {
     playBotTurn() {
         const bot = this.currentPlayer;
         this.botMaybeEmoji(bot);
-        let cardIndex = -1;
-
-        if (this.pendingDraws > 0) {
-            cardIndex = bot.hand.findIndex(card => this.canRespondToPendingDraw(card));
-        } else {
-            cardIndex = bot.hand.findIndex(c => c.isPlayable(this.topCard, this.activeColor) && c.type !== 'sorry' && c.type !== 'plato' && c.type !== 'hamour');
-            if (cardIndex === -1) {
-                cardIndex = bot.hand.findIndex(c => c.isPlayable(this.topCard, this.activeColor));
-            }
-        }
+        const cardId = BotStrategy.choosePlay(this._botObservation(bot));
+        const cardIndex = bot.hand.findIndex(card => card.id === cardId);
 
         if (cardIndex !== -1) {
             this.playCard(bot, cardIndex);
         } else {
             this._trackProductEvent('action.committed', { actor: this._productActor(bot), action: 'draw' });
             this.handleDrawCard(bot);
-            setTimeout(() => this.advanceTurn(), 800);
+            this._scheduleTurn(() => this.advanceTurn(), this._pace('drawn', 800));
         }
     }
 
     handleDrawClick() {
-        if (!this.humanCanPlay || this.isAwaitingColor || this.actionInProgress) return;
+        if (!this.humanCanPlay || this.isAwaitingColor || this.actionInProgress || this._localPaused) return;
         if (this._authoritativeClient) {
             this.selectedCardIndex = -1;
             this.hideConfirmBar();
@@ -372,7 +364,7 @@ class MehGameRuleModule {
             this.showToast(I18n.t('phantom_shield', { name: player.name }));
             this._recordActionJournal(I18n.t('phantom_shield', { name: player.name }), I18n.t('insight_phantom'), 'effect');
             Sound.play('skip');
-            setTimeout(() => callback && callback(), 400);
+            this._scheduleTurn(() => callback && callback(), this._pace('shield', 400));
             return;
         }
         this.showDrawPenalty(player, count);
@@ -382,19 +374,22 @@ class MehGameRuleModule {
         UI.drawPile.classList.add('dealing');
 
         let drawn = 0;
-        const interval = setInterval(() => {
-            if (this.deck.cards.length === 0) this.reshuffleDeck();
-            const card = this.deck.draw();
-            if (card) player.hand.push(card);
+        const batchSize = this.online ? 1 : Math.max(1, Math.ceil(count / 8));
+        const drawStep = () => {
+            for (let step = 0; step < batchSize && drawn < count; step++) {
+                if (this.deck.cards.length === 0) this.reshuffleDeck();
+                const card = this.deck.draw();
+                if (card) player.hand.push(card);
+                drawn++;
+            }
             this.animateCardFly(player);
             this.updateUI();
-            drawn++;
             if (drawn >= count) {
-                clearInterval(interval);
                 UI.drawPile.classList.remove('dealing');
-                setTimeout(callback, 500);
-            }
-        }, this.settings.batterySaver ? 120 : 320);
+                this._scheduleTurn(callback, this._pace('penaltyEnd', 500));
+            } else this._scheduleTurn(drawStep, this._pace('draw', this.settings.batterySaver ? 120 : 320));
+        };
+        this._scheduleTurn(drawStep, this._pace('draw', this.settings.batterySaver ? 120 : 320));
     }
 
     reshuffleDeck() {
@@ -440,7 +435,7 @@ class MehGameRuleModule {
             const endEl = UI.discardPile.lastChild;
             const clone = this.createCardElement(card, false);
             const duration = FeedbackDirector.animateCardPlay(startRect, endEl, clone);
-            setTimeout(() => {
+            this._scheduleTurn(() => {
                 Sound.play('card-settle');
                 if (!player.isBot && !player.isRemote) this._haptic(35);
                 this.processEffect(card, player);
@@ -532,7 +527,7 @@ class MehGameRuleModule {
             case 'nokhtha':
                 this.showGameMessage(I18n.t('m_captain'));
                 // الدور يرجع لك مباشرة: تلعب مرة ثانية بلا انتظار تخطّي الجميع
-                setTimeout(() => this.playTurn(), 900);
+                this._scheduleTurn(() => this.playTurn(), this._pace('extraTurn', 900));
                 break;
             case 'plato':
                 this.showGameMessage(I18n.t('m_plato'));
@@ -594,7 +589,7 @@ class MehGameRuleModule {
     }
 
     finishTurn(card, player) {
-        setTimeout(() => this.advanceTurn(), 1000);
+        this._scheduleTurn(() => this.advanceTurn(), this._pace(card.type === 'normal' ? 'ordinary' : 'settle', 1000));
     }
 
     requestEffectDecision(player, kind, data, resolve) {
@@ -679,23 +674,7 @@ class MehGameRuleModule {
     }
 
     _autoEffectDecision(player, kind, data) {
-        if (kind === 'color') {
-            const counts = {};
-            player.hand.forEach(card => {
-                if (card.color !== 'black') counts[card.color] = (counts[card.color] || 0) + 1;
-            });
-            return ONLINE_COLORS.slice().sort((a, b) => (counts[b] || 0) - (counts[a] || 0))[0];
-        }
-        if (kind === 'choice') {
-            return typeof data.botChoice === 'function' ? data.botChoice() : (data.botChoice ?? 0);
-        }
-        if (kind === 'target' || kind === 'card') {
-            const options = data.options || [];
-            if (!options.length) return null;
-            const option = options[Math.floor(Math.random() * options.length)];
-            return kind === 'target' ? option.idx : option.id;
-        }
-        return null;
+        return this._chooseBotEffect(player, kind, data);
     }
 
     _journalEffectDecision(player, kind, data, value) {

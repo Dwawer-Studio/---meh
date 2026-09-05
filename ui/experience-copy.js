@@ -49,6 +49,7 @@ if (typeof I18n !== 'undefined' && I18n.dict) {
         journal_skipped: 'تُخطّي دور {name}', journal_effect: '{card}: {effect}',
         first_choice_tip: 'هذا القرار لك؛ اختر بعد قراءة أثر كل خيار.',
         decision_expired: 'انتهى وقت القرار وتغير الدور. راجع حالة الطاولة الآن.',
+        bot_style_racer: 'سبّاق', bot_style_guardian: 'حذر', bot_style_tactician: 'مناوش',
     });
     Object.assign(I18n.dict.en, {
         inspect_card: 'Inspect card', inspect_close: 'Back to hand', inspect_now: 'What happens now',
@@ -97,5 +98,6 @@ if (typeof I18n !== 'undefined' && I18n.dict) {
         journal_skipped: '{name} missed their turn', journal_effect: '{card}: {effect}',
         first_choice_tip: 'This is your decision; read the effect of each option before choosing.',
         decision_expired: 'The decision expired and play moved on. Check the current table state.',
+        bot_style_racer: 'Racer', bot_style_guardian: 'Guardian', bot_style_tactician: 'Tactician',
     });
 }

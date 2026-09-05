@@ -11,12 +11,22 @@ const root = path.resolve(__dirname, '../..');
 const file = path.join(root, 'tests/core-replay.test.js');
 const localRequire = createRequire(file);
 const source = fs.readFileSync(file, 'utf8');
+const baseline = require('node:child_process').execFileSync('git', ['show', 'ed2928f:game/game-rules.js'], {
+    cwd: root, encoding: 'utf8',
+});
 
 const instrumentation = `
 const originalInitialize = initializeGame;
+const baselineMethods = require('node:vm').runInNewContext(baselineSource + '\\nMehGameRuleMethods;', {
+    Math: deterministicMath, ONLINE_COLORS: ['orange', 'gray', 'purple'],
+    setTimeout: callback => activeScheduler.setTimeout(callback),
+    I18n: { t: key => key, cardName: card => card.name },
+});
 let metrics;
 initializeGame = function(game) {
     originalInitialize(game);
+    game.playBotTurn = baselineMethods.playBotTurn;
+    game._autoEffectDecision = baselineMethods._autoEffectDecision;
     const originalTurn = game.playTurn;
     game.playTurn = function() {
         if (!this.players.some(player => player.hand.length === 0)) {
@@ -74,5 +84,5 @@ console.log(JSON.stringify({
 // Do not register/run the harness's test suite: invoke only the diagnostic above.
 vm.runInNewContext(source + '\n' + instrumentation, {
     require: id => id === 'node:test' ? () => {} : localRequire(id),
-    console, Math, Map, Set, Array,
+    baselineSource: baseline, console, Math, Map, Set, Array,
 }, { filename: file, timeout: 60000 });

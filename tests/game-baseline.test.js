@@ -64,7 +64,11 @@ test('a marked player consumes the skip flag and schedules the next turn', () =>
     assert.equal(game.skipNextMap.p0, undefined);
     assert.deepEqual(sounds, ['skip']);
     assert.equal(scheduled.length, 1);
-    assert.equal(scheduled[0].delay, 1_000);
+    assert.equal(scheduled[0].delay, 460);
     scheduled[0].callback();
     assert.equal(advanced, 1);
+    game.online = true;
+    game.skipNextMap.p0 = true;
+    game.playTurn();
+    assert.equal(scheduled[1].delay, 1000, 'online timing remains unchanged');
 });

@@ -335,6 +335,57 @@ test('FUN-A every wild decision keeps its prompt until a real color is selected'
     }
 });
 
+test('FUN-B three ordinary bot turns return control sooner with an identical legal result', async ({ page }) => {
+    const results = [];
+    for (const legacy of [true, false]) {
+        await openTable(page, 'en');
+        await page.evaluate(useLegacy => {
+            const game = window.game;
+            game._cancelTurnWork();
+            const pool = [...game.deck.cards, ...game.discardPile, ...game.players.flatMap(player => player.hand)];
+            const name = pool.find(card => card.color === 'orange' && card.type === 'normal').name;
+            const take = predicate => {
+                const index = pool.findIndex(predicate);
+                if (index < 0) throw new Error('Missing pacing fixture card');
+                return pool.splice(index, 1)[0];
+            };
+            const normal = color => take(card => card.name === name && card.color === color);
+            const typed = (color, type) => take(card => card.color === color && card.type === type);
+            game.players[1].hand = [normal('orange'), typed('gray', 'sorry'), typed('gray', 'plato')];
+            game.players[2].hand = [normal('purple'), typed('gray', 'hamour'), typed('gray', 'bestOne')];
+            game.players[3].hand = [normal('gray'), typed('orange', 'sorry'), typed('orange', 'plato')];
+            game.players[0].hand = [typed('gray', 'normal'), typed('black', 'wild')];
+            game.discardPile = [typed('orange', 'normal')]; game.deck.cards = pool;
+            game.currentPlayerIndex = 1; game.direction = 1; game.activeColor = 'orange';
+            game.pendingDraws = 0; game.drawImmune = {}; game.skipNextMap = {};
+            game.superpowersDisabled = false; game.humanCanPlay = false; game.actionInProgress = false;
+            game.isAwaitingColor = false; game._decisionContext = null; game._cardDecision = null;
+            game._actionJournal = []; game.hideConfirmBar();
+            if (useLegacy) game._pace = (_kind, duration) => duration;
+            const turn = game.playTurn;
+            game._pacingStart = performance.now();
+            game.playTurn = function() {
+                const result = turn.call(this);
+                if (this.currentPlayerIndex === 0 && this.humanCanPlay) this._pacingElapsed = performance.now() - this._pacingStart;
+                return result;
+            };
+            game.updateUI(); game.playTurn();
+        }, legacy);
+        await expect.poll(() => page.evaluate(() => window.game._pacingElapsed || 0), { timeout: 12000 }).toBeGreaterThan(0);
+        results.push(await page.evaluate(() => ({ elapsed: window.game._pacingElapsed,
+            fingerprint: CoreEvidence.fingerprint(CoreEvidence.snapshot(window.game)),
+            plays: window.game._actionJournal.filter(entry => entry.kind === 'play').map(entry => entry.text),
+            count: window.game.players.reduce((sum, player) => sum + player.hand.length, 0) + window.game.deck.cards.length + window.game.discardPile.length,
+        })));
+    }
+    expect(results[1].fingerprint).toBe(results[0].fingerprint);
+    expect(results[1].plays).toEqual(results[0].plays);
+    expect(results[1].count).toBe(60);
+    expect(results[1].elapsed).toBeLessThan(results[0].elapsed * 0.65);
+    console.log('FUN-B measured browser waiting (ms):', JSON.stringify(results.map(result => Math.round(result.elapsed))));
+    await page.screenshot({ path: 'artifacts/fun-b-local-table.png' });
+});
+
 test('UIX-3 keeps English/LTR table state equivalent to Arabic/RTL', async ({ page }) => {
     await page.setViewportSize({ width: 932, height: 430 });
     await openTable(page, 'en');

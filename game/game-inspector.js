@@ -155,6 +155,7 @@ class MehGameInspectorModule {
                 info.appendChild(badges);
             }
             const labels = [];
+            if (player.isBot && !this.online) labels.push(I18n.t(`bot_style_${player.botStyle || BotStrategy.styleForSeat(this.players.indexOf(player))}`));
             if (player.hand.length === 1) labels.push(I18n.t('state_last'));
             if (this.drawImmune && this.drawImmune[player.id]) labels.push(I18n.t('state_shield'));
             badges.textContent = labels.join(' · ');

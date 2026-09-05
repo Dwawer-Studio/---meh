@@ -88,8 +88,6 @@
 #inspect-cost { color: #9c2036; font-weight: 600; }
 #inspect-cost:empty { display: none; }
 #inspect-legality { border-top: 1px solid #d2ccc6; padding-top: 8px; }
-#game-screen .card-inspector .btn { margin: 0; min-height: 48px; width: 100%; }
-#game-screen .card-inspector .btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
 #inspect-art-retry {
   border: 1px solid #07100f;
@@ -156,6 +154,21 @@
 .journal-entry summary { cursor: pointer; min-height: 44px; }
 .journal-entry p { font-size: 0.9375rem; color: #dedad4; line-height: 1.6; }
 
+.solo-entry-links { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 10px; }
+.solo-entry-links button { border: 0; background: transparent; color: inherit; font: inherit; min-height: 44px; cursor: pointer; text-decoration: underline; text-underline-offset: 4px; }
+#game-screen .solo-menu-button { width: auto; padding-inline: 10px; font: inherit; font-size: 0.875rem; }
+.solo-overlay { position: fixed; inset: 0; z-index: 2000; display: grid; place-items: center; padding: 16px; background: #07100fcc; overflow-y: auto; }
+.solo-overlay.hidden { display: none; }
+.solo-menu-card { width: min(450px, 100%); max-height: calc(100dvh - 32px); overflow-y: auto; border: 2px solid #07100f; border-radius: 22px; padding: 24px; background: #fffef8; color: #07100f; }
+.solo-menu-card h2 { margin: 0 0 12px; font-size: 1.5rem; }
+.solo-menu-card p { line-height: 1.6; margin: 0 0 18px; }
+.solo-menu-actions { display: grid; gap: 10px; }
+.solo-menu-actions .btn { width: 100%; margin: 0; min-height: 48px; }
+.solo-score-row { display: flex; justify-content: space-between; align-items: center; gap: 16px; min-height: 44px; border-bottom: 1px solid #d8d0c6; }
+#end-screen.results-screen { justify-content: flex-start; }
+.results-screen .end-content { flex-shrink: 0; }
+.solo-save-warning { position: absolute; top: 115px; inset-inline: 12px; margin-inline: auto; width: min(460px, calc(100% - 24px)); padding: 8px; border-radius: 8px; background: #92253d; color: #fff; font-size: 0.875rem; z-index: 40; }
+
 .last-table-action {
   position: absolute;
   inset-inline: 12px;
@@ -177,6 +190,7 @@
   cursor: pointer;
 }
 
+.is-practice .last-table-action { visibility: hidden; }
 #game-screen:has(.decision-context:not(.hidden)) .last-table-action { visibility: hidden; }
 
 @media (max-width: 390px) {
@@ -190,4 +204,35 @@
   #game-screen .card-inspector .btn { grid-column: 2; }
   .decision-context { bottom: 144px; }
   .last-table-action { bottom: 145px; max-height: 55px; }
+}
+.practice-panel {
+  position: fixed;
+  z-index: 65;
+  inset: auto 12px 204px;
+  max-width: 540px;
+  max-height: 30dvh;
+  overflow: auto;
+  margin: auto;
+  padding: 10px 14px;
+  border: 1px solid var(--ui-brand-red);
+  border-radius: 12px;
+  background: var(--ui-surface-paper-bright);
+  color: var(--ui-brand-ink);
+  font-size: .85rem;
+}
+
+.practice-panel p { margin: 4px 0; }
+.practice-panel small { display: block; font-size: .7rem; }
+.practice-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+.practice-actions .btn { width: auto; min-height: 44px; padding: 6px 10px; font-size: .8rem; }
+.experience-consent { padding: 16px 0; font-size: .9rem; }
+.experience-consent label { display: flex; align-items: center; min-height: 44px; gap: 8px; }
+.experience-consent input { width: 24px; height: 24px; flex-shrink: 0; }
+.experience-consent p { line-height: 1.6; }
+
+#game-screen .card-inspector .btn { margin: 0; min-height: 48px; width: 100%; }
+#game-screen .card-inspector .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+@media (orientation: landscape) and (max-height: 520px) {
+  .practice-panel { inset: 60px auto auto 8px; width: min(220px, 28vw); max-height: 52dvh; }
 }

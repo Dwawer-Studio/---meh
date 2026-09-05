@@ -62,10 +62,13 @@ test('UIX-2 exposes the complete first-session shell without placing the store o
 });
 
 test('UIX-2 keeps the primary home action one click from a playable local round', () => {
-    assert.match(screenSource, /getElementById\('play-btn'\)\.addEventListener\('click', \(\) => this\.startGame\(\)\)/);
-    assert.match(screenSource, /getElementById\('local-play-btn'\)\.addEventListener\('click', \(\) => this\.startGame\(\)\)/);
+    assert.match(screenSource, /getElementById\('play-btn'\)\.addEventListener\('click', \(\) => this\._requestLocalStart\(\)\)/);
+    assert.match(screenSource, /getElementById\('local-play-btn'\)\.addEventListener\('click', \(\) => this\._requestLocalStart\(\)\)/);
+    const localControls = fs.readFileSync(path.join(ROOT, 'game/game-local-controls.js'), 'utf8');
+    assert.match(localControls, /if \(this\._readLocalCheckpoint\(\)\) this\._showSoloMenu\('offer'\);\s*else this\.startGame\(\);/);
     assert.match(screenSource, /const openPlayCenter = \(\) => this\.showScreen\('play-center-screen'\)/);
     assert.match(screenSource, /getElementById\('play-options-btn'\)\.addEventListener\('click', openPlayCenter\)/);
+    assert.match(html, /id="practice-entry-btn"[\s\S]*?class="play-mode-card__icon"[\s\S]*?data-i18n="practice_entry"/);
 });
 
 test('UIX-2 owns browser history, back navigation and focus restoration', () => {

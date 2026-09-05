@@ -151,10 +151,16 @@ async function auditActiveSurface(page, expectedId) {
             .filter(isVisible)
             .map(element => {
                 const rect = element.getBoundingClientRect();
+                // The hand now scrolls instead of hiding cards behind overlapping
+                // hit areas. Audit the clipped rail bounds, not offscreen content.
+                const rail = element.closest('.human-hand-scroll.is-dense-hand');
+                const bounds = rail && rail.getBoundingClientRect();
                 return {
                     id: element.id || element.getAttribute('aria-label') || element.textContent.trim().slice(0, 30),
                     card: element.classList.contains('card'),
-                    left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom,
+                    left: bounds ? Math.max(bounds.left, Math.min(bounds.right, rect.left)) : rect.left,
+                    right: bounds ? Math.min(bounds.right, Math.max(bounds.left, rect.right)) : rect.right,
+                    top: rect.top, bottom: rect.bottom,
                     width: rect.width, height: rect.height,
                 };
             });
@@ -233,6 +239,14 @@ for (const frame of matrix.frames) {
         await page.locator('#play-btn').click();
         await expect(page.locator('#human-hand .card')).toHaveCount(7);
         await auditActiveSurface(page, 'game-screen');
+        // Every card must also be reachable as an actual target, including the
+        // edge cards outside the initial scroll position. Never force the click.
+        const cardIds = await page.locator('#human-hand .card').evaluateAll(cards => cards.map(card => card.dataset.cardId));
+        for (const id of cardIds) {
+            await page.locator(`#human-hand [data-card-id="${id}"]`).click();
+            await expect(page.locator('#confirm-bar')).toBeVisible();
+            await page.locator('#cancel-play-btn').click();
+        }
 
         await page.evaluate(() => {
             game.settings.colorblind = true;
@@ -260,6 +274,7 @@ for (const frame of matrix.frames) {
         await page.evaluate(() => game.endGame(game.players[0]));
         await expect(page.locator('#restart-btn')).toBeEnabled();
         await auditActiveSurface(page, 'end-screen');
+        expect((await page.locator('#end-menu-btn').boundingBox()).y).toBeGreaterThanOrEqual(0);
     });
 }
 
@@ -340,6 +355,9 @@ test('UIX-7 keeps local feedback responsive under 4x CPU and critical resources 
     expect(responseMs).toBeLessThan(100);
     await page.locator('#play-center-back-btn').click();
     await page.locator('#play-btn').click();
+    // Measure the requested feedback itself, not concurrent initial dealing.
+    // Startup interaction remains measured above with its original 100 ms gate.
+    await expect.poll(() => page.evaluate(() => game.humanCanPlay && !game.actionInProgress)).toBe(true);
     const captureFeedbackLongTasks = async action => {
         await page.evaluate(() => { window.__u7LongTasks = []; });
         await action();

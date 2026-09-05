@@ -111,6 +111,10 @@
                             <svg class="ui-icon home-action-arrow" aria-hidden="true"><use href="assets/ui/icons.svg#icon-arrow"></use></svg>
                         </button>
                     </div>
+                    <div class="solo-entry-links">
+                        <button id="practice-home-btn" type="button" data-i18n="practice_entry">تعلّمها في 3 مواقف</button>
+                        <button id="solo-resume-home-btn" class="hidden" type="button" data-i18n="solo_resume">أكمل جولتك المحفوظة</button>
+                    </div>
                 </div>
 
                 <div class="home-hero" aria-hidden="true">
@@ -183,6 +187,13 @@
                         </span>
                         <strong data-i18n="instructions">التعليمات</strong>
                         <small data-i18n="instructions_desc">راجع الأساس والبطاقات الخاصة قبل الجولة.</small>
+                    </button>
+                    <button id="practice-entry-btn" class="play-mode-card ui-surface ui-motion-lift" type="button">
+                        <span class="play-mode-card__icon" aria-hidden="true">
+                            <svg class="ui-icon"><use href="assets/ui/icons.svg#icon-play"></use></svg>
+                        </span>
+                        <strong data-i18n="practice_entry">تعلّمها في 3 مواقف</strong>
+                        <small data-i18n="practice_entry_description">جرّب المطابقة والرد والتوليفة بنفس القواعد، دون احتساب نتائج.</small>
                     </button>
                     <button id="players-btn" class="play-mode-card ui-surface ui-motion-lift" type="button">
                         <span class="play-mode-card__icon" aria-hidden="true">
@@ -306,6 +317,11 @@
                     <svg class="ui-icon" aria-hidden="true"><use href="assets/ui/icons.svg#icon-check"></use></svg>
                     <span data-i18n="done">تم</span>
                 </button>
+                <section class="experience-consent" aria-labelledby="experience-consent-title">
+                    <label id="experience-consent-title"><input id="experience-consent" type="checkbox" aria-describedby="experience-consent-description"> <span data-i18n="telemetry_label">تسجيل تجربة اللعب محليًا (اختياري)</span></label>
+                    <p id="experience-consent-description" data-i18n="telemetry_description">يبقى على جهازك ولا يُرسل تلقائيًا.</p>
+                    <button id="experience-export-btn" class="btn secondary-btn" type="button" data-i18n="telemetry_export">تنزيل سجل التجربة JSON</button>
+                </section>
             </section>
         </div>
 
@@ -642,6 +658,7 @@
                     <span id="table-round-label">الجولة 1</span>
                 </p>
                 <div class="table-tools">
+                    <button id="solo-menu-btn" class="table-tool solo-menu-button hidden" type="button" data-i18n="solo_menu">إيقاف</button>
                     <button id="journal-toggle-btn" class="table-tool journal-toggle-btn" type="button"
                             aria-label="سجل الحركة" data-i18n-attr="aria-label:action_journal">
                         <svg class="ui-icon" aria-hidden="true"><use href="assets/ui/icons.svg#icon-history"></use></svg>
@@ -730,6 +747,7 @@
                             <button class="color-btn gray" type="button" data-color="gray" aria-label="رمادي" data-i18n-attr="aria-label:gray"></button>
                             <button class="color-btn purple" type="button" data-color="purple" aria-label="بنفسجي" data-i18n-attr="aria-label:purple"></button>
                         </div>
+                        <button class="solo-decision-pause btn text-btn hidden" type="button" data-i18n="solo_menu">إيقاف</button>
                     </div>
                 </div>
 
@@ -738,6 +756,7 @@
                     <div class="modal-box">
                         <h3 id="player-picker-title" data-i18n="choose_player">اختر لاعباً</h3>
                         <div id="player-picker-list"></div>
+                        <button class="solo-decision-pause btn text-btn hidden" type="button" data-i18n="solo_menu">إيقاف</button>
                     </div>
                 </div>
 
@@ -747,6 +766,7 @@
                         <h3 id="choice-modal-title" data-i18n="choose">اختر</h3>
                         <button class="choice-btn btn primary-btn" type="button">خيار 1</button>
                         <button class="choice-btn btn secondary-btn" type="button">خيار 2</button>
+                        <button class="solo-decision-pause btn text-btn hidden" type="button" data-i18n="solo_menu">إيقاف</button>
                     </div>
                 </div>
             </div>
@@ -768,6 +788,7 @@
             <!-- شريط تأكيد رمي البطاقة -->
             <div id="decision-context" class="decision-context hidden" role="status" aria-live="polite"></div>
             <div id="table-state-summary" class="table-state-summary hidden" role="status"></div>
+            <p id="solo-save-warning" class="solo-save-warning hidden" role="status"></p>
             <button id="last-table-action" class="last-table-action hidden" type="button"
                 data-i18n-title="action_journal" title="سجل اللعب">سجل اللعب</button>
             <div id="confirm-bar" class="confirm-bar card-inspector hidden" role="dialog" aria-modal="false" aria-labelledby="inspect-name">
@@ -874,6 +895,14 @@
                 </section>
 
                 <div class="results-layout">
+                    <section id="result-rematch" class="result-rematch ui-surface" aria-labelledby="rematch-title">
+                        <div>
+                            <h2 id="rematch-title" data-i18n="rematch_title">نكمل المجلس؟</h2>
+                            <div id="table-ready-list" class="table-ready-list" aria-live="polite"></div>
+                            <p id="rematch-status" class="online-status" role="status" aria-live="polite"></p>
+                        </div>
+                        <button id="restart-btn" class="btn primary-btn" type="button" data-i18n="play_again">العب مرة ثانية</button>
+                    </section>
                     <section id="result-board" class="result-board ui-surface" aria-labelledby="session-score-title">
                         <div class="result-section-heading">
                             <h2 id="session-score-title" data-i18n="session_standings">حصيلة المجلس</h2>
@@ -887,14 +916,6 @@
                             <strong data-i18n="result_tamashi_title">تاماشي</strong>
                             <span class="result-tamashi-copy" data-i18n="result_tamashi_local">الجولة المحلية لا تمنح رصيداً؛ المكافآت للمباريات الموثقة.</span>
                         </div>
-                    </section>
-                    <section id="result-rematch" class="result-rematch ui-surface" aria-labelledby="rematch-title">
-                        <div>
-                            <h2 id="rematch-title" data-i18n="rematch_title">نكمل المجلس؟</h2>
-                            <div id="table-ready-list" class="table-ready-list" aria-live="polite"></div>
-                            <p id="rematch-status" class="online-status" role="status" aria-live="polite"></p>
-                        </div>
-                        <button id="restart-btn" class="btn primary-btn" type="button" data-i18n="play_again">العب مرة ثانية</button>
                     </section>
                 </div>
                 <section id="majlis-result-panel" class="majlis-result-panel hidden" aria-labelledby="majlis-result-title">
@@ -933,6 +954,37 @@
             </div>
         </div>
 
+        <section id="practice-panel" class="practice-panel hidden" aria-labelledby="practice-title">
+            <strong id="practice-title" data-i18n="practice_entry">تعلّمها في 3 مواقف</strong>
+            <p id="practice-instruction" aria-live="polite"></p>
+            <small data-i18n="practice_no_rewards">مواقف تدريب مرتبة مسبقًا بنفس القواعد. لا نتائج ولا تاماشي.</small>
+            <div class="practice-actions">
+                <button id="practice-retry-btn" class="btn text-btn hidden" type="button" data-i18n="practice_retry">إعادة الموقف</button>
+                <button id="practice-next-btn" class="btn primary-btn hidden" type="button" data-i18n="practice_next">الموقف التالي</button>
+                <button id="practice-play-btn" class="btn text-btn" type="button" data-i18n="practice_skip">تجاوز إلى مباراة كاملة</button>
+            </div>
+        </section>
+        <section id="solo-menu" class="solo-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="solo-menu-title" aria-describedby="solo-menu-description">
+            <div class="solo-menu-card">
+                <h2 id="solo-menu-title" data-i18n="solo_paused">اللعبة متوقفة</h2>
+                <p id="solo-menu-description" data-i18n="solo_saved_description">تُحفظ الجولة تلقائيًا على هذا الجهاز. يمكنك الرجوع وإكمال القرار.</p>
+                <div id="solo-pause-actions" class="solo-menu-actions">
+                    <button id="solo-continue-btn" class="btn primary-btn" type="button" data-i18n="solo_continue">نكمّل</button>
+                    <button id="solo-settings-btn" class="btn secondary-btn" type="button" data-i18n="settings">الإعدادات</button>
+                    <button id="solo-save-exit-btn" class="btn secondary-btn" type="button" data-i18n="solo_save_exit">حفظ وخروج</button>
+                </div>
+                <div id="solo-exit-actions" class="solo-menu-actions hidden">
+                    <button id="solo-exit-cancel-btn" class="btn primary-btn" type="button" data-i18n="solo_stay">أبقى في الجولة</button>
+                    <button id="solo-exit-confirm-btn" class="btn secondary-btn" type="button" data-i18n="solo_exit">اخرج</button>
+                </div>
+                <div id="solo-offer-actions" class="solo-menu-actions hidden">
+                    <button id="solo-resume-btn" class="btn primary-btn" type="button" data-i18n="solo_resume">أكمل جولتك المحفوظة</button>
+                    <button id="solo-new-btn" class="btn secondary-btn" type="button" data-i18n="solo_replace">اترك المحفوظة وابدأ جولة جديدة</button>
+                    <button id="solo-offer-cancel-btn" class="btn secondary-btn" type="button" data-i18n="cancel">إلغاء</button>
+                </div>
+            </div>
+        </section>
+
         <!-- التنبيهات -->
         <div id="toast-container" aria-live="polite" aria-atomic="true"></div>
     </div>
@@ -958,6 +1010,7 @@
     <script src="ui/experience-copy.js"></script>
     <script src="game/card-insight.js"></script>
     <script src="shared/bot-strategy.js"></script>
+    <script src="game/local-checkpoint.js"></script>
     <script src="product/release-config.js"></script>
     <script src="product/experiment-assignment.js"></script>
     <script src="product/feature-flags.js"></script>
@@ -970,6 +1023,10 @@
     <script src="game/game-inspector.js"></script>
     <script src="game/game-bots.js"></script>
     <script src="game/game-pacing.js"></script>
+    <script src="game/game-local-session.js"></script>
+    <script src="game/game-local-controls.js"></script>
+    <script src="game/game-practice.js"></script>
+    <script src="game/game-experience-telemetry.js"></script>
     <script src="game/game-config.js"></script>
     <script src="game/game-profile.js"></script>
     <script src="game/game-catalog.js"></script>

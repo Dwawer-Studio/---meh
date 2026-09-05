@@ -30,7 +30,9 @@ class MehGameProfileModule {
     bindSettingsEvents() {
         const open = () => { this.showScreen('settings-screen'); this.refreshSettingsUI(); };
         document.getElementById('menu-settings-btn').onclick = open;
-        document.getElementById('settings-back-btn').onclick = () => this.navigateBack('main-menu');
+        document.getElementById('settings-back-btn').onclick = () => {
+            if (!this._returnFromSoloSettings()) this.navigateBack('main-menu');
+        };
 
         document.querySelectorAll('.lang-btn').forEach(btn => {
             btn.onclick = () => {
@@ -73,6 +75,7 @@ class MehGameProfileModule {
     }
 
     refreshSettingsUI() {
+        this._refreshExperienceTelemetry();
         document.querySelectorAll('.lang-btn').forEach(b =>
             b.classList.toggle('active', b.dataset.lang === this.settings.lang));
         document.querySelectorAll('.toggle-row').forEach(row => {
@@ -220,6 +223,7 @@ class MehGameProfileModule {
             chip.classList.add('hidden');
         }
         if (typeof this._syncCatalogEntryVisibility === 'function') this._syncCatalogEntryVisibility();
+        this._syncLocalEntry();
     }
 
     // ============ الإيموجي ============

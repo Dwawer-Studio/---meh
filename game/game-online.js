@@ -1144,18 +1144,21 @@ class MehGameOnlineModule {
 
     // ----- سحب للّاعب الحالي (يُستخدم محلياً وعن بُعد) -----
     doDrawForCurrent() {
+        this._checkpointLocal('draw');
         this.clearTurnTimer();
         if (this.pendingDraws > 0) {
             const n = this.pendingDraws; this.pendingDraws = 0;
             this.drawMultiple(this.currentPlayer, n, () => this.advanceTurn());
         } else {
             this.handleDrawCard(this.currentPlayer);
+            this._checkpointLocal('advance');
             this._scheduleTurn(() => this.advanceTurn(), this._pace('drawn', 500));
         }
     }
 
     // ----- نهاية اللعبة أونلاين (لدى العميل) -----
     onlineGameOver(msg) {
+        this._lastResultWasLocal = false;
         this._clearOnlineRuntime();
         WakeLock.disable();
         Storage.recordResult(!!msg.youWon);

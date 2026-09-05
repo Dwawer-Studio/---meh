@@ -1,7 +1,10 @@
 'use strict';
 
 class MehGameRuleModule {
-    startGame() {
+    startGame(practiceStep = null) {
+        this._practice = Number.isInteger(practiceStep) && practiceStep >= 0 && practiceStep <= 2
+            ? { step: practiceStep, done: false } : null;
+        if (this._practice) this._localRunId = null;
         this._decisionContext = null;
         this._cardDecision = null;
         this._resolvingCard = null;
@@ -15,6 +18,8 @@ class MehGameRuleModule {
         this.discardPile = [];
         this.pendingDraws = 0;
         this._pendingDrawReason = '';
+        this._lastSkipReason = {};
+        this._actionJournal = []; this._journalSequence = 0; this._latestActionReason = '';
         this.direction = 1;
         this.currentPlayerIndex = 0;
         this.isAwaitingColor = false;
@@ -32,10 +37,12 @@ class MehGameRuleModule {
         // اسم وصورة العضو الحالي
         this.players[0].name = this.humanProfile.name;
         this.players[0].avatar = this.humanProfile.avatar;
-        this._productBeginMatch();
+        this._beginLocalSession();
+        if (!this._practice) this._productBeginMatch();
 
         this.bindGameEvents();
         this.updateUI();                  // أيدٍ فارغة + عدّادات صفر
+        if (this._practice) { this._dealPractice(); return; }
 
         // توزيع حقيقي: ورقة ورقة، يزيد العدّاد مع كل واحدة
         this.dealCards(() => {
@@ -159,8 +166,10 @@ class MehGameRuleModule {
     }
 
     playTurn() {
+        if (this._practiceBeforeTurn()) return;
         const winner = this.players.find(p => p.hand.length === 0);
         if (winner) { this.endGame(winner); return; }
+        this._checkpointLocal('turn');
 
         this.actionInProgress = false;
         this.humanCanPlay = false;       // يُمنح فقط عند وصول دور اللاعب الفعلي
@@ -414,6 +423,7 @@ class MehGameRuleModule {
 
         const previousTop = this.topCard;
         const previousActiveColor = this.activeColor;
+        this._checkpointLocal('play', { cardId: player.hand[cardIndex] && player.hand[cardIndex].id, decisions: [] });
         const card = player.hand.splice(cardIndex, 1)[0];
         if (!card) return;
         this._recordActionJournal(
@@ -421,7 +431,7 @@ class MehGameRuleModule {
             this._cardPlayReason(card, previousTop, previousActiveColor),
             'play',
         );
-        this._trackProductEvent('action.committed', {
+        if (!this._restoringLocalPlay) this._trackProductEvent('action.committed', {
             actor: this._productActor(player),
             action: this._productAutoAction ? 'auto-play' : 'play',
             definitionId: card.definitionId || card.type,
@@ -458,6 +468,10 @@ class MehGameRuleModule {
         if (card.type !== 'normal') {
             const description = this._cardInsight(card, this.players.indexOf(player)).description;
             this._recordActionJournal(I18n.t('journal_effect', { card: I18n.cardName(card), effect: description }), description, 'effect');
+            if (['counterAttack', 'phantom', 'dramaQueen'].includes(card.type)) {
+                this._rememberLocalMoment(I18n.t('journal_effect', { card: I18n.cardName(card), effect: description }),
+                    40 + (player === this.players[0] ? 20 : 0));
+            }
         }
         if (player.hand.length === 1) this.showGameMessage(I18n.t('last_card'));
         if (player.hand.length === 0) { this.showGameMessage(I18n.t('m_meh_win')); }
@@ -589,17 +603,25 @@ class MehGameRuleModule {
     }
 
     finishTurn(card, player) {
+        if (this._practiceAfterPlay(card, player)) return;
+        this._checkpointLocal('advance');
         this._scheduleTurn(() => this.advanceTurn(), this._pace(card.type === 'normal' ? 'ordinary' : 'settle', 1000));
     }
 
     requestEffectDecision(player, kind, data, resolve) {
+        let replaying = false;
         const applyDecision = resolve;
         resolve = value => {
+            if (this._localPaused && !this.online) return;
+            this._rememberLocalDecision(kind, value);
+            if (!replaying && !player.isBot && !player.isRemote) this._trackProductEvent('decision.completed', { kind });
             // Server decisions are intentions until acknowledged; its real events
             // populate the journal. Local/PeerJS decisions commit here.
             if (!this._authoritativeClient) this._journalEffectDecision(player, kind, data, value);
             applyDecision(value);
         };
+        const replayed = this._replayedLocalDecision(kind, data);
+        if (replayed) { replaying = true; resolve(replayed.value); return; }
         if (this.autoDecide(player)) {
             resolve(this._autoEffectDecision(player, kind, data));
             return;
@@ -686,6 +708,11 @@ class MehGameRuleModule {
             // A donated card remains private. Only a discarded card is public.
             choice = data.targetName ? I18n.t('gave_card', { name: player.name, target: data.targetName })
                 : (data.options.find(option => option.id === value) || {}).name || '';
+            const held = player.hand.find(card => card.id === value);
+            if (!data.targetName && held && this._resolvingCard && ['sorry', 'plato', 'hamour'].includes(held.type)) {
+                this._rememberLocalMoment(I18n.t('solo_discard_moment', { name: player.name,
+                    card: I18n.cardName(held), source: I18n.cardName(this._resolvingCard) }), 80);
+            }
         }
         if (choice) this._recordActionJournal(I18n.t('journal_decision', { name: player.name, choice }),
             this._resolvingCard ? I18n.cardName(this._resolvingCard) : choice, 'decision');
@@ -706,6 +733,7 @@ class MehGameRuleModule {
     }
 
     handleColorPicked(color) {
+        if (this._localPaused && !this.online) return;
         if (!ONLINE_COLORS.includes(color)) return;
         this.setDialogOpen(UI.colorPicker, false);
         this.isAwaitingColor = false;
@@ -869,6 +897,10 @@ class MehGameRuleModule {
     }
 
     endGame(winner) {
+        this._measureSoloWait(true);
+        if (this._practice) { this._finishPractice('alternative'); return; }
+        if (this.online) this._lastResultWasLocal = false;
+        this._completeLocalMatch(winner);
         const persistentTable = this.online && this.isHost && this.tableSession;
         if (persistentTable) {
             this._completeHostTableMatch(winner);
@@ -907,6 +939,7 @@ class MehGameRuleModule {
             if (restart) { restart.textContent = I18n.t('play_again'); restart.disabled = false; }
         }
         this.showScreen('end-screen');
+        this._renderLocalResult();
     }
 }
 

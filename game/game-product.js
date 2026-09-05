@@ -19,6 +19,7 @@ class MehGameProductModule {
     }
 
     _trackProductEvent(name, properties) {
+        if (this._practice && !name.startsWith('practice.')) return false;
         try {
             return typeof ProductTelemetry !== 'undefined'
                 && ProductTelemetry.track(name, properties) === true;

@@ -61,8 +61,8 @@ class MehGameScreenModule {
 
     bindMenuEvents() {
         this._initializeScreenHistory();
-        document.getElementById('play-btn').addEventListener('click', () => this.startGame());
-        document.getElementById('local-play-btn').addEventListener('click', () => this.startGame());
+        document.getElementById('play-btn').addEventListener('click', () => this._requestLocalStart());
+        document.getElementById('local-play-btn').addEventListener('click', () => this._requestLocalStart());
         const openPlayCenter = () => this.showScreen('play-center-screen');
         document.getElementById('play-options-btn').addEventListener('click', openPlayCenter);
         document.getElementById('home-social-btn').addEventListener('click', openPlayCenter);
@@ -79,7 +79,7 @@ class MehGameScreenModule {
                 return;
             }
             this._trackProductEvent('rematch.ready', { mode: this._productMode() });
-            this.startGame();
+            this._requestLocalStart();
         });
         document.getElementById('end-menu-btn').addEventListener('click', () => {
             if (this.tableSession || this.tableSnapshot) {
@@ -123,6 +123,13 @@ class MehGameScreenModule {
         if (!target) return;
         const screens = [...document.querySelectorAll('.screen')];
         const current = screens.find(screen => screen.classList.contains('active')) || null;
+        if (current && current.id === 'game-screen' && !this.online && (this._localRunId || this._practice)
+            && !['game-screen', 'end-screen'].includes(id) && !navigation.allowSoloExit
+            && !(this._localPaused && id === 'settings-screen')) {
+            if (navigation.fromHistory && window.history) window.history.replaceState({ mehScreen: 'game-screen', mehDepth: this._screenDepth || 0 }, '', window.location.href);
+            this._showSoloMenu('pause');
+            return;
+        }
         if (current && current !== target) this._captureScreenFocus(current);
         screens.forEach(screen => {
             const isActive = screen === target;
@@ -147,6 +154,10 @@ class MehGameScreenModule {
         if (restored && restored.isConnected && !restored.disabled && target.contains(restored)) restored.focus();
         else this.focusScreen(target);
         this._trackProductEvent('entry.viewed', { screenId: id });
+        if (['main-menu', 'play-center-screen'].includes(id)) this._syncLocalEntry();
+        if (id === 'main-menu' && current && current.id === 'end-screen') this._localSeries = null;
+        if (['game-screen', 'end-screen'].includes(id) && current !== target && UI.toastContainer) UI.toastContainer.replaceChildren();
+        this._renderPractice();
     }
 
     syncScreenAccessibility() {

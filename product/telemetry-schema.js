@@ -4,6 +4,39 @@ const TELEMETRY_ACTORS = Object.freeze(['self', 'remote', 'bot', 'unknown']);
 const TELEMETRY_MODES = Object.freeze(['local', 'online-host', 'online-client']);
 
 const PRODUCT_EVENT_SCHEMAS = Object.freeze({
+    'card.inspected': Object.freeze({
+        required: ['playable', 'phase'],
+        fields: Object.freeze({
+            playable: Object.freeze({ type: 'boolean' }),
+            phase: Object.freeze({ type: 'enum', values: ['turn', 'waiting', 'decision'] }),
+        }),
+    }),
+    'decision.completed': Object.freeze({
+        required: ['kind'],
+        fields: Object.freeze({ kind: Object.freeze({ type: 'enum', values: ['color', 'target', 'card', 'choice'] }) }),
+    }),
+    'solo.resumed': Object.freeze({
+        required: ['phase'],
+        fields: Object.freeze({ phase: Object.freeze({ type: 'enum', values: ['turn', 'advance', 'play', 'draw'] }) }),
+    }),
+    'solo.paused': Object.freeze({ required: [], fields: Object.freeze({}) }),
+    'solo.control_wait': Object.freeze({
+        required: ['durationMs'],
+        fields: Object.freeze({ durationMs: Object.freeze({ type: 'integer', min: 0, max: 3600000 }) }),
+    }),
+    'practice.step_started': Object.freeze({
+        required: ['step'],
+        fields: Object.freeze({ step: Object.freeze({ type: 'integer', min: 1, max: 3 }) }),
+    }),
+    'practice.step_completed': Object.freeze({
+        required: ['step', 'outcome'],
+        fields: Object.freeze({ step: Object.freeze({ type: 'integer', min: 1, max: 3 }),
+            outcome: Object.freeze({ type: 'enum', values: ['success', 'alternative'] }) }),
+    }),
+    'practice.skipped': Object.freeze({
+        required: ['step'],
+        fields: Object.freeze({ step: Object.freeze({ type: 'integer', min: 1, max: 3 }) }),
+    }),
     'app.session_started': Object.freeze({
         required: ['entrySource', 'language'],
         fields: Object.freeze({

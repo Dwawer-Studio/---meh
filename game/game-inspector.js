@@ -12,7 +12,7 @@ class MehGameInspectorModule {
             }
         };
         document.addEventListener('keydown', event => {
-            if (event.key === 'Escape' && this._inspectedCardId) {
+            if (event.key === 'Escape' && this._inspectedCardId && !this._localPaused) {
                 event.preventDefault();
                 this.cancelSelectedCard();
             }
@@ -38,6 +38,8 @@ class MehGameInspectorModule {
         const index = (this.players[0] && this.players[0].hand || []).findIndex(card => card && card.id === cardId);
         if (index < 0) return;
         this._inspectedCardId = cardId;
+        this._trackProductEvent('card.inspected', { playable: this.isCardPlayableNow(this.players[0].hand[index]),
+            phase: this._decisionContext ? 'decision' : this.humanCanPlay ? 'turn' : 'waiting' });
         this.selectedCardIndex = index;
         Sound.play('card-lift');
         this.updateUI();
@@ -106,6 +108,7 @@ class MehGameInspectorModule {
     }
 
     _confirmCardDecision() {
+        if (this._localPaused && !this.online) return false;
         const decision = this._cardDecision;
         const card = this._inspectedCard();
         if (!decision || !card || !decision.ids.includes(card.id)) return false;
@@ -127,6 +130,7 @@ class MehGameInspectorModule {
     }
 
     _renderDecisionContext() {
+        this._measureSoloWait();
         const banner = document.getElementById('decision-context');
         if (!banner) return;
         const decision = this._decisionContext;

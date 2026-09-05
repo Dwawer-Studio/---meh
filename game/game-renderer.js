@@ -353,6 +353,7 @@ class MehGameRendererModule {
         this._updateTablePresentation();
         this._renderDecisionContext();
         this._renderTacticalStatus();
+        this._renderLocalSessionChrome();
     }
 
     showGameMessage(text) {
